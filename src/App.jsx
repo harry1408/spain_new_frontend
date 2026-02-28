@@ -194,7 +194,7 @@ export default function App() {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
             <div style={{ width: 28, height: 28, background: "linear-gradient(135deg, #E8A838, #c4882a)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🏠</div>
-            <span style={{ color: "#E8A838", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", fontWeight: 600 }}>Valencia Region</span>
+            <span style={{ color: "#E8A838", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", fontWeight: 600 }}>Spain</span>
           </div>
           <h1 style={{ margin: 0, fontFamily: "'DM Serif Display', serif", fontSize: 32, color: "#f0e8d5", letterSpacing: "-0.01em" }}>
             New Housing <em style={{ color: "#E8A838" }}>Dashboard</em>
