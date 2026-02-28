@@ -4,7 +4,7 @@ import {
   LineChart, Line, ScatterChart, Scatter, PieChart, Pie, Cell, Legend
 } from "recharts";
 
-const API = "https://spaindevelopment-t8hgexdb.b4a.run";
+const API = "https://spaindevelopment-46g9kzb3.b4a.run";
 
 const COLORS = ["#E8A838", "#2A6496", "#3DAA6E", "#C0392B", "#8E44AD", "#16A085", "#E67E22"];
 
