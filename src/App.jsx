@@ -3,7 +3,7 @@ import SummaryPage from "./pages/SummaryPage.jsx";
 import DrilldownPage from "./pages/DrilldownPage.jsx";
 import ListingPage from "./pages/ListingPage.jsx";
 
-export const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
+export const API = "https://spain-house-development.onrender.com";
 
 export default function App() {
   // nav state: { page: "summary" | "drilldown" | "listing", municipality, listingId, listingName }
