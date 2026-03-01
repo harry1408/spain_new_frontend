@@ -2,7 +2,7 @@ import { useState } from "react";
 import SummaryPage    from "./pages/SummaryPage.jsx";
 import DrilldownPage  from "./pages/DrilldownPage.jsx";
 import ListingPage    from "./pages/ListingPage.jsx";
-export const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
+export const API = "https://spain-house-development.onrender.com";
 export default function App(){
   const [nav,setNav]=useState({page:"summary"});
   const goTo=(page,extra={})=>setNav({page,...extra});
