@@ -2,6 +2,7 @@
   "name": "valencia-dashboard",
   "version": "1.0.0",
   "private": true,
+  "homepage": "https://harry1408.github.io/spain_new_frontend/",
   "dependencies": {
     "leaflet": "^1.9.4",
     "react": "^18.2.0",
@@ -11,11 +12,13 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.0",
-    "vite": "^5.2.0"
+    "vite": "^5.2.0",
+    "gh-pages": "^6.1.1"
   },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "gh-pages -d dist"
   }
 }
