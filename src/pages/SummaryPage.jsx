@@ -1,27 +1,28 @@
 import { useState, useEffect, useCallback } from "react";
 import { BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,
          LineChart,Line,ScatterChart,Scatter,PieChart,Pie,Cell,Legend } from "recharts";
-import { StatCard,ChartCard,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS } from "../components/shared.jsx";
+import { T,StatCard,ChartCard,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS } from "../components/shared.jsx";
 import { API } from "../App.jsx";
+import LeafletMap from "../components/LeafletMap.jsx";
 
 function MultiSelect({ label, options, value, onChange }) {
   const [open, setOpen] = useState(false);
   return (
     <div style={{ position:"relative" }}>
-      <button onClick={() => setOpen(o=>!o)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(232,168,56,0.25)", color: value.length?"#E8A838":"#8fa0b0", padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:12, whiteSpace:"nowrap" }}>
+      <button onClick={() => setOpen(o=>!o)} style={{ background:"#fff", border:`1px solid ${T.border}`, color: value.length?T.gold:T.textSub, padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:12, whiteSpace:"nowrap" }}>
         {label}{value.length?` (${value.length})`:""} ▾
       </button>
       {open && (
-        <div style={{ position:"absolute", top:"110%", left:0, background:"#161c2d", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:8, zIndex:100, minWidth:160, maxHeight:200, overflowY:"auto" }}>
+        <div style={{ position:"absolute", top:"110%", left:0, background:"#fff", border:"1px solid #E4E0D8", borderRadius:8, padding:8, zIndex:100, minWidth:160, maxHeight:200, overflowY:"auto" }}>
           {options.map(opt => (
             <div key={opt} onClick={() => onChange(value.includes(opt)?value.filter(v=>v!==opt):[...value,opt])}
               style={{ padding:"6px 10px", cursor:"pointer", borderRadius:5, fontSize:12,
-                background: value.includes(opt)?"rgba(232,168,56,0.15)":"transparent",
-                color: value.includes(opt)?"#E8A838":"#f0e8d5" }}>
+                background: value.includes(opt)?T.goldLight:"transparent",
+                color: value.includes(opt)?T.gold:T.text }}>
               {value.includes(opt)?"✓ ":""}{opt}
             </div>
           ))}
-          {value.length>0 && <div onClick={()=>onChange([])} style={{ padding:"6px 10px", cursor:"pointer", color:"#C0392B", fontSize:11 }}>✕ Clear</div>}
+          {value.length>0 && <div onClick={()=>onChange([])} style={{ padding:"6px 10px", cursor:"pointer", color:"#DC2626", fontSize:11 }}>✕ Clear</div>}
         </div>
       )}
     </div>
@@ -35,9 +36,9 @@ function Delta({ cur, prev, field, format }) {
   const up = diff > 0;
   const zero = diff === 0;
   return (
-    <div style={{ fontSize:10, marginTop:2, color: zero?"#3a4555": up?"#E8A838":"#3DAA6E" }}>
+    <div style={{ fontSize:10, marginTop:2, color: zero?T.textMuted: up?T.gold:T.green }}>
       {zero ? "↔ No change" : `${up?"▲":"▼"} ${format ? format(Math.abs(diff)) : Math.abs(diff).toLocaleString()} (${Math.abs(pct)}%)`}
-      <span style={{ color:"#3a4555", marginLeft:4 }}>vs prev</span>
+      <span style={{ color:"#9CA3AF", marginLeft:4 }}>vs prev</span>
     </div>
   );
 }
@@ -50,6 +51,7 @@ export default function SummaryPage({ onDrilldown }) {
   const [trend, setTrend]   = useState({});
   const [loading, setLoading] = useState(false);
   const [tab, setTab]       = useState("snapshot");
+  const [selectedDot, setSelectedDot] = useState(null); // clicked scatter apt
 
   useEffect(() => {
     fetch(`${API}/filters`).then(r=>r.json()).then(f => {
@@ -134,11 +136,11 @@ export default function SummaryPage({ onDrilldown }) {
         <MultiSelect label="Delivery Year" options={filters.delivery_years.map(String)} value={sel.year} onChange={v=>setSel(s=>({...s,year:v}))} />
         <MultiSelect label="ESG Grade"    options={filters.esg_grades}     value={sel.esg}          onChange={v=>setSel(s=>({...s,esg:v}))} />
         {(sel.municipality.length||sel.unit_type.length||sel.year.length||sel.esg.length) ? (
-          <button onClick={()=>setSel({municipality:[],unit_type:[],year:[],esg:[]})} style={{ background:"rgba(192,57,43,0.15)", border:"1px solid rgba(192,57,43,0.4)", color:"#C0392B", padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:11 }}>✕ Clear</button>
+          <button onClick={()=>setSel({municipality:[],unit_type:[],year:[],esg:[]})} style={{ background:"#FEF2F2", border:"1px solid rgba(192,57,43,0.4)", color:"#DC2626", padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:11 }}>✕ Clear</button>
         ) : null}
-        <div style={{ marginLeft:"auto", color:"#3a4555", fontSize:12 }}>
-          {filters.latest_period && <span style={{ color:"#E8A838" }}>Snapshot: {filters.latest_period}</span>}
-          {filters.prev_period && <span style={{ color:"#3a4555" }}> &middot; prev: {filters.prev_period}</span>}
+        <div style={{ marginLeft:"auto", color:"#9CA3AF", fontSize:12 }}>
+          {filters.latest_period && <span style={{ color:"#C9A84C" }}>Snapshot: {filters.latest_period}</span>}
+          {filters.prev_period && <span style={{ color:"#9CA3AF" }}> &middot; prev: {filters.prev_period}</span>}
         </div>
       </div>
 
@@ -164,113 +166,212 @@ export default function SummaryPage({ onDrilldown }) {
         {TABS.map(([id,lbl]) => (
           <button key={id} onClick={()=>setTab(id)} style={{
             background:"none", border:"none", cursor:"pointer", padding:"10px 22px",
-            borderBottom: tab===id?"2px solid #E8A838":"2px solid transparent",
-            color: tab===id?"#E8A838":"#8fa0b0", fontSize:13, fontWeight:tab===id?600:400
+            borderBottom: tab===id?`3px solid ${T.gold}`:"3px solid transparent",
+            color: tab===id?T.gold:T.textSub, fontSize:13, fontWeight:tab===id?600:400
           }}>{lbl}</button>
         ))}
       </div>
 
       {/* ═══════ SNAPSHOT TAB ═══════ */}
       {tab === "snapshot" && (
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:16 }}>
+        <div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:16 }}>
 
-          <ChartCard title="Price by Unit Type">
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={charts.byType||[]} barSize={30}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="unit_type" tick={{ fill:"#8fa0b0", fontSize:11 }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:"#8fa0b0", fontSize:11 }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v,n)=>[fmtFull(v),n]} contentStyle={{ background:"#161c2d", border:"1px solid rgba(232,168,56,0.3)", borderRadius:8, fontSize:12 }} />
-                <Bar dataKey="avg_price" name="Avg Price" radius={[5,5,0,0]}>
-                  {(charts.byType||[]).map((e,i)=><Cell key={i} fill={UNIT_COLORS[e.unit_type]||COLORS[i]}/>)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="Delivery Timeline">
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={charts.dl||[]} barSize={22}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="delivery_quarter" tick={{ fill:"#8fa0b0", fontSize:9 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill:"#8fa0b0", fontSize:10 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background:"#161c2d", border:"1px solid rgba(232,168,56,0.3)", borderRadius:8, fontSize:12 }} />
-                <Bar dataKey="count" name="Units" fill="#5B9BD5" radius={[4,4,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="Price Distribution">
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={charts.pdist||[]} barSize={26}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="bin" tick={{ fill:"#8fa0b0", fontSize:9 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill:"#8fa0b0", fontSize:10 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background:"#161c2d", border:"1px solid rgba(232,168,56,0.3)", borderRadius:8, fontSize:12 }} />
-                <Bar dataKey="count" name="Units" radius={[4,4,0,0]}>
-                  {(charts.pdist||[]).map((_,i)=><Cell key={i} fill={`hsl(${200+i*15},60%,${42+i*3}%)`}/>)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="Top Municipalities by Units — click to explore">
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={(charts.muni||[]).slice(0,15)} layout="vertical" barSize={14}
-                onClick={d=>d&&d.activePayload&&onDrilldown&&onDrilldown(d.activePayload[0].payload.municipality)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                <XAxis type="number" tick={{ fill:"#8fa0b0", fontSize:10 }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="municipality" tick={{ fill:"#8fa0b0", fontSize:9 }} axisLine={false} tickLine={false} width={120} />
-                <Tooltip contentStyle={{ background:"#161c2d", border:"1px solid rgba(232,168,56,0.3)", borderRadius:8, fontSize:12 }} />
-                <Bar dataKey="units" name="Units" radius={[0,5,5,0]} cursor="pointer">
-                  {(charts.muni||[]).slice(0,15).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="ESG Grade Breakdown">
-            <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-              <ResponsiveContainer width="45%" height={190}>
-                <PieChart>
-                  <Pie data={(charts.esgR||[]).filter(d=>d.esg_grade!=="Unknown")} dataKey="count" nameKey="esg_grade" cx="50%" cy="50%" outerRadius={72} innerRadius={36}>
-                    {(charts.esgR||[]).map((e,i)=><Cell key={i} fill={ESG_COLORS[e.esg_grade]||"#555"}/>)}
-                  </Pie>
-                  <Tooltip contentStyle={{ background:"#161c2d", border:"1px solid rgba(232,168,56,0.3)", borderRadius:8, fontSize:12 }} />
-                </PieChart>
+            <ChartCard title="Price by Unit Type">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={charts.byType||[]} barSize={30}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                  <XAxis dataKey="unit_type" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={(v,n)=>[fmtFull(v),n]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                  <Bar dataKey="avg_price" name="Avg Price" radius={[5,5,0,0]}>
+                    {(charts.byType||[]).map((e,i)=><Cell key={i} fill={UNIT_COLORS[e.unit_type]||COLORS[i]}/>)}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
-              <div style={{ flex:1, fontSize:12 }}>
-                {(charts.esgR||[]).map((e,i)=>(
-                  <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                      <div style={{ width:8, height:8, borderRadius:2, background:ESG_COLORS[e.esg_grade]||"#555" }}/>
-                      {e.esg_grade}
+            </ChartCard>
+
+            <ChartCard title="Delivery Timeline">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={charts.dl||[]} barSize={22}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                  <XAxis dataKey="delivery_quarter" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                  <Bar dataKey="count" name="Units" fill={T.blue} radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="Price Distribution">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={charts.pdist||[]} barSize={26}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                  <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                  <Bar dataKey="count" name="Units" radius={[4,4,0,0]}>
+                    {(charts.pdist||[]).map((_,i)=><Cell key={i} fill={`hsl(${200+i*15},60%,${42+i*3}%)`}/>)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="Top Municipalities — click to explore">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={(charts.muni||[]).slice(0,15)} layout="vertical" barSize={14}
+                  onClick={d=>d&&d.activePayload&&onDrilldown&&onDrilldown(d.activePayload[0].payload.municipality)}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
+                  <XAxis type="number" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="municipality" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} width={120} />
+                  <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                  <Bar dataKey="units" name="Units" radius={[0,5,5,0]} cursor="pointer">
+                    {(charts.muni||[]).slice(0,15).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="ESG Grade Breakdown">
+              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                <ResponsiveContainer width="45%" height={190}>
+                  <PieChart>
+                    <Pie data={(charts.esgR||[]).filter(d=>d.esg_grade!=="Unknown")} dataKey="count" nameKey="esg_grade" cx="50%" cy="50%" outerRadius={72} innerRadius={36}>
+                      {(charts.esgR||[]).map((e,i)=><Cell key={i} fill={ESG_COLORS[e.esg_grade]||"#999"}/>)}
+                    </Pie>
+                    <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ flex:1, fontSize:12 }}>
+                  {(charts.esgR||[]).map((e,i)=>(
+                    <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", borderBottom:`1px solid ${T.border}` }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                        <div style={{ width:8, height:8, borderRadius:2, background:ESG_COLORS[e.esg_grade]||"#999" }}/>
+                        <span style={{ color:T.text }}>{e.esg_grade}</span>
+                      </div>
+                      <span style={{ color:T.gold, fontWeight:600 }}>{e.count}</span>
                     </div>
-                    <span style={{ color:"#E8A838", fontWeight:600 }}>{e.count}</span>
+                  ))}
+                </div>
+              </div>
+            </ChartCard>
+
+            {/* Size vs Price — click dot to reveal detail + map */}
+            <ChartCard title="Size vs Price — click any dot for details">
+              <ResponsiveContainer width="100%" height={220}>
+                <ScatterChart margin={{ top:5, right:20, bottom:20, left:5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                  <XAxis dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}
+                    label={{ value:"Size (m²)", position:"insideBottom", fill:T.textSub, fontSize:11, dy:16 }} />
+                  <YAxis dataKey="price" name="Price" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
+                  <Tooltip cursor={{ strokeDasharray:"3 3" }}
+                    contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }}
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const d = payload[0]?.payload;
+                      return (
+                        <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:10, padding:"10px 14px", boxShadow:T.shadowMd, fontSize:12, pointerEvents:"none" }}>
+                          <div style={{ fontWeight:700, color:UNIT_COLORS[d.unit_type]||T.gold, marginBottom:4 }}>{d.unit_type} — {d.property_name}</div>
+                          <div style={{ color:T.text }}>Price: <strong style={{ color:T.gold }}>{fmtFull(d.price)}</strong></div>
+                          <div style={{ color:T.text }}>Size: <strong>{d.size} m²</strong></div>
+                          {d.price_per_m2 && <div style={{ color:T.textSub }}>€/m²: {Math.round(d.price_per_m2)}</div>}
+                          <div style={{ color:T.textMuted, marginTop:4, fontSize:11 }}>{d.municipality} · {d.floor||"—"}</div>
+                          <div style={{ color:T.blue, fontSize:11, marginTop:3 }}>Click to see on map ↓</div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Scatter
+                    data={charts.scatter||[]}
+                    onClick={(pt) => setSelectedDot(d => d?.sub_listing_id===pt.sub_listing_id ? null : pt)}
+                    shape={(props) => {
+                      const d = props.payload;
+                      const isSelected = selectedDot?.sub_listing_id === d.sub_listing_id;
+                      return (
+                        <circle
+                          cx={props.cx} cy={props.cy}
+                          r={isSelected ? 8 : 5}
+                          fill={UNIT_COLORS[d.unit_type]||T.gold}
+                          opacity={isSelected ? 1 : 0.85}
+                          stroke={isSelected ? "#fff" : "none"}
+                          strokeWidth={isSelected ? 2 : 0}
+                          style={{ cursor:"pointer" }}
+                        />
+                      );
+                    }}
+                  />
+                </ScatterChart>
+              </ResponsiveContainer>
+
+              {/* Legend */}
+              <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginTop:6 }}>
+                {Object.entries(UNIT_COLORS).map(([ut, color]) => (
+                  <div key={ut} style={{ display:"flex", alignItems:"center", gap:4, fontSize:11, color:T.textSub }}>
+                    <div style={{ width:9, height:9, borderRadius:"50%", background:color }}/>
+                    {ut}
                   </div>
                 ))}
               </div>
-            </div>
-          </ChartCard>
+            </ChartCard>
+          </div>
 
-          <ChartCard title="Size vs Price">
-            <ResponsiveContainer width="100%" height={220}>
-              <ScatterChart margin={{ top:5, right:20, bottom:20, left:5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="size" name="Size (m²)" tick={{ fill:"#8fa0b0", fontSize:11 }} axisLine={false} tickLine={false} label={{ value:"Size (m²)", position:"insideBottom", fill:"#8fa0b0", fontSize:11, dy:16 }} />
-                <YAxis dataKey="price" name="Price" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:"#8fa0b0", fontSize:11 }} axisLine={false} tickLine={false} />
-                <Tooltip cursor={{ strokeDasharray:"3 3" }} contentStyle={{ background:"#161c2d", border:"1px solid rgba(232,168,56,0.3)", borderRadius:8, fontSize:12 }}
-                  formatter={(v,n,p)=>{
-                    const d=p?.payload;
-                    return n==="Price"?[fmtFull(v),"Price"]:[`${v} m²`,"Size"];
-                  }} />
-                <Scatter data={charts.scatter||[]} shape={(props)=>{
-                  const d=props.payload;
-                  return <circle cx={props.cx} cy={props.cy} r={4} fill={UNIT_COLORS[d.unit_type]||"#E8A838"} opacity={0.6}/>;
-                }}/>
-              </ScatterChart>
-            </ResponsiveContainer>
-          </ChartCard>
+          {/* Selected dot detail panel + map */}
+          {selectedDot && (
+            <div style={{ marginTop:20, display:"grid", gridTemplateColumns:"320px 1fr", gap:16, alignItems:"start" }}>
+              {/* Detail card */}
+              <div style={{ background:"#fff", border:`2px solid ${UNIT_COLORS[selectedDot.unit_type]||T.borderAccent}`, borderRadius:14, padding:"20px 22px", boxShadow:T.shadowMd }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
+                  <div>
+                    <div style={{ fontWeight:700, fontSize:15, color:UNIT_COLORS[selectedDot.unit_type]||T.gold }}>{selectedDot.unit_type}</div>
+                    <div style={{ fontWeight:600, fontSize:14, color:T.text, marginTop:2 }}>{selectedDot.property_name}</div>
+                  </div>
+                  <button onClick={()=>setSelectedDot(null)}
+                    style={{ background:"none", border:"none", color:T.textMuted, fontSize:20, cursor:"pointer", lineHeight:1, padding:0 }}>×</button>
+                </div>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px 14px", fontSize:13, marginBottom:14 }}>
+                  {[
+                    ["Price",    fmtFull(selectedDot.price),                    T.gold ],
+                    ["Size",     `${selectedDot.size} m²`,                      T.text ],
+                    ["€/m²",     selectedDot.price_per_m2 ? `€${Math.round(selectedDot.price_per_m2)}` : "—", T.textSub],
+                    ["Floor",    selectedDot.floor || "—",                       T.text ],
+                    ["Bedrooms", selectedDot.bedrooms ?? "—",                    T.text ],
+                    ["Location", selectedDot.municipality,                       T.textSub],
+                  ].map(([label, val, color]) => (
+                    <div key={label}>
+                      <div style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase", fontWeight:600, letterSpacing:"0.06em" }}>{label}</div>
+                      <div style={{ color, fontWeight:600, marginTop:1 }}>{val}</div>
+                    </div>
+                  ))}
+                </div>
+                {selectedDot.unit_url && (
+                  <a href={selectedDot.unit_url} target="_blank" rel="noreferrer"
+                    style={{ display:"flex", alignItems:"center", gap:6, color:T.blue, fontSize:12, fontWeight:600, textDecoration:"none" }}>
+                    View on Idealista ↗
+                  </a>
+                )}
+              </div>
+              {/* Map showing the highlighted apartment */}
+              <div>
+                <div style={{ fontWeight:600, fontSize:13, color:T.textSub, marginBottom:8 }}>
+                  📍 {selectedDot.property_name} — {selectedDot.municipality}
+                </div>
+                <LeafletMap
+                  height="280px"
+                  center={[selectedDot.lat, selectedDot.lng]}
+                  zoom={13}
+                  markers={[{
+                    id:       selectedDot.sub_listing_id,
+                    lat:      selectedDot.lat,
+                    lng:      selectedDot.lng,
+                    label:    selectedDot.property_name,
+                    sublabel: `${selectedDot.unit_type} · ${fmtFull(selectedDot.price)} · ${selectedDot.size}m²`,
+                    active:   true,
+                    color:    UNIT_COLORS[selectedDot.unit_type] || T.gold,
+                  }]}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -284,13 +385,13 @@ export default function SummaryPage({ onDrilldown }) {
               ? <NoDataNote msg="More snapshots needed for trend lines" />
               : <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={trend.mkt||[]}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="period" tick={{ fill:"#8fa0b0", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="price" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:"#8fa0b0", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="m2" orientation="right" tickFormatter={v=>`€${v}`} tick={{ fill:"#8fa0b0", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <Tooltip formatter={(v,n)=>n==="Avg Price"?[fmtFull(v),n]:[`€${v}`,n]} contentStyle={{ background:"#161c2d", border:"1px solid rgba(232,168,56,0.3)", borderRadius:8, fontSize:12 }} />
-                    <Legend wrapperStyle={{ fontSize:11, color:"#8fa0b0" }} />
-                    <Line yAxisId="price" type="monotone" dataKey="avg_price" name="Avg Price" stroke="#E8A838" strokeWidth={2.5} dot={{ r:5, fill:"#E8A838" }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                    <XAxis dataKey="period" tick={{ fill:"#6B7280", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <YAxis yAxisId="price" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:"#6B7280", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <YAxis yAxisId="m2" orientation="right" tickFormatter={v=>`€${v}`} tick={{ fill:"#6B7280", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <Tooltip formatter={(v,n)=>n==="Avg Price"?[fmtFull(v),n]:[`€${v}`,n]} contentStyle={{ background:"#fff", border:"1px solid #C9A84C", borderRadius:8, fontSize:12 }} />
+                    <Legend wrapperStyle={{ fontSize:11, color:"#6B7280" }} />
+                    <Line yAxisId="price" type="monotone" dataKey="avg_price" name="Avg Price" stroke={T.gold} strokeWidth={2.5} dot={{ r:5, fill:T.gold }} />
                     <Line yAxisId="m2" type="monotone" dataKey="avg_price_m2" name="Avg €/m²" stroke="#5B9BD5" strokeWidth={2.5} dot={{ r:5, fill:"#5B9BD5" }} strokeDasharray="5 3" />
                   </LineChart>
                 </ResponsiveContainer>}
@@ -302,14 +403,14 @@ export default function SummaryPage({ onDrilldown }) {
               ? <NoDataNote msg="More snapshots needed for inventory trend" />
               : <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={trend.inv||[]}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="period" tick={{ fill:"#8fa0b0", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill:"#8fa0b0", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ background:"#161c2d", border:"1px solid rgba(232,168,56,0.3)", borderRadius:8, fontSize:12 }} />
-                    <Legend wrapperStyle={{ fontSize:11, color:"#8fa0b0" }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                    <XAxis dataKey="period" tick={{ fill:"#6B7280", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill:"#6B7280", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={{ background:"#fff", border:"1px solid #C9A84C", borderRadius:8, fontSize:12 }} />
+                    <Legend wrapperStyle={{ fontSize:11, color:"#6B7280" }} />
                     <Bar dataKey="total" name="Total Units" fill="#5B9BD5" radius={[4,4,0,0]} />
-                    <Bar dataKey="new"   name="New Listings" fill="#3DAA6E" radius={[4,4,0,0]} />
-                    <Bar dataKey="removed" name="Removed"   fill="#C0392B" radius={[4,4,0,0]} />
+                    <Bar dataKey="new"   name="New Listings" fill={T.green} radius={[4,4,0,0]} />
+                    <Bar dataKey="removed" name="Removed"   fill={T.red} radius={[4,4,0,0]} />
                   </BarChart>
                 </ResponsiveContainer>}
           </ChartCard>
@@ -320,10 +421,10 @@ export default function SummaryPage({ onDrilldown }) {
               ? <NoDataNote msg="More snapshots needed for per-type trends" />
               : <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={Object.values(utByPeriod)}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="period" tick={{ fill:"#8fa0b0", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:"#8fa0b0", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <Tooltip formatter={(v)=>[fmtFull(v)]} contentStyle={{ background:"#161c2d", border:"1px solid rgba(232,168,56,0.3)", borderRadius:8, fontSize:12 }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                    <XAxis dataKey="period" tick={{ fill:"#6B7280", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:"#6B7280", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <Tooltip formatter={(v)=>[fmtFull(v)]} contentStyle={{ background:"#fff", border:"1px solid #C9A84C", borderRadius:8, fontSize:12 }} />
                     <Legend wrapperStyle={{ fontSize:11 }} />
                     {ut_lines.map(ut=>(
                       <Line key={ut} type="monotone" dataKey={ut} stroke={UNIT_COLORS[ut]||"#aaa"} strokeWidth={2} dot={{ r:4, fill:UNIT_COLORS[ut]||"#aaa" }} />
@@ -337,20 +438,20 @@ export default function SummaryPage({ onDrilldown }) {
             <div style={{ overflowX:"auto" }}>
               <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                 <thead>
-                  <tr style={{ borderBottom:"1px solid rgba(255,255,255,0.1)" }}>
+                  <tr style={{ borderBottom:"1px solid "+T.border }}>
                     {["Period","Avg Price","Avg €/m²","Total Units","Avg Size"].map(h=>(
-                      <th key={h} style={{ padding:"6px 10px", textAlign:"right", color:"#3a4555", fontSize:10, textTransform:"uppercase" }}>{h}</th>
+                      <th key={h} style={{ padding:"6px 10px", textAlign:"right", color:"#9CA3AF", fontSize:10, textTransform:"uppercase" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {(trend.mkt||[]).map((row,i)=>(
-                    <tr key={i} style={{ borderBottom:"1px solid rgba(255,255,255,0.05)", background: row.period===filters.latest_period?"rgba(232,168,56,0.06)":"transparent" }}>
-                      <td style={{ padding:"7px 10px", textAlign:"right", color: row.period===filters.latest_period?"#E8A838":"#f0e8d5", fontWeight: row.period===filters.latest_period?600:400 }}>{row.period} {row.period===filters.latest_period&&"★"}</td>
-                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#f0e8d5" }}>{fmt(row.avg_price)}</td>
-                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#f0e8d5" }}>€{row.avg_price_m2}</td>
-                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#f0e8d5" }}>{row.total_units?.toLocaleString()}</td>
-                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#f0e8d5" }}>{row.avg_size} m²</td>
+                    <tr key={i} style={{ borderBottom:"1px solid "+T.border, background: row.period===filters.latest_period?"rgba(232,168,56,0.06)":"transparent" }}>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color: row.period===filters.latest_period?T.gold:T.text, fontWeight: row.period===filters.latest_period?600:400 }}>{row.period} {row.period===filters.latest_period&&"★"}</td>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#1A1A2E" }}>{fmt(row.avg_price)}</td>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#1A1A2E" }}>€{row.avg_price_m2}</td>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#1A1A2E" }}>{row.total_units?.toLocaleString()}</td>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#1A1A2E" }}>{row.avg_size} m²</td>
                     </tr>
                   ))}
                 </tbody>
@@ -368,8 +469,8 @@ function NoDataNote({ msg }) {
   return (
     <div style={{ height:220, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8 }}>
       <div style={{ fontSize:28 }}>📅</div>
-      <div style={{ color:"#8fa0b0", fontSize:12, textAlign:"center" }}>{msg}</div>
-      <div style={{ color:"#3a4555", fontSize:11 }}>Data will appear as more monthly snapshots are collected</div>
+      <div style={{ color:"#6B7280", fontSize:12, textAlign:"center" }}>{msg}</div>
+      <div style={{ color:"#9CA3AF", fontSize:11 }}>Data will appear as more monthly snapshots are collected</div>
     </div>
   );
 }
