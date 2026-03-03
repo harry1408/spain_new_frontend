@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,
          ScatterChart,Scatter,Cell,LineChart,Line,Legend } from "recharts";
-import { T,StatCard,ChartCard,Tag,Pill,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS,AddressBreadcrumb } from "../components/shared.jsx";
+import { T,ChartCard,Tag,Pill,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import PriceMatrixTab from "./PriceMatrixTab.jsx";
-import LeafletMap from "../components/LeafletMap.jsx";
 
 function NoDataNote({ msg }) {
   return (
@@ -124,7 +123,6 @@ export default function ListingPage({ listingId, municipality, onBack }) {
   const TABS = [
     ["matrix","Overview"],
     ["detail","Unit Summary"],
-    ["apartments","All Apartments"],
     ["compare",`Compare${selectedApts.size>0?` (${selectedApts.size})`:""}`],
     ["overtime","Over Time 📈"],
     ["nearby","Nearby Comparison 🗺"],
@@ -136,36 +134,27 @@ export default function ListingPage({ listingId, municipality, onBack }) {
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16, flexWrap:"wrap", gap:12 }}>
         <div>
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
             <h2 style={{ margin:0, fontFamily:"'DM Serif Display',serif", fontSize:24, color:T.text, fontWeight:400 }}>{data.property_name}</h2>
             {data.esg_grade&&<Tag label={`ESG ${data.esg_grade}`} color={esgColor}/>}
           </div>
-          <div style={{ color:T.textSub, fontSize:12, marginBottom:5 }}>
+          <div style={{ color:T.textSub, fontSize:12, marginBottom:4 }}>
             by <strong style={{ color:T.text }}>{data.developer}</strong>
             {" · "}<span style={{ color:T.gold, fontWeight:600 }}>{data.municipality}</span>
             {" · "}<span>{data.delivery_date?.replace("Delivery : ","")}</span>
             {" · "}<span style={{ color:T.green, fontWeight:600 }}>{data.total_units} apartments</span>
           </div>
-          <AddressBreadcrumb cityArea={meta?.city_area} municipality={data.municipality} />
+          {meta?.city_area && (
+            <div style={{ color:T.textMuted, fontSize:11, display:"flex", alignItems:"center", gap:4 }}>
+              <span>📍</span>
+              <span>{String(meta.city_area).replace(/ NN/g,"").replace(/,\s*Valencia\s*$/i,"").trim()}</span>
+            </div>
+          )}
         </div>
         <button onClick={onBack} style={{ background:"#fff", border:`1px solid ${T.border}`, color:T.textSub,
           padding:"8px 16px", borderRadius:9, cursor:"pointer", fontSize:12, fontWeight:600, boxShadow:T.shadow }}>
           ← Back to {data.municipality}
         </button>
-      </div>
-
-      {/* MAP AT TOP — single pin for this listing */}
-      <div style={{ marginBottom:18 }}>
-        <LeafletMap markers={singleMarker} height="280px" zoom={13} />
-      </div>
-
-      {/* KPI strip */}
-      <div style={{ display:"flex", gap:12, marginBottom:18, flexWrap:"wrap" }}>
-        <StatCard label="Total Apartments" value={data.total_units} accent={T.text} />
-        {data.unit_comparison.slice(0,5).map(u=>(
-          <StatCard key={u.unit_type} label={u.unit_type} value={fmt(u.avg_price)}
-            sub={`${u.count} units · from ${fmt(u.min_price)}`} accent={UNIT_COLORS[u.unit_type]} />
-        ))}
       </div>
 
       {/* Tabs */}
@@ -178,8 +167,100 @@ export default function ListingPage({ listingId, municipality, onBack }) {
         ))}
       </div>
 
-      {/* ══ OVERVIEW ════════════════════════════════════════════════════ */}
-      {tab==="matrix" && <PriceMatrixTab listingId={listingId} />}
+      {/* ══ OVERVIEW — Price Matrix + All Apartments ════════════════════ */}
+      {tab==="matrix" && (
+        <div>
+          <PriceMatrixTab listingId={listingId} />
+          <div style={{ marginTop:28 }}>
+            <div style={{ display:"flex", gap:8, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
+              <div style={{ fontSize:14, fontWeight:700, color:T.text }}>
+                All Apartments
+                <span style={{ color:T.textMuted, fontWeight:400, fontSize:12, marginLeft:6 }}>({apartments.length})</span>
+              </div>
+              {allUnitTypes.map(ut=>(
+                <button key={ut} onClick={()=>setUnitTypeFilter(prev=>prev.includes(ut)?prev.filter(x=>x!==ut):[...prev,ut])}
+                  style={{ background:unitTypeFilter.includes(ut)?UNIT_COLORS[ut]||T.gold:"#fff",
+                    border:`1px solid ${unitTypeFilter.includes(ut)?UNIT_COLORS[ut]||T.gold:T.border}`,
+                    color:unitTypeFilter.includes(ut)?"#fff":T.textSub,
+                    padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:11, fontWeight:700 }}>{ut}</button>
+              ))}
+              {selectedApts.size>0&&(
+                <span style={{ marginLeft:"auto", color:T.gold, cursor:"pointer", fontWeight:700, fontSize:12 }}
+                  onClick={()=>setTab("compare")}>{selectedApts.size} selected → Compare ↑</span>
+              )}
+            </div>
+            <div style={{ overflowX:"auto", borderRadius:12, border:`1px solid ${T.border}`, boxShadow:T.shadow }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                <thead>
+                  <tr style={{ background:T.bgStripe, borderBottom:`1px solid ${T.border}` }}>
+                    <th style={{ padding:"10px 12px", width:36 }}></th>
+                    {[["unit_type","Type"],["floor","Floor"],["price","Price"],["size","Size"],["price_per_m2","€/m²"],["bedrooms","Beds"],["bathrooms","Baths"],["","Amenities"]].map(([col,lbl])=>(
+                      <th key={lbl} onClick={()=>col&&(col===sortCol?setSortDir(d=>d==="asc"?"desc":"asc"):(setSortCol(col),setSortDir("asc")))}
+                        style={{ padding:"10px 12px", textAlign:"right", color:sortCol===col?T.gold:T.textMuted,
+                          fontSize:10, textTransform:"uppercase", letterSpacing:"0.06em", cursor:col?"pointer":"default", whiteSpace:"nowrap" }}>
+                        {lbl}{sortCol===col?(sortDir==="asc"?" ↑":" ↓"):""}
+                      </th>
+                    ))}
+                    <th style={{ padding:"10px 12px", textAlign:"center", color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>Track/Link</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {apartments.map((apt,i)=>{
+                    const isSel=selectedApts.has(apt.sub_listing_id);
+                    const utColor=UNIT_COLORS[apt.unit_type]||"#aaa";
+                    return (
+                      <tr key={apt.sub_listing_id}
+                        style={{ background:isSel?T.goldLight:i%2===0?T.bgStripe:"#fff",
+                          borderBottom:`1px solid ${T.border}`, cursor:"pointer",
+                          borderLeft:isSel?`3px solid ${T.gold}`:"3px solid transparent" }}
+                        onClick={()=>toggleApt(apt.sub_listing_id)}>
+                        <td style={{ padding:"9px 12px" }}>
+                          <div style={{ width:15, height:15, borderRadius:3, border:`2px solid ${isSel?T.gold:T.border}`,
+                            background:isSel?T.gold:"transparent", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                            {isSel&&<span style={{ color:"#fff", fontSize:9, fontWeight:900 }}>✓</span>}
+                          </div>
+                        </td>
+                        <td style={{ padding:"9px 12px" }}>
+                          <span style={{ background:utColor, color:"#fff", fontWeight:700, fontSize:10, padding:"2px 8px", borderRadius:4 }}>{apt.unit_type}</span>
+                        </td>
+                        <td style={{ padding:"9px 12px", textAlign:"right", color:T.text }}>{apt.floor||"—"}</td>
+                        <td style={{ padding:"9px 12px", textAlign:"right", color:T.gold, fontWeight:700, fontSize:13 }}>{fmtFull(apt.price)}</td>
+                        <td style={{ padding:"9px 12px", textAlign:"right" }}>{apt.size} m²</td>
+                        <td style={{ padding:"9px 12px", textAlign:"right", color:T.textSub }}>{fmt(apt.price_per_m2)}</td>
+                        <td style={{ padding:"9px 12px", textAlign:"right" }}>{apt.bedrooms??"-"}</td>
+                        <td style={{ padding:"9px 12px", textAlign:"right" }}>{apt.bathrooms??"-"}</td>
+                        <td style={{ padding:"9px 12px", textAlign:"right" }}>
+                          <div style={{ display:"flex", gap:3, justifyContent:"flex-end", flexWrap:"wrap" }}>
+                            <Pill on={apt.has_terrace} label="T"/><Pill on={apt.has_parking} label="P"/>
+                            <Pill on={apt.has_pool} label="Pool"/><Pill on={apt.has_ac} label="AC"/>
+                            <Pill on={apt.has_lift} label="Lift"/>
+                          </div>
+                        </td>
+                        <td style={{ padding:"9px 12px", textAlign:"center" }} onClick={e=>e.stopPropagation()}>
+                          <div style={{ display:"flex", gap:6, justifyContent:"center" }}>
+                            <button onClick={()=>{setTrackedApt(apt.sub_listing_id);setTab("overtime");}}
+                              title="Track over time"
+                              style={{ background:trackedApt===apt.sub_listing_id?T.goldLight:"#fff",
+                                border:`1px solid ${T.border}`, color:T.gold, borderRadius:5, padding:"3px 8px", cursor:"pointer", fontSize:10 }}>📈</button>
+                            {apt.unit_url&&<a href={apt.unit_url} target="_blank" rel="noreferrer"
+                              style={{ color:T.blue, fontSize:11, textDecoration:"none" }}>↗</a>}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {selectedApts.size>0&&(
+              <div style={{ marginTop:12, display:"flex", gap:10 }}>
+                <button onClick={()=>setTab("compare")} style={{ background:T.goldLight, border:`1px solid ${T.borderAccent}`, color:T.gold, padding:"7px 16px", borderRadius:7, cursor:"pointer", fontSize:12, fontWeight:700 }}>Compare Selected →</button>
+                <button onClick={()=>setSelectedApts(new Set())} style={{ background:"#fff", border:`1px solid ${T.border}`, color:T.textSub, padding:"7px 12px", borderRadius:7, cursor:"pointer", fontSize:11 }}>Clear</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ══ UNIT SUMMARY ════════════════════════════════════════════════ */}
       {tab==="detail" && (
@@ -226,101 +307,12 @@ export default function ListingPage({ listingId, municipality, onBack }) {
         </div>
       )}
 
-      {/* ══ ALL APARTMENTS ══════════════════════════════════════════════ */}
-      {tab==="apartments" && (
-        <div>
-          <div style={{ display:"flex", gap:8, marginBottom:14, alignItems:"center", flexWrap:"wrap" }}>
-            {allUnitTypes.map(ut=>(
-              <button key={ut} onClick={()=>setUnitTypeFilter(prev=>prev.includes(ut)?prev.filter(x=>x!==ut):[...prev,ut])}
-                style={{ background:unitTypeFilter.includes(ut)?UNIT_COLORS[ut]||T.gold:"#fff",
-                  border:`1px solid ${unitTypeFilter.includes(ut)?UNIT_COLORS[ut]||T.gold:T.border}`,
-                  color:unitTypeFilter.includes(ut)?"#fff":T.textSub,
-                  padding:"5px 12px", borderRadius:6, cursor:"pointer", fontSize:11, fontWeight:700 }}>{ut}</button>
-            ))}
-            <div style={{ marginLeft:"auto", color:T.textSub, fontSize:12, display:"flex", gap:12, alignItems:"center" }}>
-              {selectedApts.size>0&&<span style={{ color:T.gold, cursor:"pointer", fontWeight:700 }} onClick={()=>setTab("compare")}>{selectedApts.size} selected → Compare</span>}
-              <span>{apartments.length} apartments</span>
-            </div>
-          </div>
-          <div style={{ overflowX:"auto", borderRadius:12, border:`1px solid ${T.border}`, boxShadow:T.shadow }}>
-            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-              <thead>
-                <tr style={{ background:T.bgStripe, borderBottom:`1px solid ${T.border}` }}>
-                  <th style={{ padding:"10px 12px", width:36 }}></th>
-                  {[["unit_type","Type"],["floor","Floor"],["price","Price"],["size","Size"],["price_per_m2","€/m²"],["bedrooms","Beds"],["bathrooms","Baths"],["","Amenities"]].map(([col,lbl])=>(
-                    <th key={lbl} onClick={()=>col&&(col===sortCol?setSortDir(d=>d==="asc"?"desc":"asc"):(setSortCol(col),setSortDir("asc")))}
-                      style={{ padding:"10px 12px", textAlign:"right", color:sortCol===col?T.gold:T.textMuted,
-                        fontSize:10, textTransform:"uppercase", letterSpacing:"0.06em", cursor:col?"pointer":"default", whiteSpace:"nowrap" }}>
-                      {lbl}{sortCol===col?(sortDir==="asc"?" ↑":" ↓"):""}
-                    </th>
-                  ))}
-                  <th style={{ padding:"10px 12px", textAlign:"center", color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>Track/Link</th>
-                </tr>
-              </thead>
-              <tbody>
-                {apartments.map((apt,i)=>{
-                  const isSel=selectedApts.has(apt.sub_listing_id);
-                  const utColor = UNIT_COLORS[apt.unit_type]||"#aaa";
-                  return (
-                    <tr key={apt.sub_listing_id}
-                      style={{ background:isSel?T.goldLight:i%2===0?T.bgStripe:"#fff",
-                        borderBottom:`1px solid ${T.border}`, cursor:"pointer",
-                        borderLeft:isSel?`3px solid ${T.gold}`:"3px solid transparent" }}
-                      onClick={()=>toggleApt(apt.sub_listing_id)}>
-                      <td style={{ padding:"9px 12px" }}>
-                        <div style={{ width:15, height:15, borderRadius:3, border:`2px solid ${isSel?T.gold:T.border}`,
-                          background:isSel?T.gold:"transparent", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                          {isSel&&<span style={{ color:"#fff", fontSize:9, fontWeight:900 }}>✓</span>}
-                        </div>
-                      </td>
-                      <td style={{ padding:"9px 12px" }}>
-                        <span style={{ background:utColor, color:"#fff", fontWeight:700, fontSize:10,
-                          padding:"2px 8px", borderRadius:4 }}>{apt.unit_type}</span>
-                      </td>
-                      <td style={{ padding:"9px 12px", textAlign:"right", color:T.text }}>{apt.floor||"—"}</td>
-                      <td style={{ padding:"9px 12px", textAlign:"right", color:T.gold, fontWeight:700, fontSize:13 }}>{fmtFull(apt.price)}</td>
-                      <td style={{ padding:"9px 12px", textAlign:"right" }}>{apt.size} m²</td>
-                      <td style={{ padding:"9px 12px", textAlign:"right", color:T.textSub }}>{fmt(apt.price_per_m2)}</td>
-                      <td style={{ padding:"9px 12px", textAlign:"right" }}>{apt.bedrooms??"-"}</td>
-                      <td style={{ padding:"9px 12px", textAlign:"right" }}>{apt.bathrooms??"-"}</td>
-                      <td style={{ padding:"9px 12px", textAlign:"right" }}>
-                        <div style={{ display:"flex", gap:3, justifyContent:"flex-end", flexWrap:"wrap" }}>
-                          <Pill on={apt.has_terrace} label="T"/><Pill on={apt.has_parking} label="P"/>
-                          <Pill on={apt.has_pool} label="Pool"/><Pill on={apt.has_ac} label="AC"/>
-                          <Pill on={apt.has_lift} label="Lift"/>
-                        </div>
-                      </td>
-                      <td style={{ padding:"9px 12px", textAlign:"center" }} onClick={e=>e.stopPropagation()}>
-                        <div style={{ display:"flex", gap:6, justifyContent:"center" }}>
-                          <button onClick={()=>{setTrackedApt(apt.sub_listing_id);setTab("overtime");}}
-                            title="Track over time"
-                            style={{ background:trackedApt===apt.sub_listing_id?T.goldLight:"#fff",
-                              border:`1px solid ${T.border}`, color:T.gold, borderRadius:5, padding:"3px 8px", cursor:"pointer", fontSize:10 }}>📈</button>
-                          {apt.unit_url&&<a href={apt.unit_url} target="_blank" rel="noreferrer"
-                            style={{ color:T.blue, fontSize:11, textDecoration:"none" }}>↗</a>}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          {selectedApts.size>0&&(
-            <div style={{ marginTop:12, display:"flex", gap:10 }}>
-              <button onClick={()=>setTab("compare")} style={{ background:T.goldLight, border:`1px solid ${T.borderAccent}`, color:T.gold, padding:"7px 16px", borderRadius:7, cursor:"pointer", fontSize:12, fontWeight:700 }}>Compare Selected →</button>
-              <button onClick={()=>setSelectedApts(new Set())} style={{ background:"#fff", border:`1px solid ${T.border}`, color:T.textSub, padding:"7px 12px", borderRadius:7, cursor:"pointer", fontSize:11 }}>Clear</button>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* ══ COMPARE ══════════════════════════════════════════════════════ */}
       {tab==="compare" && (
         selectedList.length<2
           ? <div style={{ padding:40, textAlign:"center", color:T.textSub }}>
               <div style={{ fontSize:15, marginBottom:12, fontWeight:600 }}>Select at least 2 apartments to compare</div>
-              <button onClick={()=>setTab("apartments")} style={{ background:T.goldLight, border:`1px solid ${T.borderAccent}`, color:T.gold, padding:"8px 18px", borderRadius:8, cursor:"pointer", fontSize:13, fontWeight:700 }}>Go to Apartments →</button>
+              <button onClick={()=>setTab("matrix")} style={{ background:T.goldLight, border:`1px solid ${T.borderAccent}`, color:T.gold, padding:"8px 18px", borderRadius:8, cursor:"pointer", fontSize:13, fontWeight:700 }}>Go to Overview →</button>
             </div>
           : <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:14 }}>
               {selectedList.map((apt,i)=>(

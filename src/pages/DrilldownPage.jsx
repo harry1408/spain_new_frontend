@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Cell,
-         PieChart,Pie,LineChart,Line,Legend } from "recharts";
+         LineChart,Line,Legend } from "recharts";
 import { T,StatCard,ChartCard,Tag,Pill,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS,AddressBreadcrumb } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
@@ -104,7 +104,6 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   const [muniData,    setMuniData]    = useState(null);
   const [mapListings, setMapListings] = useState([]);
   const [loading,     setLoading]     = useState(false);
-  const [tab,         setTab]         = useState("snapshot");
   const [activePin,   setActivePin]   = useState(null);
   const [unitFilter,  setUnitFilter]  = useState([]);
 
@@ -116,7 +115,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   // Municipality detail
   useEffect(() => {
     if (!municipality) { setMuniData(null); setMapListings([]); return; }
-    setLoading(true); setTab("snapshot"); setActivePin(null);
+    setLoading(true); setActivePin(null);
     Promise.all([
       fetch(`${API}/drilldown/municipality/${encodeURIComponent(municipality)}`).then(r=>r.json()),
       fetch(`${API}/map/listings?municipality=${encodeURIComponent(municipality)}`).then(r=>r.json()),
@@ -177,7 +176,6 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
     : listings;
   const sortedListings = [...filteredListings].sort((a,b) => b.avg_price - a.avg_price);
 
-  const DETAIL_TABS = [["snapshot","Snapshot"],["trend","Trend"]];
   const ALL_UTS = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
 
   return (
@@ -209,133 +207,31 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
         <StatCard label="Price Range"      value={`${fmt(stats.price_range?.[0])} – ${fmt(stats.price_range?.[1])}`} accent={T.textSub} />
       </div>
 
-      {/* ── MAP AT TOP ── */}
-      <div style={{ marginBottom:20 }}>
-        <div style={{ fontWeight:600, fontSize:13, color:T.text, marginBottom:8 }}>
-          📍 {municipality} — {mapListings.length} developments · hover a card or click a pin to highlight
-        </div>
-        <LeafletMap
-          markers={mapMarkers}
-          height="360px"
-          onMarkerClick={id => {
-            setActivePin(id === activePin ? null : id);
-            const el = document.getElementById(`lcard-${id}`);
-            if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
-          }}
-        />
-      </div>
+      {/* ── TWO-COLUMN BODY ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"340px 1fr", gap:20, alignItems:"start" }}>
 
-      {/* Unit type + pie side by side */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:20 }}>
-        <ChartCard title="Price Distribution">
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={price_dist} barSize={26}>
-              <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-              <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
-              <Bar dataKey="count" name="Units" radius={[5,5,0,0]}>
-                {price_dist.map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Unit Type Mix">
-          <div style={{ display:"flex", alignItems:"center", gap:16 }}>
-            <ResponsiveContainer width="50%" height={180}>
-              <PieChart>
-                <Pie data={unit_type_mix} dataKey="count" nameKey="unit_type" cx="50%" cy="50%" outerRadius={72} innerRadius={30}>
-                  {unit_type_mix.map((e,i)=><Cell key={i} fill={UNIT_COLORS[e.unit_type]||COLORS[i%COLORS.length]}/>)}
-                </Pie>
-                <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div style={{ flex:1 }}>
-              {unit_type_mix.map((d,i)=>(
-                <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", borderBottom:`1px solid ${T.border}`, fontSize:12 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                    <div style={{ width:9, height:9, borderRadius:2, background:UNIT_COLORS[d.unit_type]||COLORS[i%COLORS.length] }}/>
-                    <span style={{ color:T.text, fontWeight:600 }}>{d.unit_type}</span>
-                  </div>
-                  <span style={{ color:T.gold, fontWeight:700 }}>{d.count}</span>
-                </div>
-              ))}
+        {/* ── LEFT: Developments with vertical scroll ── */}
+        <div>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10, gap:8 }}>
+            <div style={{ fontSize:14, fontWeight:700, color:T.text }}>
+              Developments <span style={{ color:T.textMuted, fontWeight:400, fontSize:12 }}>({sortedListings.length})</span>
             </div>
           </div>
-        </ChartCard>
-      </div>
-
-      {/* Tabs */}
-      <div style={{ display:"flex", borderBottom:`1px solid ${T.border}`, marginBottom:18 }}>
-        {DETAIL_TABS.map(([id,lbl])=>(
-          <button key={id} onClick={()=>setTab(id)} style={{
-            background:"none", border:"none", cursor:"pointer", padding:"10px 20px",
-            borderBottom: tab===id?`3px solid ${T.gold}`:"3px solid transparent",
-            color:tab===id?T.gold:T.textSub, fontSize:13, fontWeight:tab===id?700:500 }}>{lbl}</button>
-        ))}
-      </div>
-
-      {/* Trend tab */}
-      {tab==="trend" && (
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-          <ChartCard title={`${municipality} — Avg Price Over Time`}>
-            {(trend||[]).length < 2 ? <NoDataNote msg="More snapshots needed" />
-              : <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={trend||[]}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-                    <XAxis dataKey="period" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="p" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="m" orientation="right" tickFormatter={v=>`€${v}`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
-                    <Legend wrapperStyle={{ fontSize:11 }} />
-                    <Line yAxisId="p" type="monotone" dataKey="avg_price" name="Avg Price" stroke={T.gold} strokeWidth={2.5} dot={{ r:5, fill:T.gold }} />
-                    <Line yAxisId="m" type="monotone" dataKey="avg_price_m2" name="€/m²" stroke={T.blue} strokeWidth={2} strokeDasharray="5 3" dot={{ r:4 }} />
-                  </LineChart>
-                </ResponsiveContainer>}
-          </ChartCard>
-          <ChartCard title="Period Comparison">
-            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-              <thead>
-                <tr style={{ borderBottom:`1px solid ${T.border}` }}>
-                  {["Period","Avg Price","Avg €/m²","Units"].map(h=>(
-                    <th key={h} style={{ padding:"6px 10px", textAlign:"right", color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(trend||[]).map((row,i)=>(
-                  <tr key={i} style={{ borderBottom:`1px solid ${T.border}`, background:i===trend.length-1?T.goldLight:"transparent" }}>
-                    <td style={{ padding:"7px 10px", textAlign:"right", color:i===trend.length-1?T.gold:T.text, fontWeight:i===trend.length-1?700:400 }}>{row.period} {i===trend.length-1&&"★"}</td>
-                    <td style={{ padding:"7px 10px", textAlign:"right" }}>{fmt(row.avg_price)}</td>
-                    <td style={{ padding:"7px 10px", textAlign:"right" }}>€{row.avg_price_m2}</td>
-                    <td style={{ padding:"7px 10px", textAlign:"right" }}>{row.total_units}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </ChartCard>
-        </div>
-      )}
-
-      {/* Listings */}
-      {tab==="snapshot" && (
-        <>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14, flexWrap:"wrap", gap:10 }}>
-            <div style={{ fontSize:15, fontWeight:700, color:T.text }}>
-              Developments <span style={{ color:T.textMuted, fontWeight:400, fontSize:13 }}>({sortedListings.length})</span>
-            </div>
-            <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
-              {ALL_UTS.map(ut=>(
-                <button key={ut} onClick={()=>setUnitFilter(prev=>prev.includes(ut)?prev.filter(x=>x!==ut):[...prev,ut])}
-                  style={{ background:unitFilter.includes(ut)?`${UNIT_COLORS[ut]||"#aaa"}20`:"#fff",
-                    border:`1px solid ${unitFilter.includes(ut)?UNIT_COLORS[ut]||"#aaa":T.border}`,
-                    color:unitFilter.includes(ut)?UNIT_COLORS[ut]||"#aaa":T.textSub,
-                    padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:11, fontWeight:unitFilter.includes(ut)?700:500 }}>{ut}</button>
-              ))}
-            </div>
+          {/* Unit type filter */}
+          <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:10 }}>
+            {ALL_UTS.map(ut=>(
+              <button key={ut} onClick={()=>setUnitFilter(prev=>prev.includes(ut)?prev.filter(x=>x!==ut):[...prev,ut])}
+                style={{ background:unitFilter.includes(ut)?UNIT_COLORS[ut]||"#aaa":"#fff",
+                  border:`1px solid ${unitFilter.includes(ut)?UNIT_COLORS[ut]||"#aaa":T.border}`,
+                  color:unitFilter.includes(ut)?"#fff":T.textSub,
+                  padding:"3px 8px", borderRadius:5, cursor:"pointer", fontSize:10, fontWeight:700 }}>{ut}</button>
+            ))}
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(340px,1fr))", gap:14 }}>
+          {/* Scrollable card list */}
+          <div style={{ height:"calc(100vh - 280px)", overflowY:"auto", overflowX:"hidden",
+            display:"flex", flexDirection:"column", gap:10,
+            paddingRight:4,
+            scrollbarWidth:"thin", scrollbarColor:`${T.border} transparent` }}>
             {sortedListings.map(l => (
               <ListingCard key={l.listing_id} l={l}
                 active={l.listing_id === activePin}
@@ -344,8 +240,101 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
               />
             ))}
           </div>
-        </>
-      )}
+        </div>
+
+        {/* ── RIGHT: Map + Charts ── */}
+        <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+
+          {/* Top row: Map (left) + Unit Type Summary table (right) */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+            {/* Map */}
+            <div>
+              <div style={{ fontSize:12, color:T.textSub, marginBottom:6 }}>
+                📍 {mapListings.length} developments · click a pin to highlight
+              </div>
+              <LeafletMap
+                markers={mapMarkers}
+                height="280px"
+                onMarkerClick={id => {
+                  setActivePin(id === activePin ? null : id);
+                  const el = document.getElementById(`lcard-${id}`);
+                  if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
+                }}
+              />
+            </div>
+
+            {/* Unit Type Summary table */}
+            <ChartCard title="Unit Type Summary">
+              <div style={{ overflowX:"auto", overflowY:"auto", maxHeight:260 }}>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                  <thead style={{ position:"sticky", top:0, zIndex:1 }}>
+                    <tr style={{ borderBottom:`2px solid ${T.border}`, background:T.bgStripe }}>
+                      {["Type","Count","Min","Avg","Max","m²","€/m²"].map(h=>(
+                        <th key={h} style={{ padding:"7px 10px", textAlign: h==="Type"?"left":"right",
+                          color:T.textMuted, fontSize:10, textTransform:"uppercase",
+                          letterSpacing:"0.07em", fontWeight:600, background:T.bgStripe }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(muniData.unit_type_stats||unit_type_mix).map((row,i)=>{
+                      const uc = UNIT_COLORS[row.unit_type]||COLORS[i%COLORS.length];
+                      return (
+                        <tr key={row.unit_type} style={{ borderBottom:`1px solid ${T.border}`, background:i%2===0?T.bgStripe:"#fff" }}>
+                          <td style={{ padding:"7px 10px" }}>
+                            <span style={{ background:uc, color:"#fff", fontWeight:700, fontSize:11, padding:"2px 8px", borderRadius:4 }}>{row.unit_type}</span>
+                          </td>
+                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
+                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.green, fontWeight:500, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
+                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.gold, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
+                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price!=null?`€${Math.round(row.max_price).toLocaleString()}`:"—"}</td>
+                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size!=null?`${row.avg_size}m²`:"—"}</td>
+                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.blue, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2)}`:"—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </ChartCard>
+          </div>
+
+          {/* Bottom row: Price Distribution + Avg Price Over Time */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+            <ChartCard title="Price Distribution">
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={price_dist} barSize={22}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                  <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
+                  <Bar dataKey="count" name="Units" radius={[4,4,0,0]}>
+                    {price_dist.map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="Avg Price Over Time">
+              {(trend||[]).length < 2
+                ? <NoDataNote msg="More snapshots needed" />
+                : <ResponsiveContainer width="100%" height={160}>
+                    <LineChart data={trend||[]}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                      <XAxis dataKey="period" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                      <YAxis yAxisId="p" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                      <YAxis yAxisId="m" orientation="right" tickFormatter={v=>`€${v}`} tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
+                      <Legend wrapperStyle={{ fontSize:10 }} />
+                      <Line yAxisId="p" type="monotone" dataKey="avg_price" name="Avg Price" stroke={T.gold} strokeWidth={2.5} dot={{ r:4, fill:T.gold }} />
+                      <Line yAxisId="m" type="monotone" dataKey="avg_price_m2" name="€/m²" stroke={T.blue} strokeWidth={2} strokeDasharray="5 3" dot={{ r:3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>}
+            </ChartCard>
+          </div>
+
+        </div>{/* end right */}
+      </div>{/* end two-col */}
     </div>
   );
 }
