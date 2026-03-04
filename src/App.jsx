@@ -3,8 +3,8 @@ import SummaryPage   from "./pages/SummaryPage.jsx";
 import DrilldownPage from "./pages/DrilldownPage.jsx";
 import ListingPage   from "./pages/ListingPage.jsx";
 
+// export const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 export const API = "https://spain-house-development.onrender.com";
-
 const NAV_H = 56;
 
 export default function App() {
@@ -25,8 +25,8 @@ export default function App() {
         boxShadow:"0 1px 3px rgba(0,0,0,0.06)" }}>
 
         <div style={{ display:"flex", alignItems:"center", gap:10, marginRight:36 }}>
-          <span style={{ fontSize:20 }}>🏠</span>
-          <span style={{ fontFamily:"'DM Serif Display',serif", fontSize:19, color:"#C9A84C", fontWeight:400 }}>Valencia</span>
+          <span style={{ fontSize:20 }}>🇪🇸</span>
+          <span style={{ fontFamily:"'DM Serif Display',serif", fontSize:19, color:"#C9A84C", fontWeight:400 }}>Spain</span>
           <span style={{ color:"#D1C9B8", fontSize:16 }}>/</span>
           <span style={{ color:"#9CA3AF", fontSize:13, fontWeight:500 }}>Housing Intelligence</span>
         </div>
@@ -65,7 +65,10 @@ export default function App() {
       </div>
 
       {/* Pages */}
-      {nav.page==="summary"   && <SummaryPage onDrilldown={m => goTo("drilldown",{municipality:m})}/>}
+      {nav.page==="summary"   && <SummaryPage
+        onDrilldown={m => goTo("drilldown",{municipality:m})}
+        onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni,highlight:id})}
+      />}
       {nav.page==="drilldown" && (
         <DrilldownPage
           municipality={nav.municipality}
@@ -77,6 +80,7 @@ export default function App() {
         <ListingPage
           listingId={nav.listingId}
           municipality={nav.municipality}
+          highlight={nav.highlight}
           onBack={() => goTo("drilldown",{municipality:nav.municipality})}
           onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})}
         />

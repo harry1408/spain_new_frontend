@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Cell,
          LineChart,Line,Legend } from "recharts";
 import { T,StatCard,ChartCard,Tag,Pill,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS,AddressBreadcrumb } from "../components/shared.jsx";
@@ -97,9 +97,106 @@ function ListingCard({ l, active, onSelect, onHover }) {
 }
 
 // ── main component ───────────────────────────────────────────────────────
+// ── Type-search multi-select ──────────────────────────────────────────────
+function TypeSearchMultiSelect({ label, options, value, onChange, width=200, navigateOnSelect=false, onSelect }) {
+  const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+  const filtered = options.filter(o => o.toLowerCase().includes(query.toLowerCase()));
+  const hasVal = value.length > 0;
+
+  const handleSelect = (opt) => {
+    if (navigateOnSelect && onSelect) {
+      onSelect(opt);
+      setOpen(false);
+      setQuery("");
+    } else {
+      onChange(value.includes(opt) ? value.filter(v=>v!==opt) : [...value, opt]);
+    }
+  };
+
+  return (
+    <div ref={ref} style={{ position:"relative" }}>
+      <div onClick={() => setOpen(o => !o)}
+        style={{ background:"#fff", border:`1px solid ${hasVal ? T.borderAccent : T.border}`,
+          borderRadius:8, padding:"6px 10px", cursor:"pointer",
+          display:"flex", alignItems:"center", gap:6, minWidth:width, boxShadow:T.shadow }}>
+        <span style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase", fontWeight:600, whiteSpace:"nowrap" }}>{label}</span>
+        {hasVal
+          ? <span style={{ background:T.gold, color:"#fff", borderRadius:4, fontSize:10, fontWeight:700, padding:"1px 6px" }}>{value.length}</span>
+          : <span style={{ color:T.textSub, fontSize:12, flex:1 }}>{ navigateOnSelect ? "Type to search…" : "All" }</span>}
+        <span style={{ color:T.textMuted, fontSize:10, marginLeft:"auto" }}>{open?"▲":"▼"}</span>
+      </div>
+      {open && (
+        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:200,
+          background:"#fff", border:`1px solid ${T.border}`, borderRadius:10,
+          boxShadow:"0 8px 24px rgba(0,0,0,0.12)", minWidth:Math.max(width, 240), overflow:"hidden" }}>
+          <div style={{ padding:"8px 10px", borderBottom:`1px solid ${T.border}` }}>
+            <input autoFocus value={query} onChange={e=>setQuery(e.target.value)}
+              placeholder={`Search ${label.toLowerCase()}…`}
+              onClick={e=>e.stopPropagation()}
+              style={{ width:"100%", border:`1px solid ${T.border}`, borderRadius:6,
+                padding:"6px 10px", fontSize:12, outline:"none", color:T.text,
+                background:T.bgStripe, boxSizing:"border-box" }}/>
+          </div>
+          {!navigateOnSelect && value.length>0 && (
+            <div style={{ padding:"6px 10px", borderBottom:`1px solid ${T.border}`,
+              display:"flex", flexWrap:"wrap", gap:4 }}>
+              {value.map(v=>(
+                <span key={v} onClick={e=>{e.stopPropagation();onChange(value.filter(x=>x!==v));}}
+                  style={{ background:T.goldLight, border:`1px solid ${T.borderAccent}`,
+                    color:T.gold, fontSize:10, fontWeight:700, padding:"2px 6px",
+                    borderRadius:4, cursor:"pointer" }}>
+                  {v} ×
+                </span>
+              ))}
+              <span onClick={e=>{e.stopPropagation();onChange([]);setQuery("");}}
+                style={{ color:"#DC2626", fontSize:10, cursor:"pointer", alignSelf:"center" }}>Clear all</span>
+            </div>
+          )}
+          <div style={{ maxHeight:240, overflowY:"auto" }}>
+            {filtered.length===0
+              ? <div style={{ padding:"12px", color:T.textMuted, fontSize:12, textAlign:"center" }}>No matches</div>
+              : filtered.map(opt=>{
+                  const sel = !navigateOnSelect && value.includes(opt);
+                  return (
+                    <div key={opt} onClick={e=>{e.stopPropagation();handleSelect(opt);}}
+                      style={{ padding:"8px 12px", cursor:"pointer", fontSize:12,
+                        background:sel?T.goldLight:"transparent", color:sel?T.gold:T.text,
+                        borderLeft:`3px solid ${sel?T.gold:"transparent"}`,
+                        display:"flex", alignItems:"center", gap:8,
+                        transition:"background 0.1s" }}
+                      onMouseEnter={e=>{ if(!sel) e.currentTarget.style.background=T.bgStripe; }}
+                      onMouseLeave={e=>{ if(!sel) e.currentTarget.style.background="transparent"; }}>
+                      {!navigateOnSelect && (
+                        <span style={{ width:14, height:14, borderRadius:3, flexShrink:0,
+                          border:`2px solid ${sel?T.gold:T.border}`, background:sel?T.gold:"transparent",
+                          display:"inline-flex", alignItems:"center", justifyContent:"center" }}>
+                          {sel&&<span style={{ color:"#fff", fontSize:8, fontWeight:900 }}>✓</span>}
+                        </span>
+                      )}
+                      {navigateOnSelect && <span style={{ color:T.textMuted, fontSize:11 }}>→</span>}
+                      {opt}
+                    </div>
+                  );
+                })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DrilldownPage({ municipality, onSelectMunicipality, onSelectListing }) {
   const [muniList,    setMuniList]    = useState([]);
-  const [search,      setSearch]      = useState("");
+  const [filters,     setFilters]     = useState({ provinces:[], province_munis:{} });
+  const [selProvince, setSelProvince] = useState([]);
+  const [selMuni,     setSelMuni]     = useState([]);
   const [sortBy,      setSortBy]      = useState("units");
   const [muniData,    setMuniData]    = useState(null);
   const [mapListings, setMapListings] = useState([]);
@@ -110,6 +207,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   // All municipalities (for selector)
   useEffect(() => {
     fetch(`${API}/charts/municipality-overview`).then(r=>r.json()).then(setMuniList).catch(()=>{});
+    fetch(`${API}/filters`).then(r=>r.json()).then(f => setFilters({ provinces: f.provinces||[], province_munis: f.province_munis||{} })).catch(()=>{});
   }, []);
 
   // Municipality detail
@@ -135,21 +233,51 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
 
   // ── Municipality selector view ────────────────────────────────────────
   if (!municipality) {
-    const filtered = muniList.filter(m => m.municipality.toLowerCase().includes(search.toLowerCase()));
-    const sorted   = [...filtered].sort((a,b) => (b[sortBy]||0)-(a[sortBy]||0));
+    const provinceFiltered = selProvince.length
+      ? muniList.filter(m => selProvince.some(c => (filters.province_munis[c]||[]).includes(m.municipality)))
+      : muniList;
+
+    // muniSel filters the cards grid; if none selected show all
+    const displayList = selMuni.length
+      ? provinceFiltered.filter(m => selMuni.includes(m.municipality))
+      : provinceFiltered;
+    const sorted = [...displayList].sort((a,b) => (b[sortBy]||0)-(a[sortBy]||0));
+    const muniOptions = provinceFiltered.map(m => m.municipality).sort();
+
     return (
       <div style={{ padding:"28px 36px", maxWidth:1400, margin:"0 auto" }}>
         <div style={{ marginBottom:22 }}>
           <h2 style={{ margin:0, fontFamily:"'DM Serif Display',serif", fontSize:28, color:T.text, fontWeight:400 }}>
             Select a <em style={{ color:T.gold }}>Municipality</em>
           </h2>
-          <p style={{ color:T.textSub, fontSize:13, margin:"6px 0 0" }}>{filtered.length} municipalities · Valencia Province</p>
+          <p style={{ color:T.textSub, fontSize:13, margin:"6px 0 0" }}>
+            {sorted.length} municipality{sorted.length!==1?"ies":""} shown
+            {selMuni.length>0 && <span style={{ color:T.gold }}> · {selMuni.length} selected</span>}
+          </p>
         </div>
-        <div style={{ display:"flex", gap:10, marginBottom:20, alignItems:"center", flexWrap:"wrap" }}>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search municipalities…"
-            style={{ background:"#fff", border:`1px solid ${T.border}`, color:T.text,
-              padding:"9px 14px", borderRadius:9, fontSize:13, width:260, outline:"none", boxShadow:T.shadow }} />
-          <div style={{ display:"flex", gap:6 }}>
+
+        {/* Filters row */}
+        <div style={{ display:"flex", gap:10, marginBottom:16, alignItems:"center", flexWrap:"wrap" }}>
+          <TypeSearchMultiSelect
+            label="Province"
+            options={filters.provinces}
+            value={selProvince}
+            width={160}
+            onChange={v => { setSelProvince(v); setSelMuni([]); }}
+          />
+          <TypeSearchMultiSelect
+            label="Municipality"
+            options={muniOptions}
+            value={selMuni}
+            width={240}
+            onChange={v => setSelMuni(v)}
+          />
+          {(selProvince.length > 0 || selMuni.length > 0) && (
+            <button onClick={() => { setSelProvince([]); setSelMuni([]); }}
+              style={{ background:"#FEF2F2", border:"1px solid rgba(220,38,38,0.3)", color:"#DC2626",
+                padding:"6px 12px", borderRadius:7, cursor:"pointer", fontSize:11 }}>✕ Clear filters</button>
+          )}
+          <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
             <span style={{ color:T.textMuted, fontSize:11, fontWeight:600, textTransform:"uppercase", alignSelf:"center" }}>Sort</span>
             {[["units","Units"],["listings","Devel."],["avg_price","Avg Price"]].map(([s,lbl])=>(
               <button key={s} onClick={()=>setSortBy(s)} style={{

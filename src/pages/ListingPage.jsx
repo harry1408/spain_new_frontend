@@ -150,13 +150,23 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
   );
 }
 
-export default function ListingPage({ listingId, municipality, onBack, onGoListing }) {
+export default function ListingPage({ listingId, municipality, onBack, onGoListing, highlight }) {
   const [data,        setData]        = useState(null);
   const [loading,     setLoading]     = useState(true);
   const [meta,        setMeta]        = useState(null);
   const [nearby,      setNearby]      = useState(null);
   const [selectedApt, setSelectedApt] = useState(null);
   const [showAddrMap, setShowAddrMap] = useState(false);
+  const [pulse,       setPulse]       = useState(false);
+
+  // Trigger heartbeat when highlight prop is set (navigated from scatter chart)
+  useEffect(() => {
+    if (highlight) {
+      // Wait for data to load then pulse twice
+      const t = setTimeout(() => { setPulse(true); setTimeout(() => setPulse(false), 1400); }, 600);
+      return () => clearTimeout(t);
+    }
+  }, [highlight]);
 
   useEffect(() => {
     setLoading(true); setData(null); setMeta(null); setNearby(null);
@@ -182,10 +192,23 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
 
   return (
     <div style={{ padding:"24px 36px", maxWidth:1500, margin:"0 auto" }}>
+      {/* Heartbeat keyframes */}
+      <style>{`
+        @keyframes heartbeat {
+          0%   { box-shadow: 0 0 0 0 rgba(201,168,76,0); background: transparent; }
+          20%  { box-shadow: 0 0 0 12px rgba(201,168,76,0.35); background: rgba(201,168,76,0.08); }
+          40%  { box-shadow: 0 0 0 0 rgba(201,168,76,0); background: transparent; }
+          60%  { box-shadow: 0 0 0 12px rgba(201,168,76,0.35); background: rgba(201,168,76,0.08); }
+          100% { box-shadow: 0 0 0 0 rgba(201,168,76,0); background: transparent; }
+        }
+        .listing-pulse { animation: heartbeat 1.4s ease-out forwards; border-radius: 12px; }
+      `}</style>
 
       {/* Header */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start",
-        marginBottom:20, flexWrap:"wrap", gap:12 }}>
+      <div className={pulse ? "listing-pulse" : ""}
+        style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start",
+          marginBottom:20, flexWrap:"wrap", gap:12, padding: pulse ? "12px 14px" : "0",
+          transition:"padding 0.2s" }}>
         <div>
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
             <h2 style={{ margin:0, fontFamily:"'DM Serif Display',serif", fontSize:24,

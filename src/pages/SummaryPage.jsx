@@ -1,9 +1,96 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,
          LineChart,Line,ScatterChart,Scatter,PieChart,Pie,Cell,Legend } from "recharts";
 import { T,StatCard,ChartCard,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
+
+function TypeSearchMultiSelect({ label, options, value, onChange, width=200 }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const ref = React.useRef(null);
+
+  // Close on outside click
+  React.useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = options.filter(o => o.toLowerCase().includes(query.toLowerCase()));
+  const hasVal = value.length > 0;
+
+  return (
+    <div ref={ref} style={{ position:"relative" }}>
+      <div onClick={() => setOpen(o => !o)}
+        style={{ background:"#fff", border:`1px solid ${hasVal ? T.borderAccent : T.border}`,
+          borderRadius:8, padding:"6px 10px", cursor:"pointer",
+          display:"flex", alignItems:"center", gap:6, minWidth:width, boxShadow:T.shadow }}>
+        <span style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase", fontWeight:600, whiteSpace:"nowrap" }}>{label}</span>
+        {hasVal
+          ? <span style={{ background:T.gold, color:"#fff", borderRadius:4, fontSize:10,
+              fontWeight:700, padding:"1px 6px", whiteSpace:"nowrap" }}>{value.length}</span>
+          : <span style={{ color:T.textSub, fontSize:12, flex:1 }}>All</span>}
+        <span style={{ color:T.textMuted, fontSize:10, marginLeft:"auto" }}>{open?"▲":"▼"}</span>
+      </div>
+      {open && (
+        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:200,
+          background:"#fff", border:`1px solid ${T.border}`, borderRadius:10,
+          boxShadow:"0 8px 24px rgba(0,0,0,0.12)", minWidth:Math.max(width, 220), overflow:"hidden" }}>
+          {/* Search input */}
+          <div style={{ padding:"8px 10px", borderBottom:`1px solid ${T.border}` }}>
+            <input autoFocus value={query} onChange={e=>setQuery(e.target.value)}
+              placeholder={`Search ${label.toLowerCase()}…`}
+              onClick={e=>e.stopPropagation()}
+              style={{ width:"100%", border:`1px solid ${T.border}`, borderRadius:6,
+                padding:"6px 10px", fontSize:12, outline:"none", color:T.text, background:T.bgStripe, boxSizing:"border-box" }}/>
+          </div>
+          {/* Selected tags */}
+          {value.length>0 && (
+            <div style={{ padding:"6px 10px", borderBottom:`1px solid ${T.border}`,
+              display:"flex", flexWrap:"wrap", gap:4 }}>
+              {value.map(v=>(
+                <span key={v} onClick={e=>{e.stopPropagation();onChange(value.filter(x=>x!==v));}}
+                  style={{ background:T.goldLight, border:`1px solid ${T.borderAccent}`,
+                    color:T.gold, fontSize:10, fontWeight:700, padding:"2px 6px",
+                    borderRadius:4, cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}>
+                  {v} <span style={{ fontSize:11 }}>×</span>
+                </span>
+              ))}
+              <span onClick={e=>{e.stopPropagation();onChange([]);setQuery("");}}
+                style={{ color:"#DC2626", fontSize:10, cursor:"pointer", alignSelf:"center", marginLeft:2 }}>Clear all</span>
+            </div>
+          )}
+          {/* Options list */}
+          <div style={{ maxHeight:200, overflowY:"auto" }}>
+            {filtered.length===0
+              ? <div style={{ padding:"12px 10px", color:T.textMuted, fontSize:12, textAlign:"center" }}>No matches</div>
+              : filtered.map(opt=>{
+                  const sel = value.includes(opt);
+                  return (
+                    <div key={opt} onClick={e=>{e.stopPropagation();onChange(sel?value.filter(v=>v!==opt):[...value,opt]);}}
+                      style={{ padding:"7px 12px", cursor:"pointer", fontSize:12,
+                        background:sel?T.goldLight:"transparent",
+                        color:sel?T.gold:T.text,
+                        borderLeft:`3px solid ${sel?T.gold:"transparent"}`,
+                        display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ width:14, height:14, borderRadius:3,
+                        border:`2px solid ${sel?T.gold:T.border}`,
+                        background:sel?T.gold:"transparent",
+                        display:"inline-flex", alignItems:"center", justifyContent:"center",
+                        flexShrink:0 }}>
+                        {sel&&<span style={{ color:"#fff", fontSize:8, fontWeight:900 }}>✓</span>}
+                      </span>
+                      {opt}
+                    </div>
+                  );
+                })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function MultiSelect({ label, options, value, onChange }) {
   const [open, setOpen] = useState(false);
@@ -43,9 +130,180 @@ function Delta({ cur, prev, field, format }) {
   );
 }
 
-export default function SummaryPage({ onDrilldown }) {
-  const [filters, setFilters] = useState({ municipalities:[], unit_types:[], delivery_years:[], esg_grades:[], periods:[], latest_period:"", prev_period:null });
-  const [sel, setSel] = useState({ municipality:[], unit_type:[], year:[], esg:[] });
+// ── Scatter Popup Modal ───────────────────────────────────────────────────
+function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
+  const [selectedIds, setSelectedIds] = React.useState(new Set([dot.sub_listing_id]));
+  const [unitFilter, setUnitFilter] = React.useState([]);
+
+  // Close on Escape
+  React.useEffect(() => {
+    const h = e => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  const toggleId = (id) => setSelectedIds(prev => {
+    const n = new Set(prev);
+    n.has(id) ? n.delete(id) : n.add(id);
+    return n;
+  });
+
+  const unitTypes = [...new Set(allDots.map(d=>d.unit_type))].sort();
+  const visibleDots = unitFilter.length ? allDots.filter(d=>unitFilter.includes(d.unit_type)) : allDots;
+  const selectedDots = allDots.filter(d => selectedIds.has(d.sub_listing_id));
+
+  const mapMarkers = selectedDots.map(d => ({
+    id: d.sub_listing_id, lat: d.lat, lng: d.lng,
+    label: d.property_name,
+    sublabel: `${d.unit_type} · ${fmtFull(d.price)} · ${d.size}m²`,
+    active: true,
+    color: UNIT_COLORS[d.unit_type] || T.gold,
+  }));
+
+  // Center map on first selected dot
+  const mapCenter = selectedDots[0] ? [selectedDots[0].lat, selectedDots[0].lng] : [39.47, -0.38];
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:900 }}>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.5)" }}/>
+
+      {/* Modal */}
+      <div style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)",
+        background:"#fff", borderRadius:18, width:"min(92vw, 1200px)", maxHeight:"90vh",
+        boxShadow:"0 24px 80px rgba(0,0,0,0.25)", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+
+        {/* Header */}
+        <div style={{ padding:"16px 22px", borderBottom:`1px solid ${T.border}`, display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
+          <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:18, color:T.text, fontWeight:400 }}>
+            Size vs Price <span style={{ color:T.gold }}>· {selectedIds.size} selected</span>
+          </div>
+          {/* Unit type filter chips */}
+          <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginLeft:8 }}>
+            {unitTypes.map(ut => {
+              const active = unitFilter.includes(ut);
+              return (
+                <button key={ut} onClick={() => setUnitFilter(p => active ? p.filter(x=>x!==ut) : [...p,ut])}
+                  style={{ background:active?`${UNIT_COLORS[ut]}20`:"#f5f5f5",
+                    border:`1.5px solid ${active?UNIT_COLORS[ut]:T.border}`,
+                    color:active?UNIT_COLORS[ut]:T.textSub,
+                    padding:"3px 10px", borderRadius:6, cursor:"pointer", fontSize:11, fontWeight:active?700:500 }}>
+                  <span style={{ display:"inline-block", width:7, height:7, borderRadius:"50%", background:UNIT_COLORS[ut]||"#aaa", marginRight:4 }}/>
+                  {ut}
+                </button>
+              );
+            })}
+            {unitFilter.length>0 && <button onClick={()=>setUnitFilter([])} style={{ background:"#FEF2F2", border:"1px solid rgba(220,38,38,0.3)", color:"#DC2626", padding:"3px 9px", borderRadius:6, cursor:"pointer", fontSize:11 }}>✕ Clear</button>}
+          </div>
+          {selectedIds.size>0 && (
+            <button onClick={()=>setSelectedIds(new Set())}
+              style={{ marginLeft:"auto", background:"#FEF2F2", border:"1px solid rgba(220,38,38,0.3)", color:"#DC2626", padding:"5px 10px", borderRadius:7, cursor:"pointer", fontSize:11 }}>
+              Clear selection
+            </button>
+          )}
+          <button onClick={onClose}
+            style={{ background:"none", border:"none", cursor:"pointer", color:T.textMuted, fontSize:24, lineHeight:1, padding:"0 0 0 8px", marginLeft: selectedIds.size>0 ? 0 : "auto" }}>×</button>
+        </div>
+
+        {/* Body: chart left, map right */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", flex:1, overflow:"hidden", minHeight:0 }}>
+
+          {/* Left: scatter chart + selected list */}
+          <div style={{ padding:"18px 20px", borderRight:`1px solid ${T.border}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+            <div style={{ fontSize:11, color:T.textMuted, marginBottom:8 }}>Click dots to select · selected show on map</div>
+            <ResponsiveContainer width="100%" height={280}>
+              <ScatterChart margin={{ top:5, right:10, bottom:24, left:5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
+                <XAxis dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
+                  label={{ value:"Size (m²)", position:"insideBottom", fill:T.textSub, fontSize:10, dy:16 }}/>
+                <YAxis dataKey="price" name="Price" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`}
+                  tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}/>
+                <Tooltip cursor={{ strokeDasharray:"3 3" }}
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const d = payload[0]?.payload;
+                    return (
+                      <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, padding:"9px 12px", fontSize:11, boxShadow:T.shadowMd }}>
+                        <div style={{ fontWeight:700, color:UNIT_COLORS[d.unit_type]||T.gold }}>{d.unit_type} — {d.property_name}</div>
+                        <div>{fmtFull(d.price)} · {d.size}m²</div>
+                        <div style={{ color:T.textMuted }}>{d.municipality}</div>
+                        <div style={{ color:T.blue, marginTop:3 }}>Click to {selectedIds.has(d.sub_listing_id)?"deselect":"select"}</div>
+                      </div>
+                    );
+                  }}/>
+                <Scatter data={visibleDots} onClick={pt => toggleId(pt.sub_listing_id)}
+                  shape={props => {
+                    const d = props.payload;
+                    const isSel = selectedIds.has(d.sub_listing_id);
+                    const color = UNIT_COLORS[d.unit_type] || T.gold;
+                    return (
+                      <circle cx={props.cx} cy={props.cy}
+                        r={isSel ? 9 : 5}
+                        fill={isSel ? color : color}
+                        fillOpacity={isSel ? 1 : 0.5}
+                        stroke={isSel ? "#fff" : color}
+                        strokeWidth={isSel ? 2.5 : 0}
+                        style={{ cursor:"pointer", filter: isSel ? `drop-shadow(0 0 4px ${color})` : "none" }}/>
+                    );
+                  }}/>
+              </ScatterChart>
+            </ResponsiveContainer>
+
+            {/* Selected items list */}
+            {selectedDots.length > 0 && (
+              <div style={{ flex:1, overflowY:"auto", marginTop:12, borderTop:`1px solid ${T.border}`, paddingTop:10 }}>
+                <div style={{ fontSize:10, color:T.textMuted, textTransform:"uppercase", fontWeight:600, marginBottom:8 }}>Selected apartments</div>
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  {selectedDots.map(d => (
+                    <div key={d.sub_listing_id}
+                      style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 10px",
+                        background:T.bgStripe, borderRadius:7, fontSize:11,
+                        borderLeft:`3px solid ${UNIT_COLORS[d.unit_type]||T.gold}` }}>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontWeight:600, color:T.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.property_name}</div>
+                        <div style={{ color:T.textMuted }}>{d.unit_type} · {fmtFull(d.price)} · {d.size}m² · {d.municipality}</div>
+                      </div>
+                      {onGoListing && (
+                        <button
+                          onClick={() => { onClose(); onGoListing(d.listing_id, d.property_name, d.municipality); }}
+                          style={{ background:T.gold, border:"none", color:"#fff",
+                            padding:"4px 10px", borderRadius:6, cursor:"pointer",
+                            fontSize:10, fontWeight:700, whiteSpace:"nowrap", flexShrink:0 }}>
+                          Go to listing →
+                        </button>
+                      )}
+                      <button onClick={()=>toggleId(d.sub_listing_id)}
+                        style={{ background:"none", border:"none", color:T.textMuted, cursor:"pointer", fontSize:15, lineHeight:1, padding:0, flexShrink:0 }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right: map */}
+          <div style={{ display:"flex", flexDirection:"column", overflow:"hidden" }}>
+            <div style={{ padding:"12px 16px 8px", borderBottom:`1px solid ${T.border}`, fontSize:12, color:T.textSub, flexShrink:0 }}>
+              📍 {selectedIds.size === 0 ? "Select dots on the chart to pin them here" : `${selectedIds.size} apartment${selectedIds.size>1?"s":""} pinned`}
+            </div>
+            <div style={{ flex:1, minHeight:0 }}>
+              {selectedIds.size === 0
+                ? <div style={{ height:"100%", display:"flex", alignItems:"center", justifyContent:"center", color:T.textMuted, fontSize:13 }}>
+                    Select dots on the chart →
+                  </div>
+                : <LeafletMap markers={mapMarkers} height="100%" zoom={11} center={mapCenter}/>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function SummaryPage({ onDrilldown, onGoListing }) {
+  const [filters, setFilters] = useState({ municipalities:[], provinces:[], province_munis:{}, unit_types:[], delivery_years:[], esg_grades:[], periods:[], latest_period:"", prev_period:null });
+  const [sel, setSel] = useState({ province:[], municipality:[], unit_type:[], year:[], esg:[] });
   const [stats, setStats]   = useState(null);
   const [charts, setCharts] = useState({});
   const [trend, setTrend]   = useState({});
@@ -61,6 +319,7 @@ export default function SummaryPage({ onDrilldown }) {
 
   const q = useCallback(() => {
     const p = new URLSearchParams();
+    sel.province.forEach(v=>p.append("province",v));
     sel.municipality.forEach(v=>p.append("municipality",v));
     sel.unit_type.forEach(v=>p.append("unit_type",v));
     sel.year.forEach(v=>p.append("year",v));
@@ -131,12 +390,24 @@ export default function SummaryPage({ onDrilldown }) {
 
       {/* Filters */}
       <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap", alignItems:"center" }}>
-        <MultiSelect label="Municipality" options={filters.municipalities} value={sel.municipality} onChange={v=>setSel(s=>({...s,municipality:v}))} />
+        <TypeSearchMultiSelect label="Province" options={filters.provinces||[]}
+          value={sel.province} width={160}
+          onChange={v=>{
+            setSel(s=>({...s, province:v,
+              municipality: v.length ? s.municipality.filter(m => v.some(c => (filters.province_munis||{})[c]?.includes(m))) : s.municipality
+            }));
+          }} />
+        <TypeSearchMultiSelect label="Municipality"
+          options={sel.province.length
+            ? sel.province.flatMap(c=>(filters.province_munis||{})[c]||[]).filter((v,i,a)=>a.indexOf(v)===i).sort()
+            : filters.municipalities}
+          value={sel.municipality} width={200}
+          onChange={v=>setSel(s=>({...s,municipality:v}))} />
         <MultiSelect label="Unit Type"    options={filters.unit_types}     value={sel.unit_type}    onChange={v=>setSel(s=>({...s,unit_type:v}))} />
         <MultiSelect label="Delivery Year" options={filters.delivery_years.map(String)} value={sel.year} onChange={v=>setSel(s=>({...s,year:v}))} />
         <MultiSelect label="ESG Grade"    options={filters.esg_grades}     value={sel.esg}          onChange={v=>setSel(s=>({...s,esg:v}))} />
-        {(sel.municipality.length||sel.unit_type.length||sel.year.length||sel.esg.length) ? (
-          <button onClick={()=>setSel({municipality:[],unit_type:[],year:[],esg:[]})} style={{ background:"#FEF2F2", border:"1px solid rgba(192,57,43,0.4)", color:"#DC2626", padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:11 }}>✕ Clear</button>
+        {(sel.province.length||sel.municipality.length||sel.unit_type.length||sel.year.length||sel.esg.length) ? (
+          <button onClick={()=>setSel({province:[],municipality:[],unit_type:[],year:[],esg:[]})} style={{ background:"#FEF2F2", border:"1px solid rgba(192,57,43,0.4)", color:"#DC2626", padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:11 }}>✕ Clear all</button>
         ) : null}
         <div style={{ marginLeft:"auto", color:"#9CA3AF", fontSize:12 }}>
           {filters.latest_period && <span style={{ color:"#C9A84C" }}>Snapshot: {filters.latest_period}</span>}
@@ -256,7 +527,7 @@ export default function SummaryPage({ onDrilldown }) {
               </div>
             </ChartCard>
 
-            {/* Size vs Price — click dot to reveal detail + map */}
+            {/* Size vs Price — click dot to open popup */}
             <ChartCard title="Size vs Price — click any dot for details">
               <ResponsiveContainer width="100%" height={220}>
                 <ScatterChart margin={{ top:5, right:20, bottom:20, left:5 }}>
@@ -276,101 +547,45 @@ export default function SummaryPage({ onDrilldown }) {
                           <div style={{ color:T.text }}>Size: <strong>{d.size} m²</strong></div>
                           {d.price_per_m2 && <div style={{ color:T.textSub }}>€/m²: {Math.round(d.price_per_m2)}</div>}
                           <div style={{ color:T.textMuted, marginTop:4, fontSize:11 }}>{d.municipality} · {d.floor||"—"}</div>
-                          <div style={{ color:T.blue, fontSize:11, marginTop:3 }}>Click to see on map ↓</div>
+                          <div style={{ color:T.blue, fontSize:11, marginTop:3 }}>Click to open details ↗</div>
                         </div>
                       );
                     }}
                   />
                   <Scatter
                     data={charts.scatter||[]}
-                    onClick={(pt) => setSelectedDot(d => d?.sub_listing_id===pt.sub_listing_id ? null : pt)}
+                    onClick={(pt) => setSelectedDot(pt)}
                     shape={(props) => {
                       const d = props.payload;
                       const isSelected = selectedDot?.sub_listing_id === d.sub_listing_id;
                       return (
-                        <circle
-                          cx={props.cx} cy={props.cy}
-                          r={isSelected ? 8 : 5}
-                          fill={UNIT_COLORS[d.unit_type]||T.gold}
-                          opacity={isSelected ? 1 : 0.85}
-                          stroke={isSelected ? "#fff" : "none"}
-                          strokeWidth={isSelected ? 2 : 0}
-                          style={{ cursor:"pointer" }}
-                        />
+                        <circle cx={props.cx} cy={props.cy} r={isSelected ? 8 : 5}
+                          fill={UNIT_COLORS[d.unit_type]||T.gold} opacity={isSelected ? 1 : 0.85}
+                          stroke={isSelected ? "#fff" : "none"} strokeWidth={isSelected ? 2 : 0}
+                          style={{ cursor:"pointer" }}/>
                       );
                     }}
                   />
                 </ScatterChart>
               </ResponsiveContainer>
-
-              {/* Legend */}
               <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginTop:6 }}>
                 {Object.entries(UNIT_COLORS).map(([ut, color]) => (
                   <div key={ut} style={{ display:"flex", alignItems:"center", gap:4, fontSize:11, color:T.textSub }}>
-                    <div style={{ width:9, height:9, borderRadius:"50%", background:color }}/>
-                    {ut}
+                    <div style={{ width:9, height:9, borderRadius:"50%", background:color }}/>{ut}
                   </div>
                 ))}
               </div>
             </ChartCard>
           </div>
 
-          {/* Selected dot detail panel + map */}
+          {/* ── Scatter popup modal ─────────────────────────────────── */}
           {selectedDot && (
-            <div style={{ marginTop:20, display:"grid", gridTemplateColumns:"320px 1fr", gap:16, alignItems:"start" }}>
-              {/* Detail card */}
-              <div style={{ background:"#fff", border:`2px solid ${UNIT_COLORS[selectedDot.unit_type]||T.borderAccent}`, borderRadius:14, padding:"20px 22px", boxShadow:T.shadowMd }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
-                  <div>
-                    <div style={{ fontWeight:700, fontSize:15, color:UNIT_COLORS[selectedDot.unit_type]||T.gold }}>{selectedDot.unit_type}</div>
-                    <div style={{ fontWeight:600, fontSize:14, color:T.text, marginTop:2 }}>{selectedDot.property_name}</div>
-                  </div>
-                  <button onClick={()=>setSelectedDot(null)}
-                    style={{ background:"none", border:"none", color:T.textMuted, fontSize:20, cursor:"pointer", lineHeight:1, padding:0 }}>×</button>
-                </div>
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px 14px", fontSize:13, marginBottom:14 }}>
-                  {[
-                    ["Price",    fmtFull(selectedDot.price),                    T.gold ],
-                    ["Size",     `${selectedDot.size} m²`,                      T.text ],
-                    ["€/m²",     selectedDot.price_per_m2 ? `€${Math.round(selectedDot.price_per_m2)}` : "—", T.textSub],
-                    ["Floor",    selectedDot.floor || "—",                       T.text ],
-                    ["Bedrooms", selectedDot.bedrooms ?? "—",                    T.text ],
-                    ["Location", selectedDot.municipality,                       T.textSub],
-                  ].map(([label, val, color]) => (
-                    <div key={label}>
-                      <div style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase", fontWeight:600, letterSpacing:"0.06em" }}>{label}</div>
-                      <div style={{ color, fontWeight:600, marginTop:1 }}>{val}</div>
-                    </div>
-                  ))}
-                </div>
-                {selectedDot.unit_url && (
-                  <a href={selectedDot.unit_url} target="_blank" rel="noreferrer"
-                    style={{ display:"flex", alignItems:"center", gap:6, color:T.blue, fontSize:12, fontWeight:600, textDecoration:"none" }}>
-                    View on Idealista ↗
-                  </a>
-                )}
-              </div>
-              {/* Map showing the highlighted apartment */}
-              <div>
-                <div style={{ fontWeight:600, fontSize:13, color:T.textSub, marginBottom:8 }}>
-                  📍 {selectedDot.property_name} — {selectedDot.municipality}
-                </div>
-                <LeafletMap
-                  height="280px"
-                  center={[selectedDot.lat, selectedDot.lng]}
-                  zoom={13}
-                  markers={[{
-                    id:       selectedDot.sub_listing_id,
-                    lat:      selectedDot.lat,
-                    lng:      selectedDot.lng,
-                    label:    selectedDot.property_name,
-                    sublabel: `${selectedDot.unit_type} · ${fmtFull(selectedDot.price)} · ${selectedDot.size}m²`,
-                    active:   true,
-                    color:    UNIT_COLORS[selectedDot.unit_type] || T.gold,
-                  }]}
-                />
-              </div>
-            </div>
+            <ScatterPopup
+              dot={selectedDot}
+              allDots={charts.scatter||[]}
+              onClose={() => setSelectedDot(null)}
+              onGoListing={onGoListing}
+            />
           )}
         </div>
       )}
