@@ -31,7 +31,7 @@ export default function App() {
           <span style={{ color:"#9CA3AF", fontSize:13, fontWeight:500 }}>Housing Intelligence</span>
         </div>
 
-        {[["summary","Market Summary"],["drilldown","Drill-Down"]].map(([id,lbl]) => (
+        {[["summary","Market Summary"],["drilldown","Analysis"]].map(([id,lbl]) => (
           <button key={id} onClick={() => goTo(id)} style={{
             background:"none", border:"none", cursor:"pointer",
             padding:"0 18px", height:"100%",
