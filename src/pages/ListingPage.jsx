@@ -6,6 +6,50 @@ import { API } from "../App.jsx";
 import PriceMatrixTab from "./PriceMatrixTab.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 import ApartmentModal from "./ApartmentModal.jsx";
+import React from "react";
+
+// ── Price toggle hook + button ────────────────────────────────────────────
+function usePriceToggle(ms=10000) {
+  const [showM2, setShowM2] = React.useState(false);
+  React.useEffect(() => { const id = setInterval(()=>setShowM2(v=>!v), ms); return ()=>clearInterval(id); }, [ms]);
+  return [showM2, setShowM2];
+}
+function ToggleBtn({ showM2, onToggle }) {
+  return (
+    <div onClick={e=>{e.stopPropagation();onToggle();}}
+      style={{ display:"inline-flex", borderRadius:20, border:`1px solid ${T.border}`,
+        overflow:"hidden", cursor:"pointer", fontSize:10, fontWeight:700, userSelect:"none", flexShrink:0 }}>
+      <span style={{ padding:"3px 10px", background:!showM2?T.gold:"transparent", color:!showM2?"#fff":T.textMuted, transition:"all 0.2s" }}>Price</span>
+      <span style={{ padding:"3px 10px", background:showM2?"#5B9BD5":"transparent", color:showM2?"#fff":T.textMuted, transition:"all 0.2s" }}>€/m²</span>
+    </div>
+  );
+}
+function PriceByUnitChart({ data }) {
+  const [showM2, setShowM2] = usePriceToggle();
+  const dataKey = showM2 ? "avg_price_m2" : "avg_price";
+  const yFmt = showM2 ? v=>`€${(v/1000).toFixed(1)}K` : v=>`€${(v/1000).toFixed(0)}K`;
+  const ttFmt = showM2 ? v=>`€${Math.round(v).toLocaleString()}/m²` : v=>fmtFull(v);
+  return (
+    <ChartCard title={
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <span>Price Range by Unit Type</span>
+        <ToggleBtn showM2={showM2} onToggle={()=>setShowM2(v=>!v)}/>
+      </div>}>
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={data} barSize={34}>
+          <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
+          <XAxis dataKey="unit_type" tick={{ fill:T.textSub, fontSize:12 }} axisLine={false} tickLine={false}/>
+          <YAxis tickFormatter={yFmt} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}/>
+          <Tooltip formatter={v=>[ttFmt(v), showM2?"Avg €/m²":"Avg Price"]}
+            contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }}/>
+          <Bar dataKey={dataKey} name={showM2?"Avg €/m²":"Avg Price"} radius={[6,6,0,0]}>
+            {data.map((e,i)=><Cell key={i} fill={showM2?"#5B9BD5":(UNIT_COLORS[e.unit_type]||COLORS[i])}/>)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+}
 
 // ── Comparison popup ──────────────────────────────────────────────────────
 function ComparePanel({ listing, current, onGoListing, onClose }) {
@@ -271,21 +315,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
 
       {/* Unit Summary */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginTop:28 }}>
-        <ChartCard title="Price Range by Unit Type">
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={data.unit_comparison} barSize={34}>
-              <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
-              <XAxis dataKey="unit_type" tick={{ fill:T.textSub, fontSize:12 }} axisLine={false} tickLine={false}/>
-              <YAxis tickFormatter={v=>`€${(v/1000).toFixed(0)}K`}
-                tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}/>
-              <Tooltip formatter={v=>[fmtFull(v)]}
-                contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }}/>
-              <Bar dataKey="avg_price" name="Avg Price" radius={[6,6,0,0]}>
-                {data.unit_comparison.map((e,i)=><Cell key={i} fill={UNIT_COLORS[e.unit_type]||COLORS[i]}/>)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
+        <PriceByUnitChart data={data.unit_comparison} />
         <ChartCard title="Unit Type Summary">
           <div style={{ overflowX:"auto" }}>
             <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>

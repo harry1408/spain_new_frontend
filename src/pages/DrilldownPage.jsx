@@ -96,6 +96,49 @@ function ListingCard({ l, active, onSelect, onHover }) {
   );
 }
 
+// ── Price toggle hook + button ────────────────────────────────────────────
+function usePriceToggle(ms=10000) {
+  const [showM2, setShowM2] = React.useState(false);
+  React.useEffect(() => { const id = setInterval(()=>setShowM2(v=>!v), ms); return ()=>clearInterval(id); }, [ms]);
+  return [showM2, setShowM2];
+}
+function ToggleBtn({ showM2, onToggle }) {
+  return (
+    <div onClick={e=>{e.stopPropagation();onToggle();}}
+      style={{ display:"inline-flex", borderRadius:20, border:`1px solid ${T.border}`,
+        overflow:"hidden", cursor:"pointer", fontSize:10, fontWeight:700, userSelect:"none", flexShrink:0 }}>
+      <span style={{ padding:"3px 10px", background:!showM2?T.gold:"transparent", color:!showM2?"#fff":T.textMuted, transition:"all 0.2s" }}>Price</span>
+      <span style={{ padding:"3px 10px", background:showM2?"#5B9BD5":"transparent", color:showM2?"#fff":T.textMuted, transition:"all 0.2s" }}>€/m²</span>
+    </div>
+  );
+}
+function PriceDistChart({ data, height=160 }) {
+  const [showM2, setShowM2] = usePriceToggle();
+  const dataKey = showM2 ? "avg_price_m2" : "count";
+  const yFmt = showM2 ? v=>`€${(v/1000).toFixed(1)}K` : v=>v;
+  const label = showM2 ? "Avg €/m²" : "Units";
+  const ttFmt = showM2 ? v=>`€${Math.round(v).toLocaleString()}/m²` : v=>v;
+  return (
+    <ChartCard title={
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <span>Price Distribution</span>
+        <ToggleBtn showM2={showM2} onToggle={()=>setShowM2(v=>!v)}/>
+      </div>}>
+      <ResponsiveContainer width="100%" height={height}>
+        <BarChart data={data} barSize={22}>
+          <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
+          <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false}/>
+          <YAxis tickFormatter={yFmt} tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false}/>
+          <Tooltip formatter={v=>[ttFmt(v), label]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }}/>
+          <Bar dataKey={dataKey} name={label} radius={[4,4,0,0]}>
+            {data.map((_,i)=><Cell key={i} fill={showM2?`hsl(${200+i*12},70%,48%)`:COLORS[i%COLORS.length]}/>)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+}
+
 // ── main component ───────────────────────────────────────────────────────
 // ── Type-search multi-select ──────────────────────────────────────────────
 function TypeSearchMultiSelect({ label, options, value, onChange, width=200, navigateOnSelect=false, onSelect }) {
@@ -429,19 +472,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
 
           {/* Bottom row: Price Distribution + Avg Price Over Time */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-            <ChartCard title="Price Distribution">
-              <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={price_dist} barSize={22}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-                  <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
-                  <Bar dataKey="count" name="Units" radius={[4,4,0,0]}>
-                    {price_dist.map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
+            <PriceDistChart data={price_dist} height={160} />
 
             <ChartCard title="Avg Price Over Time">
               {(trend||[]).length < 2
