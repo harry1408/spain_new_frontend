@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,
          LineChart,Line,ScatterChart,Scatter,PieChart,Pie,Cell,Legend } from "recharts";
-import { T,StatCard,ChartCard,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS } from "../components/shared.jsx";
+import { T,StatCard,ChartCard,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS,PRICE_COLOR,M2_COLOR } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 
@@ -23,11 +23,11 @@ function ToggleBtn({ showM2, onToggle }) {
         border:`1px solid ${T.border}`, overflow:"hidden", cursor:"pointer",
         fontSize:10, fontWeight:700, userSelect:"none", flexShrink:0 }}>
       <span style={{ padding:"3px 10px",
-        background: !showM2 ? T.gold : "transparent",
+        background: !showM2 ? PRICE_COLOR : "transparent",
         color: !showM2 ? "#fff" : T.textMuted,
         transition:"all 0.2s" }}>Price</span>
       <span style={{ padding:"3px 10px",
-        background: showM2 ? "#5B9BD5" : "transparent",
+        background: showM2 ? M2_COLOR : "transparent",
         color: showM2 ? "#fff" : T.textMuted,
         transition:"all 0.2s" }}>€/m²</span>
     </div>
@@ -163,23 +163,26 @@ function Delta({ cur, prev, field, format }) {
 function PriceByUnitTypeChart({ data }) {
   const [showM2, setShowM2] = usePriceToggle();
   const dataKey = showM2 ? "avg_price_m2" : "avg_price";
-  const yFmt = showM2 ? v=>`€${(v/1000).toFixed(1)}K` : v=>`€${(v/1000).toFixed(0)}K`;
-  const ttFmt = showM2 ? v=>`€${Math.round(v).toLocaleString()}/m²` : v=>fmtFull(v);
+  const yFmt = showM2 ? v=>`€${Number(v/1000).toFixed(1)}K` : v=>`€${Number(v/1000).toFixed(0)}K`;
+  const ttFmt = showM2 ? v=>`€${Math.round(Number(v)).toLocaleString()}/m²` : v=>fmtFull(v);
+  // Normalise data so avg_price_m2 is always a number
+  const safe = (data||[]).map(d=>({ ...d, avg_price_m2: Number(d.avg_price_m2)||0 }));
+  const maxVal = safe.length ? Math.max(...safe.map(d=>d[dataKey]||0)) : 1;
   return (
-    <ChartCard title={
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <span>Price by Unit Type</span>
+    <ChartCard title="Price by Unit Type">
+      <div style={{ display:"flex", justifyContent:"flex-end", marginTop:-28, marginBottom:8 }}>
         <ToggleBtn showM2={showM2} onToggle={()=>setShowM2(v=>!v)}/>
-      </div>}>
+      </div>
       <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} barSize={30}>
+        <BarChart data={safe} barSize={30}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
           <XAxis dataKey="unit_type" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
-          <YAxis tickFormatter={yFmt} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
+          <YAxis tickFormatter={yFmt} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}
+            domain={[0, Math.ceil(maxVal * 1.15)]} />
           <Tooltip formatter={v=>[ttFmt(v), showM2?"Avg €/m²":"Avg Price"]}
             contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
-          <Bar dataKey={dataKey} name={showM2?"Avg €/m²":"Avg Price"} radius={[5,5,0,0]}>
-            {data.map((e,i)=><Cell key={i} fill={showM2?"#5B9BD5":(UNIT_COLORS[e.unit_type]||COLORS[i])}/>)}
+          <Bar dataKey={dataKey} name={showM2?"Avg €/m²":"Avg Price"} radius={[5,5,0,0]} isAnimationActive={false}>
+            {safe.map((e,i)=><Cell key={i} fill={showM2?M2_COLOR:(UNIT_COLORS[e.unit_type]||COLORS[i])}/>)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -191,24 +194,26 @@ function PriceByUnitTypeChart({ data }) {
 function PriceDistributionChart({ data, height=220 }) {
   const [showM2, setShowM2] = usePriceToggle();
   const dataKey = showM2 ? "avg_price_m2" : "count";
-  const yFmt = showM2 ? v=>`€${(v/1000).toFixed(1)}K` : v=>v;
-  const ttFmt = showM2 ? v=>`€${Math.round(v).toLocaleString()}/m²` : v=>v;
+  const yFmt = showM2 ? v=>`€${Number(v/1000).toFixed(1)}K` : v=>v;
+  const ttFmt = showM2 ? v=>`€${Math.round(Number(v)).toLocaleString()}/m²` : v=>v;
   const label = showM2 ? "Avg €/m²" : "Units";
+  const safe = (data||[]).map(d=>({ ...d, avg_price_m2: Number(d.avg_price_m2)||0 }));
+  const maxVal = safe.length ? Math.max(...safe.map(d=>d[dataKey]||0)) : 1;
   return (
-    <ChartCard title={
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <span>Price Distribution</span>
+    <ChartCard title="Price Distribution">
+      <div style={{ display:"flex", justifyContent:"flex-end", marginTop:-28, marginBottom:8 }}>
         <ToggleBtn showM2={showM2} onToggle={()=>setShowM2(v=>!v)}/>
-      </div>}>
+      </div>
       <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={data} barSize={26}>
+        <BarChart data={safe} barSize={26}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
           <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
-          <YAxis tickFormatter={yFmt} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+          <YAxis tickFormatter={yFmt} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
+            domain={[0, Math.ceil(maxVal * 1.15)]} />
           <Tooltip formatter={v=>[ttFmt(v), label]}
             contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
-          <Bar dataKey={dataKey} name={label} radius={[4,4,0,0]}>
-            {data.map((_,i)=><Cell key={i} fill={showM2?`hsl(${200+i*12},70%,48%)`:`hsl(${200+i*15},60%,${42+i*3}%)`}/>)}
+          <Bar dataKey={dataKey} name={label} radius={[4,4,0,0]} isAnimationActive={false}>
+            {safe.map((_,i)=><Cell key={i} fill={showM2?M2_COLOR:`hsl(${200+i*15},60%,${42+i*3}%)`}/>)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -669,7 +674,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                     <Tooltip formatter={(v,n)=>n==="Avg Price"?[fmtFull(v),n]:[`€${v}`,n]} contentStyle={{ background:"#fff", border:"1px solid #C9A84C", borderRadius:8, fontSize:12 }} />
                     <Legend wrapperStyle={{ fontSize:11, color:"#6B7280" }} />
                     <Line yAxisId="price" type="monotone" dataKey="avg_price" name="Avg Price" stroke={T.gold} strokeWidth={2.5} dot={{ r:5, fill:T.gold }} />
-                    <Line yAxisId="m2" type="monotone" dataKey="avg_price_m2" name="Avg €/m²" stroke="#5B9BD5" strokeWidth={2.5} dot={{ r:5, fill:"#5B9BD5" }} strokeDasharray="5 3" />
+                    <Line yAxisId="m2" type="monotone" dataKey="avg_price_m2" name="Avg €/m²" stroke={M2_COLOR} strokeWidth={2.5} dot={{ r:5, fill:M2_COLOR }} strokeDasharray="5 3" />
                   </LineChart>
                 </ResponsiveContainer>}
           </ChartCard>
@@ -685,7 +690,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                     <YAxis tick={{ fill:"#6B7280", fontSize:11 }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={{ background:"#fff", border:"1px solid #C9A84C", borderRadius:8, fontSize:12 }} />
                     <Legend wrapperStyle={{ fontSize:11, color:"#6B7280" }} />
-                    <Bar dataKey="total" name="Total Units" fill="#5B9BD5" radius={[4,4,0,0]} />
+                    <Bar dataKey="total" name="Total Units" fill={M2_COLOR} radius={[4,4,0,0]} />
                     <Bar dataKey="new"   name="New Listings" fill={T.green} radius={[4,4,0,0]} />
                     <Bar dataKey="removed" name="Removed"   fill={T.red} radius={[4,4,0,0]} />
                   </BarChart>

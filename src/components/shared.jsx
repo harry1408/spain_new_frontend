@@ -24,6 +24,10 @@ export const T = {
   shadowLg:  "0 10px 25px rgba(0,0,0,0.08)",
 };
 
+// ── Consistent chart metric colors (used across all price/m² toggles) ────
+export const PRICE_COLOR = "#C9A84C";   // gold — always means "total price"
+export const M2_COLOR    = "#3B82F6";   // blue — always means "€/m²"
+
 export const COLORS = ["#C9A84C","#2563EB","#16A34A","#9333EA","#DC2626","#0891B2","#D97706","#059669","#DB2777","#0284C7"];
 export const UNIT_COLORS = {
   Studio:    "#9333EA",

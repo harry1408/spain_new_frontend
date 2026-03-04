@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Cell,
          LineChart,Line,Legend } from "recharts";
-import { T,StatCard,ChartCard,Tag,Pill,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS,AddressBreadcrumb } from "../components/shared.jsx";
+import { T,StatCard,ChartCard,Tag,Pill,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS,AddressBreadcrumb ,PRICE_COLOR,M2_COLOR} from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 
@@ -107,31 +107,33 @@ function ToggleBtn({ showM2, onToggle }) {
     <div onClick={e=>{e.stopPropagation();onToggle();}}
       style={{ display:"inline-flex", borderRadius:20, border:`1px solid ${T.border}`,
         overflow:"hidden", cursor:"pointer", fontSize:10, fontWeight:700, userSelect:"none", flexShrink:0 }}>
-      <span style={{ padding:"3px 10px", background:!showM2?T.gold:"transparent", color:!showM2?"#fff":T.textMuted, transition:"all 0.2s" }}>Price</span>
-      <span style={{ padding:"3px 10px", background:showM2?"#5B9BD5":"transparent", color:showM2?"#fff":T.textMuted, transition:"all 0.2s" }}>€/m²</span>
+      <span style={{ padding:"3px 10px", background:!showM2?PRICE_COLOR:"transparent", color:!showM2?"#fff":T.textMuted, transition:"all 0.2s" }}>Price</span>
+      <span style={{ padding:"3px 10px", background:showM2?M2_COLOR:"transparent", color:showM2?"#fff":T.textMuted, transition:"all 0.2s" }}>€/m²</span>
     </div>
   );
 }
 function PriceDistChart({ data, height=160 }) {
   const [showM2, setShowM2] = usePriceToggle();
   const dataKey = showM2 ? "avg_price_m2" : "count";
-  const yFmt = showM2 ? v=>`€${(v/1000).toFixed(1)}K` : v=>v;
+  const yFmt = showM2 ? v=>`€${Number(v/1000).toFixed(1)}K` : v=>v;
   const label = showM2 ? "Avg €/m²" : "Units";
-  const ttFmt = showM2 ? v=>`€${Math.round(v).toLocaleString()}/m²` : v=>v;
+  const ttFmt = showM2 ? v=>`€${Math.round(Number(v)).toLocaleString()}/m²` : v=>v;
+  const safe = (data||[]).map(d=>({ ...d, avg_price_m2: Number(d.avg_price_m2)||0 }));
+  const maxVal = safe.length ? Math.max(...safe.map(d=>d[dataKey]||0)) : 1;
   return (
-    <ChartCard title={
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <span>Price Distribution</span>
+    <ChartCard title="Price Distribution">
+      <div style={{ display:"flex", justifyContent:"flex-end", marginTop:-28, marginBottom:8 }}>
         <ToggleBtn showM2={showM2} onToggle={()=>setShowM2(v=>!v)}/>
-      </div>}>
+      </div>
       <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={data} barSize={22}>
+        <BarChart data={safe} barSize={22}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
           <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false}/>
-          <YAxis tickFormatter={yFmt} tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false}/>
+          <YAxis tickFormatter={yFmt} tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false}
+            domain={[0, Math.ceil(maxVal * 1.15)]}/>
           <Tooltip formatter={v=>[ttFmt(v), label]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }}/>
-          <Bar dataKey={dataKey} name={label} radius={[4,4,0,0]}>
-            {data.map((_,i)=><Cell key={i} fill={showM2?`hsl(${200+i*12},70%,48%)`:COLORS[i%COLORS.length]}/>)}
+          <Bar dataKey={dataKey} name={label} radius={[4,4,0,0]} isAnimationActive={false}>
+            {safe.map((_,i)=><Cell key={i} fill={showM2?M2_COLOR:COLORS[i%COLORS.length]}/>)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>

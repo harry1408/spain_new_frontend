@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
          ResponsiveContainer, Cell } from "recharts";
-import { T, ChartCard, Tag, Pill, fmt, fmtFull, COLORS, UNIT_COLORS, ESG_COLORS } from "../components/shared.jsx";
+import { T, ChartCard, Tag, Pill, fmt, fmtFull, COLORS, UNIT_COLORS, ESG_COLORS ,PRICE_COLOR,M2_COLOR} from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import PriceMatrixTab from "./PriceMatrixTab.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
@@ -19,31 +19,33 @@ function ToggleBtn({ showM2, onToggle }) {
     <div onClick={e=>{e.stopPropagation();onToggle();}}
       style={{ display:"inline-flex", borderRadius:20, border:`1px solid ${T.border}`,
         overflow:"hidden", cursor:"pointer", fontSize:10, fontWeight:700, userSelect:"none", flexShrink:0 }}>
-      <span style={{ padding:"3px 10px", background:!showM2?T.gold:"transparent", color:!showM2?"#fff":T.textMuted, transition:"all 0.2s" }}>Price</span>
-      <span style={{ padding:"3px 10px", background:showM2?"#5B9BD5":"transparent", color:showM2?"#fff":T.textMuted, transition:"all 0.2s" }}>€/m²</span>
+      <span style={{ padding:"3px 10px", background:!showM2?PRICE_COLOR:"transparent", color:!showM2?"#fff":T.textMuted, transition:"all 0.2s" }}>Price</span>
+      <span style={{ padding:"3px 10px", background:showM2?M2_COLOR:"transparent", color:showM2?"#fff":T.textMuted, transition:"all 0.2s" }}>€/m²</span>
     </div>
   );
 }
 function PriceByUnitChart({ data }) {
   const [showM2, setShowM2] = usePriceToggle();
   const dataKey = showM2 ? "avg_price_m2" : "avg_price";
-  const yFmt = showM2 ? v=>`€${(v/1000).toFixed(1)}K` : v=>`€${(v/1000).toFixed(0)}K`;
-  const ttFmt = showM2 ? v=>`€${Math.round(v).toLocaleString()}/m²` : v=>fmtFull(v);
+  const yFmt = showM2 ? v=>`€${Number(v/1000).toFixed(1)}K` : v=>`€${Number(v/1000).toFixed(0)}K`;
+  const ttFmt = showM2 ? v=>`€${Math.round(Number(v)).toLocaleString()}/m²` : v=>fmtFull(v);
+  const safe = (data||[]).map(d=>({ ...d, avg_price_m2: Number(d.avg_price_m2)||0 }));
+  const maxVal = safe.length ? Math.max(...safe.map(d=>d[dataKey]||0)) : 1;
   return (
-    <ChartCard title={
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <span>Price Range by Unit Type</span>
+    <ChartCard title="Price Range by Unit Type">
+      <div style={{ display:"flex", justifyContent:"flex-end", marginTop:-28, marginBottom:8 }}>
         <ToggleBtn showM2={showM2} onToggle={()=>setShowM2(v=>!v)}/>
-      </div>}>
+      </div>
       <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} barSize={34}>
+        <BarChart data={safe} barSize={34}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
           <XAxis dataKey="unit_type" tick={{ fill:T.textSub, fontSize:12 }} axisLine={false} tickLine={false}/>
-          <YAxis tickFormatter={yFmt} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}/>
+          <YAxis tickFormatter={yFmt} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}
+            domain={[0, Math.ceil(maxVal * 1.15)]}/>
           <Tooltip formatter={v=>[ttFmt(v), showM2?"Avg €/m²":"Avg Price"]}
             contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }}/>
-          <Bar dataKey={dataKey} name={showM2?"Avg €/m²":"Avg Price"} radius={[6,6,0,0]}>
-            {data.map((e,i)=><Cell key={i} fill={showM2?"#5B9BD5":(UNIT_COLORS[e.unit_type]||COLORS[i])}/>)}
+          <Bar dataKey={dataKey} name={showM2?"Avg €/m²":"Avg Price"} radius={[6,6,0,0]} isAnimationActive={false}>
+            {safe.map((e,i)=><Cell key={i} fill={showM2?M2_COLOR:(UNIT_COLORS[e.unit_type]||COLORS[i])}/>)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -194,6 +196,28 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
   );
 }
 
+// ── Description block with expand/collapse ───────────────────────────────
+function DescriptionBlock({ text }) {
+  const [expanded, setExpanded] = React.useState(false);
+  const LIMIT = 280;
+  const short = text.length > LIMIT;
+  const display = expanded || !short ? text : text.slice(0, LIMIT) + "…";
+  return (
+    <div style={{ background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:10,
+      padding:"14px 18px", marginBottom:20, fontSize:12, lineHeight:1.7, color:T.textSub,
+      maxWidth:820 }}>
+      <div style={{ whiteSpace:"pre-wrap" }}>{display}</div>
+      {short && (
+        <button onClick={() => setExpanded(v=>!v)}
+          style={{ background:"none", border:"none", color:PRICE_COLOR, fontSize:11,
+            fontWeight:700, cursor:"pointer", padding:"4px 0 0", marginTop:4 }}>
+          {expanded ? "Show less ▲" : "Read more ▼"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function ListingPage({ listingId, municipality, onBack, onGoListing, highlight }) {
   const [data,        setData]        = useState(null);
   const [loading,     setLoading]     = useState(true);
@@ -301,6 +325,20 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
           ← Back to {data.municipality}
         </button>
       </div>
+
+      {/* Description */}
+      {data.description && (() => {
+        // Clean up boilerplate translation notice and blank lines
+        const cleaned = data.description
+          .replace(/This comment was automatically translated[^\n]*/gi, "")
+          .replace(/See description in the original language/gi, "")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+        if (!cleaned) return null;
+        return (
+          <DescriptionBlock text={cleaned} />
+        );
+      })()}
 
       {/* Price Matrix — click any row to open apartment deep-dive */}
       <div style={{ marginBottom:4 }}>
