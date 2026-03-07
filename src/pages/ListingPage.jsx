@@ -195,17 +195,17 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
 }
 
 // ── Description block with expand/collapse ───────────────────────────────
-function DescriptionBlock({ text }) {
+function DescriptionBlock({ text, forceExpand = false }) {
   const [expanded, setExpanded] = React.useState(false);
   const LIMIT = 280;
   const short = text.length > LIMIT;
-  const display = expanded || !short ? text : text.slice(0, LIMIT) + "…";
+  const display = expanded || !short || forceExpand ? text : text.slice(0, LIMIT) + "…";
   return (
     <div style={{ background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:10,
-      padding:"14px 18px", marginBottom:20, fontSize:12, lineHeight:1.7, color:T.textSub,
+      padding:"14px 18px", fontSize:12, lineHeight:1.7, color:T.textSub,
       maxWidth:820 }}>
       <div style={{ whiteSpace:"pre-wrap" }}>{display}</div>
-      {short && (
+      {short && !forceExpand && (
         <button onClick={() => setExpanded(v=>!v)}
           style={{ background:"none", border:"none", color:PRICE_COLOR, fontSize:11,
             fontWeight:700, cursor:"pointer", padding:"4px 0 0", marginTop:4 }}>
@@ -223,6 +223,9 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
   const [nearby,      setNearby]      = useState(null);
   const [showAddrMap, setShowAddrMap] = useState(false);
   const [pulse,       setPulse]       = useState(false);
+  const [photos,      setPhotos]      = useState([]);
+  const [photoIdx,    setPhotoIdx]    = useState(0);
+  const [photoLoading,setPhotoLoading]= useState(false);
 
   // Trigger heartbeat when highlight prop is set (navigated from scatter chart)
   useEffect(() => {
@@ -236,12 +239,18 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
   useEffect(() => {
     setLoading(true); setData(null); setMeta(null); setNearby(null);
     setShowAddrMap(false);
+    setPhotos([]); setPhotoIdx(0); setPhotoLoading(true);
     Promise.all([
       fetch(`${API}/drilldown/listing/${listingId}`).then(r=>r.json()),
       fetch(`${API}/listing/meta/${listingId}`).then(r=>r.json()),
       fetch(`${API}/nearby/listings/${listingId}`).then(r=>r.json()),
-    ]).then(([d,m,nb]) => { setData(d); setMeta(m); setNearby(nb); setLoading(false); })
-      .catch(() => setLoading(false));
+      fetch(`${API}/listing/photos/${listingId}`).then(r=>r.json()).catch(()=>({photos:[]})),
+    ]).then(([d,m,nb,ph]) => {
+      setData(d); setMeta(m); setNearby(nb);
+      setPhotos(ph.photos || []);
+      setPhotoLoading(false);
+      setLoading(false);
+    }).catch(() => { setLoading(false); setPhotoLoading(false); });
   }, [listingId]);
 
   const singleMarker = useMemo(() => meta?.lat ? [{
@@ -323,25 +332,86 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
         </button>
       </div>
 
-      {/* Description */}
-      {data.description && (() => {
-        // Clean up boilerplate translation notice and blank lines
+      {/* Description + Photos row */}
+      {(data.description || photos.length > 0 || photoLoading) && (() => {
         const cleaned = data.description
-          .replace(/This comment was automatically translated[^\n]*/gi, "")
-          .replace(/See description in the original language/gi, "")
-          .replace(/\n{3,}/g, "\n\n")
-          .trim();
-        if (!cleaned) return null;
+          ? data.description
+              .replace(/This comment was automatically translated[^\n]*/gi, "")
+              .replace(/See description in the original language/gi, "")
+              .replace(/\n{3,}/g, "\n\n")
+              .trim()
+          : "";
         return (
-          <DescriptionBlock text={cleaned} />
+          <div style={{ display:"grid", gridTemplateColumns: photos.length || photoLoading ? "1fr 420px" : "1fr",
+            gap:16, marginBottom:8, alignItems:"stretch" }}>
+            {cleaned && <DescriptionBlock text={cleaned} forceExpand={photos.length > 0} />}
+            {!cleaned && (photos.length || photoLoading) && <div/>}
+
+            {/* Photo Slideshow */}
+            {(photos.length > 0 || photoLoading) && (
+              <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
+                boxShadow:T.shadow, background:"#1a1a1a", position:"relative",
+                minHeight:280, height:"100%" }}>
+
+                {photoLoading && photos.length === 0 ? (
+                  <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
+                    justifyContent:"center", color:"#6B7280", fontSize:12 }}>
+                    Loading photos…
+                  </div>
+                ) : (
+                  <>
+                    {/* Main image */}
+                    <img
+                      src={photos[photoIdx]}
+                      alt={`Photo ${photoIdx+1}`}
+                      style={{ width:"100%", height:"100%", objectFit:"cover", display:"block",
+                        position:"absolute", inset:0 }}
+                      onError={e => { e.target.style.display="none"; }}
+                    />
+
+                    {/* Prev / Next arrows */}
+                    {photos.length > 1 && (<>
+                      <button onClick={() => setPhotoIdx(i => (i-1+photos.length)%photos.length)}
+                        style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)",
+                          background:"rgba(0,0,0,0.55)", border:"none", color:"#fff",
+                          width:32, height:32, borderRadius:"50%", cursor:"pointer",
+                          fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
+                      <button onClick={() => setPhotoIdx(i => (i+1)%photos.length)}
+                        style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)",
+                          background:"rgba(0,0,0,0.55)", border:"none", color:"#fff",
+                          width:32, height:32, borderRadius:"50%", cursor:"pointer",
+                          fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
+                    </>)}
+
+                    {/* Dot indicators */}
+                    {photos.length > 1 && (
+                      <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)",
+                        display:"flex", gap:5 }}>
+                        {photos.map((_,i) => (
+                          <div key={i} onClick={() => setPhotoIdx(i)}
+                            style={{ width: i===photoIdx?18:7, height:7, borderRadius:4,
+                              background: i===photoIdx?"#C9A84C":"rgba(255,255,255,0.5)",
+                              cursor:"pointer", transition:"all 0.2s" }} />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Counter */}
+                    <div style={{ position:"absolute", top:8, right:8,
+                      background:"rgba(0,0,0,0.55)", color:"#fff", fontSize:10,
+                      fontWeight:600, padding:"3px 8px", borderRadius:10 }}>
+                      {photoIdx+1} / {photos.length}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         );
       })()}
 
-      {/* Price Matrix — click any row to open apartment deep-dive */}
+      {/* Price Matrix */}
       <div style={{ marginBottom:4 }}>
-        <div style={{ color:T.textMuted, fontSize:11, marginBottom:8 }}>
-          Click any apartment row to open detailed analysis
-        </div>
         <PriceMatrixTab
           listingId={listingId}
           onRowClick={apt => onGoApartment && onGoApartment(apt, listingId, data.property_name, municipality)}
