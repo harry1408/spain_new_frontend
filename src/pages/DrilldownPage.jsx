@@ -97,9 +97,8 @@ function ListingCard({ l, active, onSelect, onHover }) {
 }
 
 // ── Price toggle hook + button ────────────────────────────────────────────
-function usePriceToggle(ms=10000) {
+function usePriceToggle() {
   const [showM2, setShowM2] = React.useState(false);
-  React.useEffect(() => { const id = setInterval(()=>setShowM2(v=>!v), ms); return ()=>clearInterval(id); }, [ms]);
   return [showM2, setShowM2];
 }
 function ToggleBtn({ showM2, onToggle }) {

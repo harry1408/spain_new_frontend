@@ -5,13 +5,11 @@ import { T, ChartCard, Tag, Pill, fmt, fmtFull, COLORS, UNIT_COLORS, ESG_COLORS 
 import { API } from "../App.jsx";
 import PriceMatrixTab from "./PriceMatrixTab.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
-import ApartmentModal from "./ApartmentModal.jsx";
 import React from "react";
 
 // ── Price toggle hook + button ────────────────────────────────────────────
-function usePriceToggle(ms=10000) {
+function usePriceToggle() {
   const [showM2, setShowM2] = React.useState(false);
-  React.useEffect(() => { const id = setInterval(()=>setShowM2(v=>!v), ms); return ()=>clearInterval(id); }, [ms]);
   return [showM2, setShowM2];
 }
 function ToggleBtn({ showM2, onToggle }) {
@@ -218,12 +216,11 @@ function DescriptionBlock({ text }) {
   );
 }
 
-export default function ListingPage({ listingId, municipality, onBack, onGoListing, highlight }) {
+export default function ListingPage({ listingId, municipality, onBack, onGoListing, onGoApartment, highlight }) {
   const [data,        setData]        = useState(null);
   const [loading,     setLoading]     = useState(true);
   const [meta,        setMeta]        = useState(null);
   const [nearby,      setNearby]      = useState(null);
-  const [selectedApt, setSelectedApt] = useState(null);
   const [showAddrMap, setShowAddrMap] = useState(false);
   const [pulse,       setPulse]       = useState(false);
 
@@ -238,7 +235,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
 
   useEffect(() => {
     setLoading(true); setData(null); setMeta(null); setNearby(null);
-    setSelectedApt(null); setShowAddrMap(false);
+    setShowAddrMap(false);
     Promise.all([
       fetch(`${API}/drilldown/listing/${listingId}`).then(r=>r.json()),
       fetch(`${API}/listing/meta/${listingId}`).then(r=>r.json()),
@@ -347,7 +344,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
         </div>
         <PriceMatrixTab
           listingId={listingId}
-          onRowClick={apt => setSelectedApt(apt)}
+          onRowClick={apt => onGoApartment && onGoApartment(apt, listingId, data.property_name, municipality)}
         />
       </div>
 
@@ -397,15 +394,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
         />
       )}
 
-      {/* Apartment Deep Dive Modal */}
-      {selectedApt && (
-        <ApartmentModal
-          apt={selectedApt}
-          listingId={listingId}
-          listingName={data.property_name}
-          onClose={()=>setSelectedApt(null)}
-        />
-      )}
+
     </div>
   );
 }

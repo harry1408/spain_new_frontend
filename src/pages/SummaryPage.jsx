@@ -6,12 +6,8 @@ import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 
 // ── Price / €/m² toggle hook ─────────────────────────────────────────────
-function usePriceToggle(intervalMs = 10000) {
+function usePriceToggle() {
   const [showM2, setShowM2] = React.useState(false);
-  React.useEffect(() => {
-    const id = setInterval(() => setShowM2(v => !v), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
   return [showM2, setShowM2];
 }
 
