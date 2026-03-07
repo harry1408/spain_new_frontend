@@ -295,7 +295,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
             Select a <em style={{ color:T.gold }}>Municipality</em>
           </h2>
           <p style={{ color:T.textSub, fontSize:13, margin:"6px 0 0" }}>
-            {sorted.length} municipality{sorted.length!==1?"ies":""} shown
+            {sorted.length} {sorted.length!==1?"municipalities":"municipality"} shown
             {selMuni.length>0 && <span style={{ color:T.gold }}> · {selMuni.length} selected</span>}
           </p>
         </div>
