@@ -5,6 +5,7 @@ import { T, ChartCard, Tag, Pill, fmt, fmtFull, COLORS, UNIT_COLORS, ESG_COLORS 
 import { API } from "../App.jsx";
 import PriceMatrixTab from "./PriceMatrixTab.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
+import GoogleStaticMap from "../components/GoogleStaticMap.jsx";
 import React from "react";
 
 // ── Price toggle hook + button ────────────────────────────────────────────
@@ -203,7 +204,7 @@ function DescriptionBlock({ text, forceExpand = false }) {
   return (
     <div style={{ background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:10,
       padding:"14px 18px", fontSize:12, lineHeight:1.7, color:T.textSub,
-      maxWidth:820 }}>
+      maxWidth:820, maxHeight:280, overflowY:"auto" }}>
       <div style={{ whiteSpace:"pre-wrap" }}>{display}</div>
       {short && !forceExpand && (
         <button onClick={() => setExpanded(v=>!v)}
@@ -317,7 +318,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
                         style={{ background:"none", border:"none", cursor:"pointer",
                           color:T.textMuted, fontSize:16, lineHeight:1, padding:0 }}>×</button>
                     </div>
-                    <LeafletMap markers={singleMarker} height="220px" zoom={15}/>
+                    <GoogleStaticMap mapUrl={meta?.map_url} lat={meta?.lat} lng={meta?.lng} label={data?.property_name} height="220px" zoom={15}/>
                   </div>
                 )}
               </div>
@@ -351,7 +352,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
             {(photos.length > 0 || photoLoading) && (
               <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
                 boxShadow:T.shadow, background:"#1a1a1a", position:"relative",
-                minHeight:280, height:"100%" }}>
+                height:280 }}>
 
                 {photoLoading && photos.length === 0 ? (
                   <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
