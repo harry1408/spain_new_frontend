@@ -3,7 +3,7 @@ import { BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Cell
          LineChart,Line,Legend } from "recharts";
 import { T,StatCard,ChartCard,Tag,Pill,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS,AddressBreadcrumb ,PRICE_COLOR,M2_COLOR} from "../components/shared.jsx";
 import { API } from "../App.jsx";
-import LeafletMap from "../components/LeafletMap.jsx";
+import { MultiPinGoogleMap } from "../components/GoogleStaticMap.jsx";
 
 // ── tiny helpers ────────────────────────────────────────────────────────
 function Metric({ label, value, color }) {
@@ -424,14 +424,12 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
               <div style={{ fontSize:12, color:T.textSub, marginBottom:6 }}>
                 📍 {mapListings.length} developments · click a pin to highlight
               </div>
-              <LeafletMap
+              <MultiPinGoogleMap
                 markers={mapMarkers}
+                activePin={activePin}
+                currentLat={mapMarkers.find(m=>m.active)?.lat}
+                currentLng={mapMarkers.find(m=>m.active)?.lng}
                 height="280px"
-                onMarkerClick={id => {
-                  setActivePin(id === activePin ? null : id);
-                  const el = document.getElementById(`lcard-${id}`);
-                  if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
-                }}
               />
             </div>
 

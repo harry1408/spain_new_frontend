@@ -343,7 +343,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
               .trim()
           : "";
         return (
-          <div style={{ display:"grid", gridTemplateColumns: photos.length || photoLoading ? "1fr 420px" : "1fr",
+          <div style={{ display:"grid", gridTemplateColumns: photos.length || photoLoading ? "1fr 520px" : "1fr",
             gap:16, marginBottom:11, alignItems:"stretch" }}>
             {cleaned && <DescriptionBlock text={cleaned} forceExpand={photos.length > 0} />}
             {!cleaned && (photos.length || photoLoading) && <div/>}
