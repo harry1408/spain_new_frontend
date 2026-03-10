@@ -239,7 +239,7 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
   const visibleDots = unitFilter.length ? allDots.filter(d=>unitFilter.includes(d.unit_type)) : allDots;
   const selectedDots = allDots.filter(d => selectedIds.has(d.sub_listing_id));
 
-  const mapMarkers = selectedDots.map(d => ({
+  const mapMarkers = selectedDots.filter(d => d.lat && d.lng && !(Math.abs(d.lat - 39.47) < 0.001 && Math.abs(d.lng + 0.38) < 0.001)).map(d => ({
     id: d.sub_listing_id, lat: d.lat, lng: d.lng,
     label: d.property_name,
     sublabel: `${d.unit_type} · ${fmtFull(d.price)} · ${d.size}m²${d.price_per_m2 ? ` · €${Math.round(d.price_per_m2)}/m²` : ""}`,

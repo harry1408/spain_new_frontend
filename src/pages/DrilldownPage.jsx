@@ -3,7 +3,7 @@ import { BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Cell
          LineChart,Line,Legend } from "recharts";
 import { T,StatCard,ChartCard,Tag,Pill,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS,AddressBreadcrumb ,PRICE_COLOR,M2_COLOR} from "../components/shared.jsx";
 import { API } from "../App.jsx";
-import { MultiPinGoogleMap } from "../components/GoogleStaticMap.jsx";
+import LeafletMap from "../components/LeafletMap.jsx";
 
 // ── tiny helpers ────────────────────────────────────────────────────────
 function Metric({ label, value, color }) {
@@ -266,14 +266,16 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   }, [municipality]);
 
   // Map markers — must be before ANY early return (Rules of Hooks)
-  const mapMarkers = useMemo(() => mapListings.map(l => ({
-    id:       l.listing_id,
-    lat:      l.lat, lng: l.lng,
-    label:    l.property_name,
-    sublabel: `${fmt(l.avg_price)} · ${l.units} apts`,
-    active:   l.listing_id === activePin,
-    color:    T.blue,
-  })), [mapListings, activePin]);
+  const mapMarkers = useMemo(() => mapListings
+    .filter(l => l.lat && l.lng && !(Math.abs(l.lat - 39.47) < 0.001 && Math.abs(l.lng + 0.38) < 0.001))
+    .map(l => ({
+      id:       l.listing_id,
+      lat:      l.lat, lng: l.lng,
+      label:    l.property_name,
+      sublabel: `${fmt(l.avg_price)} · ${l.units} apts`,
+      active:   l.listing_id === activePin,
+      color:    T.blue,
+    })), [mapListings, activePin]);
 
   // ── Municipality selector view ────────────────────────────────────────
   if (!municipality) {
@@ -419,18 +421,31 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
 
           {/* Top row: Map (left) + Unit Type Summary table (right) */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-            {/* Map */}
+            {/* Map — single pin on active/first listing */}
             <div>
-              <div style={{ fontSize:12, color:T.textSub, marginBottom:6 }}>
-                📍 {mapListings.length} developments · click a pin to highlight
-              </div>
-              <MultiPinGoogleMap
-                markers={mapMarkers}
-                activePin={activePin}
-                currentLat={mapMarkers.find(m=>m.active)?.lat}
-                currentLng={mapMarkers.find(m=>m.active)?.lng}
-                height="280px"
-              />
+              {(() => {
+                const pinTarget = mapMarkers.find(m => m.active) || mapMarkers[0];
+                if (!pinTarget) return null;
+                return (
+                  <div style={{ position:"relative", width:"100%", height:280, borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}` }}>
+                    <iframe
+                      title="map"
+                      src={`https://maps.google.com/maps?q=${pinTarget.lat},${pinTarget.lng}&z=14&output=embed`}
+                      width="100%" height="100%"
+                      style={{ border:0, display:"block" }}
+                      allowFullScreen="" loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                    <a href={`https://www.google.com/maps?q=${pinTarget.lat},${pinTarget.lng}`}
+                      target="_blank" rel="noreferrer"
+                      style={{ position:"absolute", bottom:6, right:6, background:"rgba(255,255,255,0.92)",
+                        borderRadius:4, fontSize:10, fontWeight:600, color:"#1a73e8",
+                        padding:"2px 7px", textDecoration:"none", boxShadow:"0 1px 4px rgba(0,0,0,0.2)", zIndex:10 }}>
+                      Open in Google Maps ↗
+                    </a>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Unit Type Summary table */}
