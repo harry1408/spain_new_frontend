@@ -187,14 +187,15 @@ function PriceByUnitTypeChart({ data }) {
 }
 
 // ── Price Distribution — toggle chart ────────────────────────────────────
-function PriceDistributionChart({ data, height=220 }) {
+function PriceDistributionChart({ data, m2data, height=220 }) {
   const [showM2, setShowM2] = usePriceToggle();
-  const dataKey = showM2 ? "avg_price_m2" : "count";
-  const yFmt = showM2 ? v=>`€${Number(v/1000).toFixed(1)}K` : v=>v;
-  const ttFmt = showM2 ? v=>`€${Math.round(Number(v)).toLocaleString()}/m²` : v=>v;
-  const label = showM2 ? "Avg €/m²" : "Units";
-  const safe = (data||[]).map(d=>({ ...d, avg_price_m2: Number(d.avg_price_m2)||0 }));
-  const maxVal = safe.length ? Math.max(...safe.map(d=>d[dataKey]||0)) : 1;
+  const safe = showM2
+    ? (m2data||[]).map(d=>({ ...d, count: Number(d.count)||0 }))
+    : (data||[]).map(d=>({ ...d, count: Number(d.count)||0 }));
+  const yFmt = v => v;
+  const ttFmt = v => `${v} units`;
+  const label = showM2 ? "Units (by €/m²)" : "Units (by price)";
+  const maxVal = safe.length ? Math.max(...safe.map(d=>d.count||0)) : 1;
   return (
     <ChartCard title="Price Distribution">
       <div style={{ display:"flex", justifyContent:"flex-end", marginTop:-28, marginBottom:8 }}>
@@ -208,7 +209,7 @@ function PriceDistributionChart({ data, height=220 }) {
             domain={[0, Math.ceil(maxVal * 1.15)]} />
           <Tooltip formatter={v=>[ttFmt(v), label]}
             contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
-          <Bar dataKey={dataKey} name={label} radius={[4,4,0,0]} isAnimationActive={false}>
+          <Bar dataKey="count" name={label} radius={[4,4,0,0]} isAnimationActive={false}>
             {safe.map((_,i)=><Cell key={i} fill={showM2?M2_COLOR:`hsl(${200+i*15},60%,${42+i*3}%)`}/>)}
           </Bar>
         </BarChart>
@@ -418,17 +419,17 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
     setLoading(true);
     const qs = q();
     try {
-      const [st, byType, dl, pdist, muni, esgR, scatter] = await Promise.all([
+      const [st, byType, dl, distData, muni, esgR, scatter] = await Promise.all([
         fetch(`${API}/stats?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/price-by-unit-type?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/delivery-timeline?${qs}`).then(r=>r.json()),
-        fetch(`${API}/charts/price-distribution?${qs}`).then(r=>r.json()),
+        fetch(`${API}/charts/price-distribution?${qs}`).then(r=>r.json()).then(d=>({ price_dist: d.price_dist||[], m2_dist: d.m2_dist||[] })),
         fetch(`${API}/charts/municipality-overview?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/esg-breakdown?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/size-vs-price?${qs}`).then(r=>r.json()),
       ]);
       setStats(st);
-      setCharts({ byType, dl, pdist, muni, esgR, scatter });
+      setCharts({ byType, dl, price_dist: distData.price_dist, m2_dist: distData.m2_dist, muni, esgR, scatter });
     } catch(e) { console.error(e); }
     setLoading(false);
   }, [q]);
@@ -549,7 +550,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
               </ResponsiveContainer>
             </ChartCard>
 
-            <PriceDistributionChart data={charts.pdist||[]} />
+            <PriceDistributionChart data={charts.price_dist||[]} m2data={charts.m2_dist||[]} />
 
             <ChartCard title="Top Municipalities — click to explore">
               <ResponsiveContainer width="100%" height={220}>
