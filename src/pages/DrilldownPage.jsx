@@ -111,14 +111,15 @@ function ToggleBtn({ showM2, onToggle }) {
     </div>
   );
 }
-function PriceDistChart({ data, height=160 }) {
+function PriceDistChart({ data, m2data, height=160 }) {
   const [showM2, setShowM2] = usePriceToggle();
-  const dataKey = showM2 ? "avg_price_m2" : "count";
-  const yFmt = showM2 ? v=>`€${Number(v/1000).toFixed(1)}K` : v=>v;
-  const label = showM2 ? "Avg €/m²" : "Units";
-  const ttFmt = showM2 ? v=>`€${Math.round(Number(v)).toLocaleString()}/m²` : v=>v;
-  const safe = (data||[]).map(d=>({ ...d, avg_price_m2: Number(d.avg_price_m2)||0 }));
-  const maxVal = safe.length ? Math.max(...safe.map(d=>d[dataKey]||0)) : 1;
+  const safe = showM2
+    ? (m2data||[]).map(d=>({ ...d, count: Number(d.count)||0 }))
+    : (data||[]).map(d=>({ ...d, count: Number(d.count)||0 }));
+  const yFmt = v => v;
+  const label = showM2 ? "Units (by €/m²)" : "Units (by price)";
+  const ttFmt = v => `${v} units`;
+  const maxVal = safe.length ? Math.max(...safe.map(d=>d.count||0)) : 1;
   return (
     <ChartCard title="Price Distribution">
       <div style={{ display:"flex", justifyContent:"flex-end", marginTop:-28, marginBottom:8 }}>
@@ -131,7 +132,7 @@ function PriceDistChart({ data, height=160 }) {
           <YAxis tickFormatter={yFmt} tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false}
             domain={[0, Math.ceil(maxVal * 1.15)]}/>
           <Tooltip formatter={v=>[ttFmt(v), label]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }}/>
-          <Bar dataKey={dataKey} name={label} radius={[4,4,0,0]} isAnimationActive={false}>
+          <Bar dataKey="count" name={label} radius={[4,4,0,0]} isAnimationActive={false}>
             {safe.map((_,i)=><Cell key={i} fill={showM2?M2_COLOR:COLORS[i%COLORS.length]}/>)}
           </Bar>
         </BarChart>
@@ -343,7 +344,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   if (loading) return <div style={{ padding:60, textAlign:"center", color:T.textSub }}>Loading {municipality}…</div>;
   if (!muniData?.stats) return <div style={{ padding:60, textAlign:"center", color:T.textSub }}>No data.</div>;
 
-  const { stats, listings, unit_type_mix, price_dist, trend } = muniData;
+  const { stats, listings, unit_type_mix, price_dist, m2_dist, trend } = muniData;
 
   const filteredListings = unitFilter.length
     ? listings.filter(l => unitFilter.some(ut => l.unit_types?.includes(ut)))
@@ -486,7 +487,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
 
           {/* Bottom row: Price Distribution + Avg Price Over Time */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-            <PriceDistChart data={price_dist} height={160} />
+            <PriceDistChart data={price_dist} m2data={m2_dist} height={160} />
 
             <ChartCard title="Avg Price Over Time">
               {(trend||[]).length < 2
