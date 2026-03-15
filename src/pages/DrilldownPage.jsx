@@ -248,6 +248,8 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   const [loading,     setLoading]     = useState(false);
   const [activePin,   setActivePin]   = useState(null);
   const [unitFilter,  setUnitFilter]  = useState([]);
+  const M2_MIN = 0, M2_MAX = 8000;
+  const [m2Range,     setM2Range]     = useState([0, 8000]);
 
   // All municipalities (for selector)
   useEffect(() => {
@@ -326,7 +328,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
           )}
           <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
             <span style={{ color:T.textMuted, fontSize:11, fontWeight:600, textTransform:"uppercase", alignSelf:"center" }}>Sort</span>
-            {[["units","Units"],["listings","Devel."],["avg_price","Avg Price"]].map(([s,lbl])=>(
+            {[["units","Units"],["listings","Devel."],["avg_price","Avg Price"],["avg_price_m2","€/m²"]].map(([s,lbl])=>(
               <button key={s} onClick={()=>setSortBy(s)} style={{
                 background:sortBy===s?T.goldLight:"#fff", border:`1px solid ${sortBy===s?T.borderAccent:T.border}`,
                 color:sortBy===s?T.gold:T.textSub, padding:"6px 12px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:600 }}>{lbl}</button>
@@ -346,9 +348,11 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
 
   const { stats, listings, unit_type_mix, price_dist, m2_dist, trend } = muniData;
 
-  const filteredListings = unitFilter.length
-    ? listings.filter(l => unitFilter.some(ut => l.unit_types?.includes(ut)))
-    : listings;
+  const filteredListings = listings.filter(l => {
+    if (unitFilter.length && !unitFilter.some(ut => l.unit_types?.includes(ut))) return false;
+    if (l.avg_price_m2 && (l.avg_price_m2 < m2Range[0] || l.avg_price_m2 > m2Range[1])) return false;
+    return true;
+  });
   const sortedListings = [...filteredListings].sort((a,b) => b.avg_price - a.avg_price);
 
   const ALL_UTS = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
@@ -402,6 +406,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                   padding:"3px 8px", borderRadius:5, cursor:"pointer", fontSize:10, fontWeight:700 }}>{ut}</button>
             ))}
           </div>
+
           {/* Scrollable card list */}
           <div style={{ height:"calc(100vh - 280px)", overflowY:"auto", overflowX:"hidden",
             display:"flex", flexDirection:"column", gap:10,

@@ -4,19 +4,21 @@ import DrilldownPage  from "./pages/DrilldownPage.jsx";
 import ListingPage    from "./pages/ListingPage.jsx";
 import ApartmentPage  from "./pages/ApartmentPage.jsx";
 import DelistedPage   from "./pages/DelistedPage.jsx";
+import SearchPage     from "./pages/SearchPage.jsx";
 
 // export const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 export const API = "https://spain-house-development.onrender.com";
 const NAV_H = 56;
 
 export default function App() {
-  const [nav, setNav] = useState({ page:"summary" });
+  const [nav, setNav] = useState({ page:"search" });
   const goTo = (page, extra={}) => setNav({ page, ...extra });
 
   const navActive   = "#C9A84C";
   const navInactive = "#6B7280";
 
   const NAV_TABS = [
+    ["search",   "Search"],
     ["summary",  "Market Summary"],
     ["drilldown","Analysis"],
     ["delisted", "Delisted"],
@@ -79,6 +81,9 @@ export default function App() {
       </div>
 
       {/* Pages */}
+      {nav.page==="search" && <SearchPage
+        onSelectListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})}
+      />}
       {nav.page==="summary" && <SummaryPage
         onDrilldown={m => goTo("drilldown",{municipality:m})}
         onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni,highlight:id})}

@@ -384,18 +384,43 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
                           fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
                     </>)}
 
-                    {/* Dot indicators */}
-                    {photos.length > 1 && (
-                      <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)",
-                        display:"flex", gap:5 }}>
-                        {photos.map((_,i) => (
-                          <div key={i} onClick={() => setPhotoIdx(i)}
-                            style={{ width: i===photoIdx?18:7, height:7, borderRadius:4,
-                              background: i===photoIdx?"#C9A84C":"rgba(255,255,255,0.5)",
-                              cursor:"pointer", transition:"all 0.2s" }} />
-                        ))}
-                      </div>
-                    )}
+                    {/* Dot indicators — sliding window when > 7 photos */}
+                    {photos.length > 1 && (() => {
+                      const MAX = 7;
+                      if (photos.length <= MAX) {
+                        return (
+                          <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)",
+                            display:"flex", gap:5 }}>
+                            {photos.map((_,i) => (
+                              <div key={i} onClick={() => setPhotoIdx(i)}
+                                style={{ width: i===photoIdx?18:7, height:7, borderRadius:4,
+                                  background: i===photoIdx?"#C9A84C":"rgba(255,255,255,0.5)",
+                                  cursor:"pointer", transition:"all 0.2s" }} />
+                            ))}
+                          </div>
+                        );
+                      }
+                      // Sliding window: show MAX dots centered around current index
+                      const half = Math.floor(MAX / 2);
+                      let start = Math.max(0, photoIdx - half);
+                      let end = start + MAX;
+                      if (end > photos.length) { end = photos.length; start = Math.max(0, end - MAX); }
+                      const visible = Array.from({ length: end - start }, (_, i) => start + i);
+                      return (
+                        <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)",
+                          display:"flex", gap:5, alignItems:"center" }}>
+                          {start > 0 && <div style={{ width:4, height:4, borderRadius:"50%", background:"rgba(255,255,255,0.3)" }}/>}
+                          {visible.map(i => (
+                            <div key={i} onClick={() => setPhotoIdx(i)}
+                              style={{ width: i===photoIdx?18:7, height:7, borderRadius:4,
+                                background: i===photoIdx?"#C9A84C":"rgba(255,255,255,0.5)",
+                                cursor:"pointer", transition:"all 0.2s",
+                                transform: `scale(${i===photoIdx ? 1 : Math.abs(i-photoIdx)===1 ? 0.85 : 0.7})` }} />
+                          ))}
+                          {end < photos.length && <div style={{ width:4, height:4, borderRadius:"50%", background:"rgba(255,255,255,0.3)" }}/>}
+                        </div>
+                      );
+                    })()}
 
                     {/* Counter */}
                     <div style={{ position:"absolute", top:8, right:8,
