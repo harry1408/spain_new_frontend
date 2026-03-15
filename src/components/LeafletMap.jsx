@@ -34,15 +34,21 @@ export default function LeafletMap({
   center,
   zoom         = 11,
   height       = "340px",
-  radiusKm     = null,   // draw circle + zoom to it
-  radiusCenter = null,   // {lat, lng} center of circle
+  radiusKm     = null,
+  radiusCenter = null,
 }) {
-  const elRef       = useRef(null);
-  const mapRef      = useRef(null);
-  const layerGroup  = useRef(null);
-  const circleLayer = useRef(null); // separate layer for radius circle
+  const elRef        = useRef(null);
+  const mapRef       = useRef(null);
+  const layerGroup   = useRef(null);
+  const circleLayer  = useRef(null);
+  const radiusKmRef  = useRef(radiusKm);    // always current value
+  const radiusCtrRef = useRef(radiusCenter); // always current value
 
-  // ── One-time init ────────────────────────────────────────────────────────
+  // Keep refs in sync
+  radiusKmRef.current  = radiusKm;
+  radiusCtrRef.current = radiusCenter;
+
+  // ── One-time init ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!elRef.current) return;
     const tid = setTimeout(() => {
@@ -50,16 +56,13 @@ export default function LeafletMap({
       const map = L.map(elRef.current, {
         zoomControl: true, scrollWheelZoom: false, attributionControl: false,
       }).setView(center || [39.47, -0.38], zoom);
-
       L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { maxZoom: 19 }).addTo(map);
       L.control.attribution({ prefix: false }).addAttribution('© <a href="https://carto.com">CARTO</a>').addTo(map);
-
       layerGroup.current  = L.layerGroup().addTo(map);
       circleLayer.current = L.layerGroup().addTo(map);
       mapRef.current      = map;
       map.invalidateSize();
     }, 60);
-
     return () => {
       clearTimeout(tid);
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; layerGroup.current = null; circleLayer.current = null; }
@@ -96,14 +99,21 @@ export default function LeafletMap({
         group.addLayer(marker);
       });
 
-      // Fit/center on markers
-      if (valid.length > 1) {
-        // Only auto-fit if no radius (radius effect handles zoom)
-        if (!radiusKm) {
-          try { map.fitBounds(valid.map(m => [m.lat, m.lng]), { padding: [40, 40], maxZoom: 14, animate: false }); } catch {}
-        }
+      // Use ref so this always reads the live radiusKm value
+      const rKm  = radiusKmRef.current;
+      const rCtr = radiusCtrRef.current;
+
+      if (rKm && rCtr?.lat && rCtr?.lng) {
+        // Radius active — fit to circle (don't fit to markers)
+        try {
+          const c      = [rCtr.lat, rCtr.lng];
+          const rM     = rKm * 1000;
+          const pad    = rKm < 0.5 ? [50, 50] : rKm < 2 ? [40, 40] : [30, 30];
+          map.fitBounds(L.circle(c, { radius: rM }).getBounds(), { padding: pad, animate: false });
+        } catch {}
+      } else if (valid.length > 1) {
+        try { map.fitBounds(valid.map(m => [m.lat, m.lng]), { padding: [40, 40], maxZoom: 14, animate: false }); } catch {}
       } else if (valid.length === 1) {
-        // Always center on single result, zoom in tightly
         map.setView([valid[0].lat, valid[0].lng], 14, { animate: true });
       }
       map.invalidateSize();
@@ -111,7 +121,7 @@ export default function LeafletMap({
     draw();
   }, [markers]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Radius circle + zoom ─────────────────────────────────────────────────
+  // ── Radius circle + zoom ──────────────────────────────────────────────────
   useEffect(() => {
     let attempts = 0;
     const draw = () => {
@@ -123,26 +133,18 @@ export default function LeafletMap({
       circleLayer.current.clearLayers();
 
       if (radiusKm && radiusCenter?.lat && radiusCenter?.lng) {
-        const c = [radiusCenter.lat, radiusCenter.lng];
-        // Draw circle
+        const c  = [radiusCenter.lat, radiusCenter.lng];
+        const rM = radiusKm * 1000;
         L.circle(c, {
-          radius:      radiusKm * 1000,
-          color:       "#C9A84C",
-          weight:      2,
-          opacity:     0.7,
-          fillColor:   "#C9A84C",
-          fillOpacity: 0.08,
+          radius: rM, color: "#C9A84C", weight: 2, opacity: 0.8,
+          fillColor: "#C9A84C", fillOpacity: 0.08,
         }).addTo(circleLayer.current);
-        // Center dot
         L.circleMarker(c, {
           radius: 5, color: "#C9A84C", fillColor: "#C9A84C", fillOpacity: 1, weight: 2,
         }).addTo(circleLayer.current);
-        // Zoom map to fit circle bounds
         try {
-          map.fitBounds(
-            L.circle(c, { radius: radiusKm * 1000 }).getBounds(),
-            { padding: [30, 30], animate: true }
-          );
+          const pad = radiusKm < 0.5 ? [50, 50] : radiusKm < 2 ? [40, 40] : [30, 30];
+          map.fitBounds(L.circle(c, { radius: rM }).getBounds(), { padding: pad, animate: true });
         } catch {}
       }
     };
