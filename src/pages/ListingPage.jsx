@@ -227,6 +227,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
   const [photos,      setPhotos]      = useState([]);
   const [photoIdx,    setPhotoIdx]    = useState(0);
   const [photoLoading,setPhotoLoading]= useState(false);
+  const [lightbox,    setLightbox]    = useState(false);
 
   // Trigger heartbeat when highlight prop is set (navigated from scatter chart)
   useEffect(() => {
@@ -361,12 +362,13 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
                   </div>
                 ) : (
                   <>
-                    {/* Main image */}
+                    {/* Main image — click to open lightbox */}
                     <img
                       src={photos[photoIdx]}
                       alt={`Photo ${photoIdx+1}`}
+                      onClick={() => setLightbox(true)}
                       style={{ width:"100%", height:"100%", objectFit:"cover", display:"block",
-                        position:"absolute", inset:0 }}
+                        position:"absolute", inset:0, cursor:"zoom-in" }}
                       onError={e => { e.target.style.display="none"; }}
                     />
 
@@ -490,6 +492,69 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
         />
       )}
 
+      {/* ── Lightbox ───────────────────────────────────────────────────── */}
+      {lightbox && photos.length > 0 && (
+        <div onClick={() => setLightbox(false)}
+          style={{ position:"fixed", inset:0, zIndex:9999, background:"rgba(0,0,0,0.92)",
+            display:"flex", alignItems:"center", justifyContent:"center" }}>
+          {/* Image */}
+          <img
+            src={photos[photoIdx]}
+            alt={`Photo ${photoIdx+1}`}
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth:"90vw", maxHeight:"88vh", objectFit:"contain",
+              borderRadius:8, boxShadow:"0 8px 40px rgba(0,0,0,0.6)", userSelect:"none" }}
+            onError={e => { e.target.style.display="none"; }}
+          />
+          {/* Prev */}
+          {photos.length > 1 && (
+            <button onClick={e => { e.stopPropagation(); setPhotoIdx(i => (i-1+photos.length)%photos.length); }}
+              style={{ position:"fixed", left:24, top:"50%", transform:"translateY(-50%)",
+                background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
+                width:48, height:48, borderRadius:"50%", cursor:"pointer",
+                fontSize:26, display:"flex", alignItems:"center", justifyContent:"center",
+                backdropFilter:"blur(4px)" }}>‹</button>
+          )}
+          {/* Next */}
+          {photos.length > 1 && (
+            <button onClick={e => { e.stopPropagation(); setPhotoIdx(i => (i+1)%photos.length); }}
+              style={{ position:"fixed", right:24, top:"50%", transform:"translateY(-50%)",
+                background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
+                width:48, height:48, borderRadius:"50%", cursor:"pointer",
+                fontSize:26, display:"flex", alignItems:"center", justifyContent:"center",
+                backdropFilter:"blur(4px)" }}>›</button>
+          )}
+          {/* Counter */}
+          <div style={{ position:"fixed", top:20, left:"50%", transform:"translateX(-50%)",
+            background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:13, fontWeight:600,
+            padding:"6px 16px", borderRadius:20, backdropFilter:"blur(4px)" }}>
+            {photoIdx+1} / {photos.length}
+          </div>
+          {/* Close */}
+          <button onClick={() => setLightbox(false)}
+            style={{ position:"fixed", top:16, right:20, background:"rgba(255,255,255,0.15)",
+              border:"none", color:"#fff", width:40, height:40, borderRadius:"50%",
+              cursor:"pointer", fontSize:20, display:"flex", alignItems:"center",
+              justifyContent:"center", backdropFilter:"blur(4px)" }}>✕</button>
+          {/* Dot strip */}
+          {photos.length > 1 && (
+            <div style={{ position:"fixed", bottom:20, left:"50%", transform:"translateX(-50%)",
+              display:"flex", gap:6, alignItems:"center" }}>
+              {(() => {
+                const MAX=9, half=Math.floor(MAX/2);
+                let s=Math.max(0,photoIdx-half), e=s+MAX;
+                if(e>photos.length){e=photos.length;s=Math.max(0,e-MAX);}
+                return Array.from({length:e-s},(_,i)=>s+i).map(i=>(
+                  <div key={i} onClick={e=>{e.stopPropagation();setPhotoIdx(i);}}
+                    style={{ width:i===photoIdx?20:7, height:7, borderRadius:4,
+                      background:i===photoIdx?"#C9A84C":"rgba(255,255,255,0.4)",
+                      cursor:"pointer", transition:"all 0.2s" }} />
+                ));
+              })()}
+            </div>
+          )}
+        </div>
+      )}
 
     </div>
   );

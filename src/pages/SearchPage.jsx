@@ -279,7 +279,8 @@ export default function SearchPage({ onSelectListing }) {
       return;
     }
     setLoading(true);
-    const currentRadius = radiusKm; // capture for use inside .then()
+    const currentRadius = radiusKm;
+    const currentMuni = selMuni.slice(); // capture current value to avoid stale closure
     const qs = _buildQs(currentRadius);
     fetch(`${API}/search/listings?${qs}`)
       .then(r => r.json())
@@ -288,12 +289,12 @@ export default function SearchPage({ onSelectListing }) {
         setResults(listings);
         setLoading(false);
         // Fetch trend data for municipality
-        if (selMuni.length > 0) {
+        if (currentMuni.length > 0) {
           const tqs = new URLSearchParams();
-          selMuni.forEach(m => tqs.append("municipality", m));
+          currentMuni.forEach(m => tqs.append("municipality", m));
           fetch(`${API}/temporal/market-trend?${tqs}`)
             .then(r => r.json())
-            .then(d => setTrend(d || []))
+            .then(d => setTrend(Array.isArray(d) ? d : []))
             .catch(() => {});
         }
         // On first fetch (no radius yet), store center and auto-set 10km
