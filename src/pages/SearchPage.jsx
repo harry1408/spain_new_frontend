@@ -158,8 +158,9 @@ function ResultCard({ l, onSelect, active, onHover }) {
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: T.text, marginBottom: 2 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: T.text, marginBottom: 2,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {l.property_name}
           </div>
           <div style={{ fontSize: 11, color: T.textSub }}>
@@ -172,10 +173,10 @@ function ResultCard({ l, onSelect, active, onHover }) {
             </div>
           )}
         </div>
-        {l.esg_grade && (
+        {l.esg_grade && l.esg_grade !== "Unknown" && (
           <span style={{ background: ESG_COLORS[l.esg_grade] || "#9CA3AF",
             color: "#fff", borderRadius: 5, padding: "2px 8px", fontSize: 10,
-            fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>
+            fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0, alignSelf: "flex-start" }}>
             ESG {l.esg_grade}
           </span>
         )}
@@ -245,6 +246,8 @@ export default function SearchPage({ onSelectListing }) {
 
   // Fixed center for radius searches — set once from first search results
   const searchCenterRef = React.useRef(null);
+  const selMuniRef = React.useRef(selMuni);
+  selMuniRef.current = selMuni;
   const [searchCenter, setSearchCenter] = React.useState(null);
   const isAutoRadiusRef = React.useRef(false); // flag to skip re-fetch on auto-set
 
@@ -288,16 +291,17 @@ export default function SearchPage({ onSelectListing }) {
         const listings = d.listings || [];
         setResults(listings);
         setLoading(false);
-        // Fetch trend data for municipality
-        if (currentMuni.length > 0) {
+        // Fetch trend using ref so we always have current selMuni
+        const munis = selMuniRef.current;
+        if (munis.length > 0) {
           const tqs = new URLSearchParams();
-          currentMuni.forEach(m => tqs.append("municipality", m));
+          munis.forEach(m => tqs.append("municipality", m));
           fetch(`${API}/temporal/market-trend?${tqs}`)
             .then(r => r.json())
             .then(d => setTrend(Array.isArray(d) ? d : []))
             .catch(() => {});
         }
-        // On first fetch (no radius yet), store center and auto-set 10km
+        // On first fetch (no radius yet), store center and auto-set default radius
         if (!currentRadius && !searchCenterRef.current) {
           const withCoords = listings.filter(l => l.lat && l.lng);
           if (withCoords.length) {
@@ -319,6 +323,8 @@ export default function SearchPage({ onSelectListing }) {
       })
       .catch(() => setLoading(false));
   }, [searched, radiusKm, _buildQs]);
+
+
 
   const mapMarkers = useMemo(() => {
     if (!results) return [];
@@ -373,6 +379,25 @@ export default function SearchPage({ onSelectListing }) {
     return bins.map(b => ({
       bin: b.bin,
       count: displayResults.filter(l => l.avg_price >= b.min && l.avg_price < b.max).length,
+    })).filter(b => b.count > 0);
+  }, [displayResults]);
+
+  const m2Dist = useMemo(() => {
+    const bins = [
+      { bin:"<1k",    min:0,    max:1000 },
+      { bin:"1-1.5k", min:1000, max:1500 },
+      { bin:"1.5-2k", min:1500, max:2000 },
+      { bin:"2-2.5k", min:2000, max:2500 },
+      { bin:"2.5-3k", min:2500, max:3000 },
+      { bin:"3-3.5k", min:3000, max:3500 },
+      { bin:"3.5-4k", min:3500, max:4000 },
+      { bin:"4-5k",   min:4000, max:5000 },
+      { bin:"5-6k",   min:5000, max:6000 },
+      { bin:">6k",    min:6000, max:Infinity },
+    ];
+    return bins.map(b => ({
+      bin: b.bin,
+      count: displayResults.filter(l => l.avg_price_m2 >= b.min && l.avg_price_m2 < b.max).length,
     })).filter(b => b.count > 0);
   }, [displayResults]);
 
@@ -531,79 +556,148 @@ export default function SearchPage({ onSelectListing }) {
         </div>
       </div>
 
-      {/* ── Secondary filters (shown once selection made) ── */}
+      {/* ── Secondary filters ── */}
       {hasSelection && (
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap",
-          marginBottom: 16, padding: "10px 4px" }}>
+        <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:12,
+          padding:"14px 20px", marginBottom:16, boxShadow:"0 1px 4px rgba(0,0,0,0.05)" }}>
+          <div style={{ display:"flex", alignItems:"flex-start", gap:24, flexWrap:"wrap" }}>
 
-          {/* Dev type pills */}
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-            {ALL_UTS.map(ut => (
-              <button key={ut} onClick={() => setSelUnit(prev =>
-                prev.includes(ut) ? prev.filter(x => x !== ut) : [...prev, ut])}
-                style={{ padding: "3px 9px", borderRadius: 20, fontSize: 11, fontWeight: 600,
-                  cursor: "pointer", transition: "all 0.15s",
-                  background: selUnit.includes(ut) ? UNIT_COLORS[ut] || "#555" : "transparent",
-                  border: `1px solid ${selUnit.includes(ut) ? UNIT_COLORS[ut] || "#555" : T.border}`,
-                  color: selUnit.includes(ut) ? "#fff" : T.textMuted }}>
-                {ut}
-              </button>
-            ))}
+            {/* Unit Type */}
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              <span style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Unit Type</span>
+              <div style={{ display:"flex", gap:3 }}>
+                {ALL_UTS.map(ut => (
+                  <button key={ut} onClick={() => setSelUnit(prev =>
+                    prev.includes(ut) ? prev.filter(x => x !== ut) : [...prev, ut])}
+                    style={{ padding:"5px 10px", borderRadius:20, fontSize:11, fontWeight:700,
+                      cursor:"pointer", transition:"all 0.15s",
+                      background: selUnit.includes(ut) ? UNIT_COLORS[ut] || "#555" : "#F7F6F2",
+                      border:`1.5px solid ${selUnit.includes(ut) ? UNIT_COLORS[ut] || "#555" : "transparent"}`,
+                      color: selUnit.includes(ut) ? "#fff" : T.textSub,
+                      boxShadow: selUnit.includes(ut) ? "0 2px 6px rgba(0,0,0,0.18)" : "none" }}>
+                    {ut}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ width:1, alignSelf:"stretch", background:T.border, margin:"2px 0" }} />
+
+            {/* ESG */}
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              <span style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>ESG Grade</span>
+              <div style={{ display:"flex", gap:4 }}>
+                {ALL_ESG.map(g => (
+                  <button key={g} onClick={() => setSelEsg(prev =>
+                    prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])}
+                    style={{ width:30, height:30, borderRadius:"50%", fontSize:12, fontWeight:800,
+                      cursor:"pointer", transition:"all 0.15s",
+                      border:`2px solid ${selEsg.includes(g) ? ESG_COLORS[g]||"#555" : T.border}`,
+                      background: selEsg.includes(g) ? ESG_COLORS[g]||"#555" : "#F7F6F2",
+                      color: selEsg.includes(g) ? "#fff" : T.textSub,
+                      boxShadow: selEsg.includes(g) ? `0 2px 8px ${ESG_COLORS[g]}55` : "none" }}>
+                    {g}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ width:1, alignSelf:"stretch", background:T.border, margin:"2px 0" }} />
+
+            {/* Price range with slider */}
+            <div style={{ display:"flex", flexDirection:"column", gap:6, minWidth:200 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <span style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Price Range</span>
+                <span style={{ fontSize:10, fontWeight:700, color:PRICE_COLOR }}>
+                  {minPrice ? `€${Number(minPrice).toLocaleString()}` : "Any"} – {maxPrice ? `€${Number(maxPrice).toLocaleString()}` : "Any"}
+                </span>
+              </div>
+              {/* Preset buckets */}
+              <div style={{ display:"flex", gap:3, flexWrap:"wrap" }}>
+                {[["<200k",0,200000],["200-400k",200000,400000],["400-700k",400000,700000],[">700k",700000,""]]
+                  .map(([lbl,mn,mx]) => {
+                    const active = String(minPrice)===String(mn) && String(maxPrice)===String(mx);
+                    return (
+                      <button key={lbl} onClick={() => { setMinPrice(active?"":mn); setMaxPrice(active?"":mx); }}
+                        style={{ padding:"3px 9px", borderRadius:20, fontSize:10, fontWeight:700,
+                          cursor:"pointer", transition:"all 0.15s",
+                          background: active ? PRICE_COLOR : "#F7F6F2",
+                          border:`1.5px solid ${active ? PRICE_COLOR : "transparent"}`,
+                          color: active ? "#fff" : T.textSub }}>
+                        {lbl}
+                      </button>
+                    );
+                  })}
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                <input type="number" placeholder="Min €" value={minPrice} onChange={e => setMinPrice(e.target.value)}
+                  style={{ width:80, padding:"4px 7px", borderRadius:7, fontSize:11,
+                    border:`1.5px solid ${minPrice ? PRICE_COLOR : T.border}`, outline:"none",
+                    color:T.text, background:"#FAFAF8" }} />
+                <span style={{ color:T.textMuted, fontSize:11 }}>–</span>
+                <input type="number" placeholder="Max €" value={maxPrice} onChange={e => setMaxPrice(e.target.value)}
+                  style={{ width:80, padding:"4px 7px", borderRadius:7, fontSize:11,
+                    border:`1.5px solid ${maxPrice ? PRICE_COLOR : T.border}`, outline:"none",
+                    color:T.text, background:"#FAFAF8" }} />
+              </div>
+            </div>
+
+            <div style={{ width:1, alignSelf:"stretch", background:T.border, margin:"2px 0" }} />
+
+            {/* €/m² range */}
+            <div style={{ display:"flex", flexDirection:"column", gap:6, minWidth:180 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <span style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>€/m²</span>
+                <span style={{ fontSize:10, fontWeight:700, color:M2_COLOR }}>
+                  {minM2 ? `€${Number(minM2).toLocaleString()}` : "Any"} – {maxM2 ? `€${Number(maxM2).toLocaleString()}` : "Any"}
+                </span>
+              </div>
+              <div style={{ display:"flex", gap:3, flexWrap:"wrap" }}>
+                {[["<2k",0,2000],["2-3k",2000,3000],["3-5k",3000,5000],[">5k",5000,""]]
+                  .map(([lbl,mn,mx]) => {
+                    const active = String(minM2)===String(mn) && String(maxM2)===String(mx);
+                    return (
+                      <button key={lbl} onClick={() => { setMinM2(active?"":mn); setMaxM2(active?"":mx); }}
+                        style={{ padding:"3px 9px", borderRadius:20, fontSize:10, fontWeight:700,
+                          cursor:"pointer", transition:"all 0.15s",
+                          background: active ? M2_COLOR : "#F7F6F2",
+                          border:`1.5px solid ${active ? M2_COLOR : "transparent"}`,
+                          color: active ? "#fff" : T.textSub }}>
+                        {lbl}
+                      </button>
+                    );
+                  })}
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                <input type="number" placeholder="Min" value={minM2} onChange={e => setMinM2(e.target.value)}
+                  style={{ width:75, padding:"4px 7px", borderRadius:7, fontSize:11,
+                    border:`1.5px solid ${minM2 ? M2_COLOR : T.border}`, outline:"none",
+                    color:T.text, background:"#FAFAF8" }} />
+                <span style={{ color:T.textMuted, fontSize:11 }}>–</span>
+                <input type="number" placeholder="Max" value={maxM2} onChange={e => setMaxM2(e.target.value)}
+                  style={{ width:75, padding:"4px 7px", borderRadius:7, fontSize:11,
+                    border:`1.5px solid ${maxM2 ? M2_COLOR : T.border}`, outline:"none",
+                    color:T.text, background:"#FAFAF8" }} />
+              </div>
+            </div>
+
+            {/* Active filters count + reset */}
+            {(selUnit.length + selEsg.length > 0 || minPrice || maxPrice || minM2 || maxM2) && (
+              <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:8, alignSelf:"center" }}>
+                <span style={{ background:T.goldLight, color:T.gold, borderRadius:20,
+                  padding:"4px 12px", fontSize:11, fontWeight:700, whiteSpace:"nowrap" }}>
+                  {[selUnit.length, selEsg.length, minPrice||maxPrice?1:0, minM2||maxM2?1:0]
+                    .reduce((a,b)=>a+b,0)} filter{[selUnit.length, selEsg.length, minPrice||maxPrice?1:0, minM2||maxM2?1:0].reduce((a,b)=>a+b,0)!==1?"s":""} active
+                </span>
+                <button onClick={() => { setSelUnit([]); setSelEsg([]); setMinPrice(""); setMaxPrice(""); setMinM2(""); setMaxM2(""); }}
+                  style={{ background:"none", border:`1.5px solid ${T.border}`, borderRadius:20,
+                    color:T.textMuted, fontSize:11, cursor:"pointer", padding:"4px 12px",
+                    fontWeight:600, whiteSpace:"nowrap" }}>
+                  ✕ Clear
+                </button>
+              </div>
+            )}
           </div>
-
-          <div style={{ width: 1, height: 20, background: T.border, flexShrink: 0 }} />
-
-          {/* ESG pills */}
-          <div style={{ display: "flex", gap: 3 }}>
-            {ALL_ESG.map(g => (
-              <button key={g} onClick={() => setSelEsg(prev =>
-                prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])}
-                style={{ width: 26, height: 26, borderRadius: 6, fontSize: 10, fontWeight: 800,
-                  cursor: "pointer", transition: "all 0.15s",
-                  border: `1px solid ${selEsg.includes(g) ? ESG_COLORS[g] || "#555" : T.border}`,
-                  background: selEsg.includes(g) ? ESG_COLORS[g] || "#555" : "transparent",
-                  color: selEsg.includes(g) ? "#fff" : T.textMuted }}>
-                {g}
-              </button>
-            ))}
-          </div>
-
-          <div style={{ width: 1, height: 20, background: T.border, flexShrink: 0 }} />
-
-          {/* Price range */}
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, whiteSpace: "nowrap" }}>€</span>
-            <input type="number" placeholder="Min" value={minPrice} onChange={e => setMinPrice(e.target.value)}
-              style={{ width: 72, padding: "4px 6px", borderRadius: 6, fontSize: 11,
-                border: `1px solid ${T.border}`, outline: "none", color: T.text, background: "#fff" }} />
-            <span style={{ color: T.textMuted, fontSize: 11 }}>–</span>
-            <input type="number" placeholder="Max" value={maxPrice} onChange={e => setMaxPrice(e.target.value)}
-              style={{ width: 72, padding: "4px 6px", borderRadius: 6, fontSize: 11,
-                border: `1px solid ${T.border}`, outline: "none", color: T.text, background: "#fff" }} />
-          </div>
-
-          <div style={{ width: 1, height: 20, background: T.border, flexShrink: 0 }} />
-
-          {/* €/m² range */}
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, whiteSpace: "nowrap" }}>€/m²</span>
-            <input type="number" placeholder="Min" value={minM2} onChange={e => setMinM2(e.target.value)}
-              style={{ width: 72, padding: "4px 6px", borderRadius: 6, fontSize: 11,
-                border: `1px solid ${T.border}`, outline: "none", color: T.text, background: "#fff" }} />
-            <span style={{ color: T.textMuted, fontSize: 11 }}>–</span>
-            <input type="number" placeholder="Max" value={maxM2} onChange={e => setMaxM2(e.target.value)}
-              style={{ width: 72, padding: "4px 6px", borderRadius: 6, fontSize: 11,
-                border: `1px solid ${T.border}`, outline: "none", color: T.text, background: "#fff" }} />
-          </div>
-
-          {/* Active filter count */}
-          {(selUnit.length + selEsg.length > 0 || minPrice || maxPrice || minM2 || maxM2) && (
-            <button onClick={() => { setSelUnit([]); setSelEsg([]); setMinPrice(""); setMaxPrice(""); setMinM2(""); setMaxM2(""); }}
-              style={{ fontSize: 11, color: T.textMuted, background: "none", border: "none",
-                cursor: "pointer", textDecoration: "underline", padding: 0 }}>
-              Reset filters
-            </button>
-          )}
         </div>
       )}
       {/* ── Results ── */}
@@ -708,7 +802,7 @@ export default function SearchPage({ onSelectListing }) {
                     </ChartCard>
                   </div>
 
-                  {/* Bottom row: Price Distribution + Avg Price Over Time */}
+                  {/* Bottom row: Price Distribution + €/m² Distribution */}
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
                     {priceDist.length > 0 && (
                       <ChartCard title="Price Distribution">
@@ -726,23 +820,22 @@ export default function SearchPage({ onSelectListing }) {
                         </ResponsiveContainer>
                       </ChartCard>
                     )}
-                    <ChartCard title="Avg Price Over Time">
-                      {trend.length < 2
-                        ? <div style={{ padding:"40px 0", textAlign:"center", color:T.textMuted, fontSize:12 }}>Not enough data</div>
-                        : <ResponsiveContainer width="100%" height={160}>
-                            <LineChart data={trend}>
-                              <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-                              <XAxis dataKey="period" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
-                              <YAxis yAxisId="p" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
-                              <YAxis yAxisId="m" orientation="right" tickFormatter={v=>`€${v}`} tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
-                              <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
-                              <Legend wrapperStyle={{ fontSize:10 }} />
-                              <Line yAxisId="p" type="monotone" dataKey="avg_price" name="Avg Price" stroke={T.gold} strokeWidth={2.5} dot={{ r:4, fill:T.gold }} />
-                              <Line yAxisId="m" type="monotone" dataKey="avg_price_m2" name="€/m²" stroke={M2_COLOR} strokeWidth={2} strokeDasharray="5 3" dot={{ r:3 }} />
-                            </LineChart>
-                          </ResponsiveContainer>
-                      }
-                    </ChartCard>
+                    {m2Dist.length > 0 && (
+                      <ChartCard title="€/m² Distribution">
+                        <ResponsiveContainer width="100%" height={160}>
+                          <BarChart data={m2Dist} barSize={22}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                            <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                            <Tooltip formatter={v => [`${v} developments`, "Count"]}
+                              contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
+                            <Bar dataKey="count" radius={[4,4,0,0]} isAnimationActive={false}>
+                              {m2Dist.map((_,i) => <Cell key={i} fill={M2_COLOR} opacity={0.5 + (i / m2Dist.length) * 0.5} />)}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </ChartCard>
+                    )}
                   </div>
 
                 </div>{/* end right */}
