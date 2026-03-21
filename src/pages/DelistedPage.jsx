@@ -74,7 +74,7 @@ function DelistedApartments({ listingId, listingName, onBack }) {
   const apts = data.apartments || [];
 
   return (
-    <div style={{ padding:"24px 36px", maxWidth:1200, margin:"0 auto" }}>
+    <div style={{ padding:"20px 20px", maxWidth:1700, margin:"0 auto" }}>
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20 }}>
         <div>
@@ -238,7 +238,7 @@ export default function DelistedPage({ onGoListing }) {
   );
 
   return (
-    <div style={{ padding:"24px 36px", maxWidth:1500, margin:"0 auto" }}>
+    <div style={{ padding:"20px 20px", maxWidth:1700, margin:"0 auto" }}>
 
       {/* Header */}
       <div style={{ marginBottom:20 }}>

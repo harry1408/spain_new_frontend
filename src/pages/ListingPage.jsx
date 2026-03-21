@@ -146,7 +146,7 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
         <span style={{ color:T.textMuted, marginLeft:6 }}>· click any card to compare</span>
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))", gap:10 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))", gap:10 }}>
         {sorted.map(l => {
           const isCur = l.listing_id === currentListingId;
           const isSel = l.listing_id === selected;
@@ -155,26 +155,37 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
               onClick={() => !isCur && setSelected(p => p===l.listing_id ? null : l.listing_id)}
               style={{ background: isCur?T.goldLight:isSel?"rgba(74,128,176,0.10)":"#fff",
                 border:`2px solid ${isCur?T.borderAccent:isSel?T.blue:T.border}`,
-                borderRadius:12, padding:"12px 16px", boxShadow:T.shadow,
-                cursor:isCur?"default":"pointer", transition:"all 0.12s" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:6 }}>
-                <div style={{ flex:1, minWidth:0 }}>
+                borderRadius:12, padding:"14px 14px", boxShadow:T.shadow,
+                cursor:isCur?"default":"pointer", transition:"all 0.12s",
+                display:"flex", flexDirection:"column", gap:10 }}>
+
+              {/* Header */}
+              <div>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:4, marginBottom:4 }}>
                   <div style={{ fontWeight:700, fontSize:12, color:isCur?T.gold:isSel?T.blue:T.text,
-                    whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                    overflow:"hidden", textOverflow:"ellipsis",
+                    display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>
                     {l.property_name}
-                    {isCur&&<span style={{ marginLeft:5, fontSize:9, background:T.gold, color:"#fff", padding:"1px 5px", borderRadius:3 }}>Current</span>}
-                    {isSel&&!isCur&&<span style={{ marginLeft:5, fontSize:9, background:T.blue, color:"#fff", padding:"1px 5px", borderRadius:3 }}>Comparing</span>}
                   </div>
-                  <div style={{ color:T.textSub, fontSize:11, marginTop:1 }}>{l.municipality}</div>
+                  {l.esg_grade&&l.esg_grade!=="nan"&&
+                    <Tag label={`ESG ${l.esg_grade}`} color={ESG_COLORS[l.esg_grade]||"#999"}/>}
                 </div>
-                {l.esg_grade&&l.esg_grade!=="nan"&&<Tag label={`ESG ${l.esg_grade}`} color={ESG_COLORS[l.esg_grade]||"#999"}/>}
+                <div style={{ color:T.textSub, fontSize:10 }}>{l.municipality}</div>
+                {(isCur||isSel) && (
+                  <span style={{ marginTop:3, display:"inline-block", fontSize:9,
+                    background:isCur?T.gold:T.blue, color:"#fff", padding:"1px 6px", borderRadius:3 }}>
+                    {isCur?"Current":"Comparing"}
+                  </span>
+                )}
               </div>
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"3px 4px" }}>
-                {[["Apts",l.units,T.text],["Avg",fmt(l.avg_price),T.gold],
-                  ["Min",fmt(l.min_price),T.green],["€/m²",`€${Math.round(l.avg_price_m2||0)}`,T.textSub]].map(([lbl,val,color])=>(
-                  <div key={lbl}>
-                    <div style={{ color:T.textMuted, fontSize:9, textTransform:"uppercase", fontWeight:600 }}>{lbl}</div>
-                    <div style={{ color, fontWeight:600, fontSize:11 }}>{val}</div>
+
+              {/* Stats — vertical stack */}
+              <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+                {[["Apartments",l.units,T.text],["Avg Price",fmt(l.avg_price),T.gold],
+                  ["Min Price",fmt(l.min_price),T.green],["€/m²",`€${Math.round(l.avg_price_m2||0)}`,T.blue]].map(([lbl,val,color])=>(
+                  <div key={lbl} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                    <div style={{ color:T.textMuted, fontSize:10, fontWeight:600 }}>{lbl}</div>
+                    <div style={{ color, fontWeight:700, fontSize:12 }}>{val}</div>
                   </div>
                 ))}
               </div>
@@ -267,7 +278,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
   const esgColor = ESG_COLORS[data.esg_grade] || "#999";
 
   return (
-    <div style={{ padding:"24px 36px", maxWidth:1500, margin:"0 auto" }}>
+    <div style={{ padding:"20px 20px", maxWidth:1700, margin:"0 auto" }}>
       {/* Heartbeat keyframes */}
       <style>{`
         @keyframes heartbeat {

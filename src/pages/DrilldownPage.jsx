@@ -294,7 +294,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
     const muniOptions = provinceFiltered.map(m => m.municipality).sort();
 
     return (
-      <div style={{ padding:"28px 36px", maxWidth:1400, margin:"0 auto" }}>
+      <div style={{ padding:"20px 20px", maxWidth:1700, margin:"0 auto" }}>
         <div style={{ marginBottom:22 }}>
           <h2 style={{ margin:0, fontFamily:"'DM Serif Display',serif", fontSize:28, color:T.text, fontWeight:400 }}>
             Select a <em style={{ color:T.gold }}>Municipality</em>
@@ -358,7 +358,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   const ALL_UTS = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
 
   return (
-    <div style={{ padding:"24px 36px", maxWidth:1500, margin:"0 auto" }}>
+    <div style={{ padding:"20px 20px", maxWidth:1700, margin:"0 auto" }}>
 
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18, flexWrap:"wrap", gap:12 }}>
