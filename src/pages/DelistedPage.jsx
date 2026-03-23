@@ -11,16 +11,16 @@ function DelistedCard({ l, onClick }) {
     <div onClick={onClick}
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{ background: hov ? T.bgHover : T.bgCard,
-        border: `2px solid ${hov ? "#DC2626" : "#FCA5A5"}`,
+        border: `2px solid ${hov ? "#6B2A2A" : "#FCA5A5"}`,
         borderRadius:12, padding:"16px 18px", cursor:"pointer",
         transition:"all 0.15s", boxShadow: hov ? T.shadowMd : T.shadow }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
         <div>
-          <div style={{ fontWeight:700, fontSize:14, color: hov ? "#DC2626" : T.text }}>{l.property_name}</div>
+          <div style={{ fontWeight:700, fontSize:14, color: hov ? "#6B2A2A" : T.text }}>{l.property_name}</div>
           <div style={{ color:T.textSub, fontSize:11, marginTop:2 }}>{l.developer}</div>
         </div>
         <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
-          <span style={{ background:"#FEF2F2", color:"#DC2626", border:"1px solid #FCA5A5",
+          <span style={{ background:"#FEF2F2", color:"#6B2A2A", border:"1px solid #FCA5A5",
             borderRadius:5, padding:"2px 8px", fontSize:10, fontWeight:700 }}>Delisted</span>
           {l.esg_grade && l.esg_grade !== "nan" && <Tag label={`ESG ${l.esg_grade}`} color={esgColor}/>}
         </div>
@@ -49,7 +49,7 @@ function DelistedCard({ l, onClick }) {
           </div>
         ))}
       </div>
-      <div style={{ marginTop:10, color: hov ? "#DC2626" : T.textMuted, fontSize:11, fontWeight:600 }}>
+      <div style={{ marginTop:10, color: hov ? "#6B2A2A" : T.textMuted, fontSize:11, fontWeight:600 }}>
         View apartments →
       </div>
     </div>
@@ -79,17 +79,17 @@ function DelistedApartments({ listingId, listingName, onBack }) {
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20 }}>
         <div>
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
-            <h2 style={{ margin:0, fontFamily:"'DM Serif Display',serif", fontSize:24, color:T.text, fontWeight:400 }}>
+            <h2 style={{ margin:0, fontFamily:"'Inter',sans-serif", fontSize:26, color:T.text, fontWeight:400 }}>
               {data.property_name}
             </h2>
-            <span style={{ background:"#FEF2F2", color:"#DC2626", border:"1px solid #FCA5A5",
+            <span style={{ background:"#FEF2F2", color:"#6B2A2A", border:"1px solid #FCA5A5",
               borderRadius:5, padding:"3px 10px", fontSize:11, fontWeight:700 }}>Delisted</span>
           </div>
           <div style={{ color:T.textSub, fontSize:12, marginBottom:4 }}>
             {data.developer && <><strong style={{ color:T.text }}>{data.developer}</strong> · </>}
             <span style={{ color:PRICE_COLOR, fontWeight:600 }}>{data.municipality}</span>
             {" · "}
-            <span style={{ color:"#DC2626", fontWeight:600 }}>Last seen: {data.last_period}</span>
+            <span style={{ color:"#6B2A2A", fontWeight:600 }}>Last seen: {data.last_period}</span>
           </div>
         </div>
         <button onClick={onBack}
@@ -152,7 +152,7 @@ function DelistedApartments({ listingId, listingName, onBack }) {
                         <Pill on={a.has_ac}      label="AC"/>
                       </div>
                     </td>
-                    <td style={{ padding:"9px 12px", whiteSpace:"nowrap", fontSize:10, color:"#6B7280" }}>
+                    <td style={{ padding:"9px 12px", whiteSpace:"nowrap", fontSize:10, color:"#6B7A9F" }}>
                       {a.last_updated
                         ? a.last_updated.replace("Listing updated on ","").replace("listing updated on ","")
                         : "—"}
@@ -161,7 +161,7 @@ function DelistedApartments({ listingId, listingName, onBack }) {
                       {a.unit_url && (
                         <a href={a.unit_url} target="_blank" rel="noreferrer"
                           style={{ display:"inline-flex", alignItems:"center", gap:3,
-                            color:"#fff", background:T.blue, fontSize:10, fontWeight:700,
+                            color:"#fff", background:T.navyMid, fontSize:10, fontWeight:700,
                             textDecoration:"none", padding:"3px 9px", borderRadius:5 }}>
                           Idealista ↗
                         </a>
@@ -219,7 +219,7 @@ export default function DelistedPage({ onGoListing }) {
     label:    l.property_name,
     sublabel: `${fmt(l.avg_price)} · ${l.units} apts · Last seen ${periods.prev}`,
     active:   l.listing_id === activePin,
-    color:    l.listing_id === activePin ? "#DC2626" : "#FCA5A5",
+    color:    l.listing_id === activePin ? "#6B2A2A" : "#FCA5A5",
   })), [filtered, activePin, periods]);
 
   // Early returns after all hooks
@@ -242,7 +242,7 @@ export default function DelistedPage({ onGoListing }) {
 
       {/* Header */}
       <div style={{ marginBottom:20 }}>
-        <h2 style={{ margin:"0 0 4px", fontFamily:"'DM Serif Display',serif", fontSize:26,
+        <h2 style={{ margin:"0 0 4px", fontFamily:"'Inter',sans-serif", fontSize:28,
           color:T.text, fontWeight:400 }}>
           Delisted Properties
         </h2>
@@ -254,7 +254,7 @@ export default function DelistedPage({ onGoListing }) {
       {/* KPI row */}
       {summary.count > 0 && (
         <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
-          <StatCard label="Delisted Developments" value={summary.count} accent="#DC2626" />
+          <StatCard label="Delisted Developments" value={summary.count} accent="#6B2A2A" />
           <StatCard label="Total Apartments"       value={(summary.units||0).toLocaleString()} />
           <StatCard label="Avg Last Price"         value={fmt(summary.avg_price)} />
           <StatCard label="Avg Last €/m²"          value={`€${summary.avg_price_m2}`} accent={M2_COLOR} />

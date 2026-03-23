@@ -103,7 +103,7 @@ function ComparePanel({ listing, current, onGoListing, onClose }) {
             ].map(([lbl, val, d]) => (
               <div key={lbl} style={{ background:T.bgStripe, borderRadius:8, padding:"8px 10px" }}>
                 <div style={{ color:T.textMuted, fontSize:9, textTransform:"uppercase", fontWeight:600, marginBottom:2 }}>{lbl}</div>
-                <div style={{ color:T.gold, fontWeight:700, fontSize:13 }}>{val}</div>
+                <div style={{ color:T.navy, fontWeight:700, fontSize:13 }}>{val}</div>
                 {d != null && (
                   <div style={{ fontSize:10, color:d>0?T.red:d<0?T.green:T.textMuted, marginTop:1 }}>
                     {d>0?"▲":"▼"} {fmt(Math.abs(d))} vs current
@@ -117,12 +117,12 @@ function ComparePanel({ listing, current, onGoListing, onClose }) {
           <div style={{ background:"rgba(201,168,76,0.07)", border:`1px solid ${T.borderAccent}`,
             borderRadius:8, padding:"8px 12px", marginBottom:14, fontSize:11 }}>
             <span style={{ color:T.textMuted }}>Comparing vs </span>
-            <span style={{ fontWeight:700, color:T.gold }}>{current.property_name}</span>
+            <span style={{ fontWeight:700, color:T.navy }}>{current.property_name}</span>
           </div>
 
           <button
             onClick={() => onGoListing(listing.listing_id, listing.property_name, listing.municipality)}
-            style={{ width:"100%", background:T.gold, border:"none", color:"#fff",
+            style={{ width:"100%", background:T.navy, border:"none", color:"#fff",
               padding:"12px", borderRadius:9, cursor:"pointer", fontSize:13, fontWeight:700 }}>
             Go to Listing →
           </button>
@@ -153,8 +153,8 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
           return (
             <div key={l.listing_id}
               onClick={() => !isCur && setSelected(p => p===l.listing_id ? null : l.listing_id)}
-              style={{ background: isCur?T.goldLight:isSel?"rgba(74,128,176,0.10)":"#fff",
-                border:`2px solid ${isCur?T.borderAccent:isSel?T.blue:T.border}`,
+              style={{ background: isCur?T.navyLight:isSel?"rgba(74,128,176,0.10)":"#fff",
+                border:`2px solid ${isCur?T.borderAccent:isSel?T.navyMid:T.border}`,
                 borderRadius:12, padding:"14px 14px", boxShadow:T.shadow,
                 cursor:isCur?"default":"pointer", transition:"all 0.12s",
                 display:"flex", flexDirection:"column", gap:10 }}>
@@ -162,7 +162,7 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
               {/* Header */}
               <div>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:4, marginBottom:4 }}>
-                  <div style={{ fontWeight:700, fontSize:12, color:isCur?T.gold:isSel?T.blue:T.text,
+                  <div style={{ fontWeight:700, fontSize:12, color:isCur?T.navy:isSel?T.navyMid:T.text,
                     overflow:"hidden", textOverflow:"ellipsis",
                     display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>
                     {l.property_name}
@@ -173,7 +173,7 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
                 <div style={{ color:T.textSub, fontSize:10 }}>{l.municipality}</div>
                 {(isCur||isSel) && (
                   <span style={{ marginTop:3, display:"inline-block", fontSize:9,
-                    background:isCur?T.gold:T.blue, color:"#fff", padding:"1px 6px", borderRadius:3 }}>
+                    background:isCur?T.navy:T.navyMid, color:"#fff", padding:"1px 6px", borderRadius:3 }}>
                     {isCur?"Current":"Comparing"}
                   </span>
                 )}
@@ -181,8 +181,8 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
 
               {/* Stats — vertical stack */}
               <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-                {[["Apartments",l.units,T.text],["Avg Price",fmt(l.avg_price),T.gold],
-                  ["Min Price",fmt(l.min_price),T.green],["€/m²",`€${Math.round(l.avg_price_m2||0)}`,T.blue]].map(([lbl,val,color])=>(
+                {[["Apartments",l.units,T.text],["Avg Price",fmt(l.avg_price),T.navy],
+                  ["Min Price",fmt(l.min_price),T.green],["€/m²",`€${Math.round(l.avg_price_m2||0)}`,T.navyMid]].map(([lbl,val,color])=>(
                   <div key={lbl} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                     <div style={{ color:T.textMuted, fontSize:10, fontWeight:600 }}>{lbl}</div>
                     <div style={{ color, fontWeight:700, fontSize:12 }}>{val}</div>
@@ -269,7 +269,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
   const singleMarker = useMemo(() => meta?.lat ? [{
     id: listingId, lat: meta.lat, lng: meta.lng,
     label: data?.property_name || "", sublabel: municipality || "",
-    active: true, color: T.gold,
+    active: true, color: T.navy,
   }] : [], [meta, listingId, data, municipality]);
 
   if (loading) return <div style={{ padding:60, textAlign:"center", color:T.textSub }}>Loading…</div>;
@@ -298,13 +298,13 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
           transition:"padding 0.2s" }}>
         <div>
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
-            <h2 style={{ margin:0, fontFamily:"'DM Serif Display',serif", fontSize:24,
+            <h2 style={{ margin:0, fontFamily:"'Inter',sans-serif", fontSize:26,
               color:T.text, fontWeight:400 }}>{data.property_name}</h2>
             {data.esg_grade && <Tag label={`ESG ${data.esg_grade}`} color={esgColor}/>}
           </div>
           <div style={{ color:T.textSub, fontSize:12, marginBottom:4 }}>
             by <strong style={{ color:T.text }}>{data.developer}</strong>
-            {" · "}<span style={{ color:T.gold, fontWeight:600 }}>{data.municipality}</span>
+            {" · "}<span style={{ color:T.navy, fontWeight:600 }}>{data.municipality}</span>
             {" · "}<span>{data.delivery_date?.replace("Delivery : ","")}</span>
             {" · "}<span style={{ color:T.green, fontWeight:600 }}>{data.total_units} apartments</span>
           </div>
@@ -363,12 +363,12 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
             {/* Photo Slideshow */}
             {(photos.length > 0 || photoLoading) && (
               <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
-                boxShadow:T.shadow, background:"#1a1a1a", position:"relative",
+                boxShadow:T.shadow, background:"#0B1239", position:"relative",
                 height:280 }}>
 
                 {photoLoading && photos.length === 0 ? (
                   <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
-                    justifyContent:"center", color:"#6B7280", fontSize:12 }}>
+                    justifyContent:"center", color:"#6B7A9F", fontSize:12 }}>
                     Loading photos…
                   </div>
                 ) : (
@@ -407,7 +407,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
                             {photos.map((_,i) => (
                               <div key={i} onClick={() => setPhotoIdx(i)}
                                 style={{ width: i===photoIdx?18:7, height:7, borderRadius:4,
-                                  background: i===photoIdx?"#C9A84C":"rgba(255,255,255,0.5)",
+                                  background: i===photoIdx?"#0B1239":"rgba(255,255,255,0.5)",
                                   cursor:"pointer", transition:"all 0.2s" }} />
                             ))}
                           </div>
@@ -426,7 +426,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
                           {visible.map(i => (
                             <div key={i} onClick={() => setPhotoIdx(i)}
                               style={{ width: i===photoIdx?18:7, height:7, borderRadius:4,
-                                background: i===photoIdx?"#C9A84C":"rgba(255,255,255,0.5)",
+                                background: i===photoIdx?"#0B1239":"rgba(255,255,255,0.5)",
                                 cursor:"pointer", transition:"all 0.2s",
                                 transform: `scale(${i===photoIdx ? 1 : Math.abs(i-photoIdx)===1 ? 0.85 : 0.7})` }} />
                           ))}
@@ -480,10 +480,10 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
                     </td>
                     <td style={{ padding:"7px 10px", textAlign:"right" }}>{u.count}</td>
                     <td style={{ padding:"7px 10px", textAlign:"right", color:T.green, fontWeight:600 }}>{fmt(u.min_price)}</td>
-                    <td style={{ padding:"7px 10px", textAlign:"right", color:T.gold, fontWeight:700 }}>{fmt(u.avg_price)}</td>
+                    <td style={{ padding:"7px 10px", textAlign:"right", color:T.navy, fontWeight:700 }}>{fmt(u.avg_price)}</td>
                     <td style={{ padding:"7px 10px", textAlign:"right", color:T.red }}>{fmt(u.max_price)}</td>
                     <td style={{ padding:"7px 10px", textAlign:"right", color:T.textSub }}>{u.avg_size}m²</td>
-                    <td style={{ padding:"7px 10px", textAlign:"right", color:T.blue, fontWeight:600 }}>{fmt(u.avg_price_m2)}</td>
+                    <td style={{ padding:"7px 10px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{fmt(u.avg_price_m2)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -523,7 +523,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
               style={{ position:"fixed", left:24, top:"50%", transform:"translateY(-50%)",
                 background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
                 width:48, height:48, borderRadius:"50%", cursor:"pointer",
-                fontSize:26, display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:28, display:"flex", alignItems:"center", justifyContent:"center",
                 backdropFilter:"blur(4px)" }}>‹</button>
           )}
           {/* Next */}
@@ -532,7 +532,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
               style={{ position:"fixed", right:24, top:"50%", transform:"translateY(-50%)",
                 background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
                 width:48, height:48, borderRadius:"50%", cursor:"pointer",
-                fontSize:26, display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:28, display:"flex", alignItems:"center", justifyContent:"center",
                 backdropFilter:"blur(4px)" }}>›</button>
           )}
           {/* Counter */}
@@ -558,7 +558,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
                 return Array.from({length:e-s},(_,i)=>s+i).map(i=>(
                   <div key={i} onClick={e=>{e.stopPropagation();setPhotoIdx(i);}}
                     style={{ width:i===photoIdx?20:7, height:7, borderRadius:4,
-                      background:i===photoIdx?"#C9A84C":"rgba(255,255,255,0.4)",
+                      background:i===photoIdx?"#0B1239":"rgba(255,255,255,0.4)",
                       cursor:"pointer", transition:"all 0.2s" }} />
                 ));
               })()}

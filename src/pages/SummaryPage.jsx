@@ -53,7 +53,7 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200 }) {
           display:"flex", alignItems:"center", gap:6, minWidth:width, boxShadow:T.shadow }}>
         <span style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase", fontWeight:600, whiteSpace:"nowrap" }}>{label}</span>
         {hasVal
-          ? <span style={{ background:T.gold, color:"#fff", borderRadius:4, fontSize:10,
+          ? <span style={{ background:T.navy, color:"#fff", borderRadius:4, fontSize:10,
               fontWeight:700, padding:"1px 6px", whiteSpace:"nowrap" }}>{value.length}</span>
           : <span style={{ color:T.textSub, fontSize:12, flex:1 }}>All</span>}
         <span style={{ color:T.textMuted, fontSize:10, marginLeft:"auto" }}>{open?"▲":"▼"}</span>
@@ -76,14 +76,14 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200 }) {
               display:"flex", flexWrap:"wrap", gap:4 }}>
               {value.map(v=>(
                 <span key={v} onClick={e=>{e.stopPropagation();onChange(value.filter(x=>x!==v));}}
-                  style={{ background:T.goldLight, border:`1px solid ${T.borderAccent}`,
-                    color:T.gold, fontSize:10, fontWeight:700, padding:"2px 6px",
+                  style={{ background:T.navyLight, border:`1px solid ${T.borderAccent}`,
+                    color:T.navy, fontSize:10, fontWeight:700, padding:"2px 6px",
                     borderRadius:4, cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}>
                   {v} <span style={{ fontSize:11 }}>×</span>
                 </span>
               ))}
               <span onClick={e=>{e.stopPropagation();onChange([]);setQuery("");}}
-                style={{ color:"#DC2626", fontSize:10, cursor:"pointer", alignSelf:"center", marginLeft:2 }}>Clear all</span>
+                style={{ color:"#6B2A2A", fontSize:10, cursor:"pointer", alignSelf:"center", marginLeft:2 }}>Clear all</span>
             </div>
           )}
           {/* Options list */}
@@ -95,13 +95,13 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200 }) {
                   return (
                     <div key={opt} onClick={e=>{e.stopPropagation();onChange(sel?value.filter(v=>v!==opt):[...value,opt]);}}
                       style={{ padding:"7px 12px", cursor:"pointer", fontSize:12,
-                        background:sel?T.goldLight:"transparent",
-                        color:sel?T.gold:T.text,
-                        borderLeft:`3px solid ${sel?T.gold:"transparent"}`,
+                        background:sel?T.navyLight:"transparent",
+                        color:sel?T.navy:T.text,
+                        borderLeft:`3px solid ${sel?T.navy:"transparent"}`,
                         display:"flex", alignItems:"center", gap:8 }}>
                       <span style={{ width:14, height:14, borderRadius:3,
-                        border:`2px solid ${sel?T.gold:T.border}`,
-                        background:sel?T.gold:"transparent",
+                        border:`2px solid ${sel?T.navy:T.border}`,
+                        background:sel?T.navy:"transparent",
                         display:"inline-flex", alignItems:"center", justifyContent:"center",
                         flexShrink:0 }}>
                         {sel&&<span style={{ color:"#fff", fontSize:8, fontWeight:900 }}>✓</span>}
@@ -121,20 +121,20 @@ function MultiSelect({ label, options, value, onChange }) {
   const [open, setOpen] = useState(false);
   return (
     <div style={{ position:"relative" }}>
-      <button onClick={() => setOpen(o=>!o)} style={{ background:"#fff", border:`1px solid ${T.border}`, color: value.length?T.gold:T.textSub, padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:12, whiteSpace:"nowrap" }}>
+      <button onClick={() => setOpen(o=>!o)} style={{ background:"#fff", border:`1px solid ${T.border}`, color: value.length?T.navy:T.textSub, padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:12, whiteSpace:"nowrap" }}>
         {label}{value.length?` (${value.length})`:""} ▾
       </button>
       {open && (
-        <div style={{ position:"absolute", top:"110%", left:0, background:"#fff", border:"1px solid #E4E0D8", borderRadius:8, padding:8, zIndex:100, minWidth:160, maxHeight:200, overflowY:"auto" }}>
+        <div style={{ position:"absolute", top:"110%", left:0, background:"#fff", border:"1px solid #E2E0DB", borderRadius:8, padding:8, zIndex:100, minWidth:160, maxHeight:200, overflowY:"auto" }}>
           {options.map(opt => (
             <div key={opt} onClick={() => onChange(value.includes(opt)?value.filter(v=>v!==opt):[...value,opt])}
               style={{ padding:"6px 10px", cursor:"pointer", borderRadius:5, fontSize:12,
-                background: value.includes(opt)?T.goldLight:"transparent",
-                color: value.includes(opt)?T.gold:T.text }}>
+                background: value.includes(opt)?T.navyLight:"transparent",
+                color: value.includes(opt)?T.navy:T.text }}>
               {value.includes(opt)?"✓ ":""}{opt}
             </div>
           ))}
-          {value.length>0 && <div onClick={()=>onChange([])} style={{ padding:"6px 10px", cursor:"pointer", color:"#DC2626", fontSize:11 }}>✕ Clear</div>}
+          {value.length>0 && <div onClick={()=>onChange([])} style={{ padding:"6px 10px", cursor:"pointer", color:"#6B2A2A", fontSize:11 }}>✕ Clear</div>}
         </div>
       )}
     </div>
@@ -148,9 +148,9 @@ function Delta({ cur, prev, field, format }) {
   const up = diff > 0;
   const zero = diff === 0;
   return (
-    <div style={{ fontSize:10, marginTop:2, color: zero?T.textMuted: up?T.gold:T.green }}>
+    <div style={{ fontSize:10, marginTop:2, color: zero?T.textMuted: up?T.navy:T.green }}>
       {zero ? "↔ No change" : `${up?"▲":"▼"} ${format ? format(Math.abs(diff)) : Math.abs(diff).toLocaleString()} (${Math.abs(pct)}%)`}
-      <span style={{ color:"#9CA3AF", marginLeft:4 }}>vs prev</span>
+      <span style={{ color:"#8A96B4", marginLeft:4 }}>vs prev</span>
     </div>
   );
 }
@@ -245,7 +245,7 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
     label: d.property_name,
     sublabel: `${d.unit_type} · ${fmtFull(d.price)} · ${d.size}m²${d.price_per_m2 ? ` · €${Math.round(d.price_per_m2)}/m²` : ""}`,
     active: true,
-    color: UNIT_COLORS[d.unit_type] || T.gold,
+    color: UNIT_COLORS[d.unit_type] || T.navy,
   }));
 
   // Center map on first selected dot
@@ -263,8 +263,8 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
 
         {/* Header */}
         <div style={{ padding:"16px 22px", borderBottom:`1px solid ${T.border}`, display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
-          <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:18, color:T.text, fontWeight:400 }}>
-            Size vs Price <span style={{ color:T.gold }}>· {selectedIds.size} selected</span>
+          <div style={{ fontFamily:"'Inter',sans-serif", fontSize:18, color:T.text, fontWeight:400 }}>
+            Size vs Price <span style={{ color:T.navy }}>· {selectedIds.size} selected</span>
           </div>
           {/* Unit type filter chips */}
           <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginLeft:8 }}>
@@ -281,16 +281,16 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
                 </button>
               );
             })}
-            {unitFilter.length>0 && <button onClick={()=>setUnitFilter([])} style={{ background:"#FEF2F2", border:"1px solid rgba(220,38,38,0.3)", color:"#DC2626", padding:"3px 9px", borderRadius:6, cursor:"pointer", fontSize:11 }}>✕ Clear</button>}
+            {unitFilter.length>0 && <button onClick={()=>setUnitFilter([])} style={{ background:"#FEF2F2", border:"1px solid rgba(220,38,38,0.3)", color:"#6B2A2A", padding:"3px 9px", borderRadius:6, cursor:"pointer", fontSize:11 }}>✕ Clear</button>}
           </div>
           {selectedIds.size>0 && (
             <button onClick={()=>setSelectedIds(new Set())}
-              style={{ marginLeft:"auto", background:"#FEF2F2", border:"1px solid rgba(220,38,38,0.3)", color:"#DC2626", padding:"5px 10px", borderRadius:7, cursor:"pointer", fontSize:11 }}>
+              style={{ marginLeft:"auto", background:"#FEF2F2", border:"1px solid rgba(220,38,38,0.3)", color:"#6B2A2A", padding:"5px 10px", borderRadius:7, cursor:"pointer", fontSize:11 }}>
               Clear selection
             </button>
           )}
           <button onClick={onClose}
-            style={{ background:"none", border:"none", cursor:"pointer", color:T.textMuted, fontSize:24, lineHeight:1, padding:"0 0 0 8px", marginLeft: selectedIds.size>0 ? 0 : "auto" }}>×</button>
+            style={{ background:"none", border:"none", cursor:"pointer", color:T.textMuted, fontSize:26, lineHeight:1, padding:"0 0 0 8px", marginLeft: selectedIds.size>0 ? 0 : "auto" }}>×</button>
         </div>
 
         {/* Body: chart left, map right */}
@@ -312,10 +312,10 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
                     const d = payload[0]?.payload;
                     return (
                       <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, padding:"9px 12px", fontSize:11, boxShadow:T.shadowMd }}>
-                        <div style={{ fontWeight:700, color:UNIT_COLORS[d.unit_type]||T.gold }}>{d.unit_type} — {d.property_name}</div>
+                        <div style={{ fontWeight:700, color:UNIT_COLORS[d.unit_type]||T.navy }}>{d.unit_type} — {d.property_name}</div>
                         <div>{fmtFull(d.price)} · {d.size}m²</div>
                         <div style={{ color:T.textMuted }}>{d.municipality}</div>
-                        <div style={{ color:T.blue, marginTop:3 }}>Click to {selectedIds.has(d.sub_listing_id)?"deselect":"select"}</div>
+                        <div style={{ color:T.navyMid, marginTop:3 }}>Click to {selectedIds.has(d.sub_listing_id)?"deselect":"select"}</div>
                       </div>
                     );
                   }}/>
@@ -323,7 +323,7 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
                   shape={props => {
                     const d = props.payload;
                     const isSel = selectedIds.has(d.sub_listing_id);
-                    const color = UNIT_COLORS[d.unit_type] || T.gold;
+                    const color = UNIT_COLORS[d.unit_type] || T.navy;
                     return (
                       <circle cx={props.cx} cy={props.cy}
                         r={isSel ? 9 : 5}
@@ -346,7 +346,7 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
                     <div key={d.sub_listing_id}
                       style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 10px",
                         background:T.bgStripe, borderRadius:7, fontSize:11,
-                        borderLeft:`3px solid ${UNIT_COLORS[d.unit_type]||T.gold}` }}>
+                        borderLeft:`3px solid ${UNIT_COLORS[d.unit_type]||T.navy}` }}>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontWeight:600, color:T.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.property_name}</div>
                         <div style={{ color:T.textMuted }}>{d.unit_type} · {fmtFull(d.price)}{d.price_per_m2 ? ` · €${Math.round(d.price_per_m2)}/m²` : ""} · {d.size}m² · {d.municipality}</div>
@@ -354,7 +354,7 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
                       {onGoListing && (
                         <button
                           onClick={() => { onClose(); onGoListing(d.listing_id, d.property_name, d.municipality); }}
-                          style={{ background:T.gold, border:"none", color:"#fff",
+                          style={{ background:T.navy, border:"none", color:"#fff",
                             padding:"4px 10px", borderRadius:6, cursor:"pointer",
                             fontSize:10, fontWeight:700, whiteSpace:"nowrap", flexShrink:0 }}>
                           Go to listing →
@@ -495,11 +495,11 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
         <MultiSelect label="Delivery Year" options={filters.delivery_years.map(String)} value={sel.year} onChange={v=>setSel(s=>({...s,year:v}))} />
         <MultiSelect label="ESG Grade"    options={filters.esg_grades}     value={sel.esg}          onChange={v=>setSel(s=>({...s,esg:v}))} />
         {(sel.province.length||sel.municipality.length||sel.unit_type.length||sel.year.length||sel.esg.length) ? (
-          <button onClick={()=>setSel({province:[],municipality:[],unit_type:[],year:[],esg:[]})} style={{ background:"#FEF2F2", border:"1px solid rgba(192,57,43,0.4)", color:"#DC2626", padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:11 }}>✕ Clear all</button>
+          <button onClick={()=>setSel({province:[],municipality:[],unit_type:[],year:[],esg:[]})} style={{ background:"#FEF2F2", border:"1px solid rgba(192,57,43,0.4)", color:"#6B2A2A", padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:11 }}>✕ Clear all</button>
         ) : null}
-        <div style={{ marginLeft:"auto", color:"#9CA3AF", fontSize:12 }}>
-          {filters.latest_period && <span style={{ color:"#C9A84C" }}>Snapshot: {filters.latest_period}</span>}
-          {filters.prev_period && <span style={{ color:"#9CA3AF" }}> &middot; prev: {filters.prev_period}</span>}
+        <div style={{ marginLeft:"auto", color:"#8A96B4", fontSize:12 }}>
+          {filters.latest_period && <span style={{ color:"#0B1239" }}>Snapshot: {filters.latest_period}</span>}
+          {filters.prev_period && <span style={{ color:"#8A96B4" }}> &middot; prev: {filters.prev_period}</span>}
         </div>
       </div>
 
@@ -525,8 +525,8 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
         {TABS.map(([id,lbl]) => (
           <button key={id} onClick={()=>setTab(id)} style={{
             background:"none", border:"none", cursor:"pointer", padding:"10px 22px",
-            borderBottom: tab===id?`3px solid ${T.gold}`:"3px solid transparent",
-            color: tab===id?T.gold:T.textSub, fontSize:13, fontWeight:tab===id?600:400
+            borderBottom: tab===id?`3px solid ${T.navy}`:"3px solid transparent",
+            color: tab===id?T.navy:T.textSub, fontSize:13, fontWeight:tab===id?600:400
           }}>{lbl}</button>
         ))}
       </div>
@@ -545,7 +545,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                   <XAxis dataKey="delivery_quarter" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
-                  <Bar dataKey="count" name="Units" fill={T.blue} radius={[4,4,0,0]} />
+                  <Bar dataKey="count" name="Units" fill={T.navyMid} radius={[4,4,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -584,7 +584,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                         <div style={{ width:8, height:8, borderRadius:2, background:ESG_COLORS[e.esg_grade]||"#999" }}/>
                         <span style={{ color:T.text }}>{e.esg_grade}</span>
                       </div>
-                      <span style={{ color:T.gold, fontWeight:600 }}>{e.count}</span>
+                      <span style={{ color:T.navy, fontWeight:600 }}>{e.count}</span>
                     </div>
                   ))}
                 </div>
@@ -606,12 +606,12 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                       const d = payload[0]?.payload;
                       return (
                         <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:10, padding:"10px 14px", boxShadow:T.shadowMd, fontSize:12, pointerEvents:"none" }}>
-                          <div style={{ fontWeight:700, color:UNIT_COLORS[d.unit_type]||T.gold, marginBottom:4 }}>{d.unit_type} — {d.property_name}</div>
-                          <div style={{ color:T.text }}>Price: <strong style={{ color:T.gold }}>{fmtFull(d.price)}</strong>{d.price_per_m2 ? <span style={{ color:T.textSub, fontSize:11 }}> · €{Math.round(d.price_per_m2)}/m²</span> : ""}</div>
+                          <div style={{ fontWeight:700, color:UNIT_COLORS[d.unit_type]||T.navy, marginBottom:4 }}>{d.unit_type} — {d.property_name}</div>
+                          <div style={{ color:T.text }}>Price: <strong style={{ color:T.navy }}>{fmtFull(d.price)}</strong>{d.price_per_m2 ? <span style={{ color:T.textSub, fontSize:11 }}> · €{Math.round(d.price_per_m2)}/m²</span> : ""}</div>
                           <div style={{ color:T.text }}>Size: <strong>{d.size} m²</strong></div>
                           {d.price_per_m2 && <div style={{ color:T.textSub }}>€/m²: {Math.round(d.price_per_m2)}</div>}
                           <div style={{ color:T.textMuted, marginTop:4, fontSize:11 }}>{d.municipality} · {d.floor||"—"}</div>
-                          <div style={{ color:T.blue, fontSize:11, marginTop:3 }}>Click to open details ↗</div>
+                          <div style={{ color:T.navyMid, fontSize:11, marginTop:3 }}>Click to open details ↗</div>
                         </div>
                       );
                     }}
@@ -624,7 +624,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                       const isSelected = selectedDot?.sub_listing_id === d.sub_listing_id;
                       return (
                         <circle cx={props.cx} cy={props.cy} r={isSelected ? 8 : 5}
-                          fill={UNIT_COLORS[d.unit_type]||T.gold} opacity={isSelected ? 1 : 0.85}
+                          fill={UNIT_COLORS[d.unit_type]||T.navy} opacity={isSelected ? 1 : 0.85}
                           stroke={isSelected ? "#fff" : "none"} strokeWidth={isSelected ? 2 : 0}
                           style={{ cursor:"pointer" }}/>
                       );
@@ -665,12 +665,12 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
               : <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={trend.mkt||[]}>
                     <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-                    <XAxis dataKey="period" tick={{ fill:"#6B7280", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="price" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:"#6B7280", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="m2" orientation="right" tickFormatter={v=>`€${v}`} tick={{ fill:"#6B7280", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="period" tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <YAxis yAxisId="price" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <YAxis yAxisId="m2" orientation="right" tickFormatter={v=>`€${v}`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
                     <Tooltip formatter={(v,n)=>n==="Avg Price"?[fmtFull(v),n]:[`€${v}`,n]} contentStyle={{ background:"#fff", border:"1px solid #C9A84C", borderRadius:8, fontSize:12 }} />
-                    <Legend wrapperStyle={{ fontSize:11, color:"#6B7280" }} />
-                    <Line yAxisId="price" type="monotone" dataKey="avg_price" name="Avg Price" stroke={T.gold} strokeWidth={2.5} dot={{ r:5, fill:T.gold }} />
+                    <Legend wrapperStyle={{ fontSize:11, color:"#6B7A9F" }} />
+                    <Line yAxisId="price" type="monotone" dataKey="avg_price" name="Avg Price" stroke={T.navy} strokeWidth={2.5} dot={{ r:5, fill:T.navy }} />
                     <Line yAxisId="m2" type="monotone" dataKey="avg_price_m2" name="Avg €/m²" stroke={M2_COLOR} strokeWidth={2.5} dot={{ r:5, fill:M2_COLOR }} strokeDasharray="5 3" />
                   </LineChart>
                 </ResponsiveContainer>}
@@ -683,10 +683,10 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
               : <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={trend.inv||[]}>
                     <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-                    <XAxis dataKey="period" tick={{ fill:"#6B7280", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill:"#6B7280", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="period" tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={{ background:"#fff", border:"1px solid #C9A84C", borderRadius:8, fontSize:12 }} />
-                    <Legend wrapperStyle={{ fontSize:11, color:"#6B7280" }} />
+                    <Legend wrapperStyle={{ fontSize:11, color:"#6B7A9F" }} />
                     <Bar dataKey="total" name="Total Units" fill={M2_COLOR} radius={[4,4,0,0]} />
                     <Bar dataKey="new"   name="New Listings" fill={T.green} radius={[4,4,0,0]} />
                     <Bar dataKey="removed" name="Removed"   fill={T.red} radius={[4,4,0,0]} />
@@ -701,8 +701,8 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
               : <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={Object.values(utByPeriod)}>
                     <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-                    <XAxis dataKey="period" tick={{ fill:"#6B7280", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:"#6B7280", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="period" tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
                     <Tooltip formatter={(v)=>[fmtFull(v)]} contentStyle={{ background:"#fff", border:"1px solid #C9A84C", borderRadius:8, fontSize:12 }} />
                     <Legend wrapperStyle={{ fontSize:11 }} />
                     {ut_lines.map(ut=>(
@@ -719,18 +719,18 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                 <thead>
                   <tr style={{ borderBottom:"1px solid "+T.border }}>
                     {["Period","Avg Price","Avg €/m²","Total Units","Avg Size"].map(h=>(
-                      <th key={h} style={{ padding:"6px 10px", textAlign:"right", color:"#9CA3AF", fontSize:10, textTransform:"uppercase" }}>{h}</th>
+                      <th key={h} style={{ padding:"6px 10px", textAlign:"right", color:"#8A96B4", fontSize:10, textTransform:"uppercase" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {(trend.mkt||[]).map((row,i)=>(
                     <tr key={i} style={{ borderBottom:"1px solid "+T.border, background: row.period===filters.latest_period?"rgba(232,168,56,0.06)":"transparent" }}>
-                      <td style={{ padding:"7px 10px", textAlign:"right", color: row.period===filters.latest_period?T.gold:T.text, fontWeight: row.period===filters.latest_period?600:400 }}>{row.period} {row.period===filters.latest_period&&"★"}</td>
-                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#1A1A2E" }}>{fmt(row.avg_price)}</td>
-                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#1A1A2E" }}>€{row.avg_price_m2}</td>
-                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#1A1A2E" }}>{row.total_units?.toLocaleString()}</td>
-                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#1A1A2E" }}>{row.avg_size} m²</td>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color: row.period===filters.latest_period?T.navy:T.text, fontWeight: row.period===filters.latest_period?600:400 }}>{row.period} {row.period===filters.latest_period&&"★"}</td>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{fmt(row.avg_price)}</td>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>€{row.avg_price_m2}</td>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.total_units?.toLocaleString()}</td>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.avg_size} m²</td>
                     </tr>
                   ))}
                 </tbody>
@@ -748,8 +748,8 @@ function NoDataNote({ msg }) {
   return (
     <div style={{ height:220, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8 }}>
       <div style={{ fontSize:28 }}>📅</div>
-      <div style={{ color:"#6B7280", fontSize:12, textAlign:"center" }}>{msg}</div>
-      <div style={{ color:"#9CA3AF", fontSize:11 }}>Data will appear as more monthly snapshots are collected</div>
+      <div style={{ color:"#6B7A9F", fontSize:12, textAlign:"center" }}>{msg}</div>
+      <div style={{ color:"#8A96B4", fontSize:11 }}>Data will appear as more monthly snapshots are collected</div>
     </div>
   );
 }

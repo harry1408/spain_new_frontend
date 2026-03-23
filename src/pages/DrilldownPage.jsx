@@ -34,14 +34,14 @@ function MuniCard({ m, onClick }) {
         border:`1px solid ${hov ? T.borderAccent : T.border}`,
         borderRadius:12, padding:"16px 18px", cursor:"pointer",
         transition:"all 0.15s", boxShadow:hov ? T.shadowMd : T.shadow }}>
-      <div style={{ fontWeight:700, fontSize:14, color:hov ? T.gold : T.text, marginBottom:10 }}>{m.municipality}</div>
+      <div style={{ fontWeight:700, fontSize:14, color:hov ? T.navy : T.text, marginBottom:10 }}>{m.municipality}</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"7px 12px" }}>
         <Metric label="Devel."    value={m.listings||"—"} />
         <Metric label="Apts"      value={m.units} />
-        <Metric label="Avg Price" value={fmt(m.avg_price)} color={T.gold} />
+        <Metric label="Avg Price" value={fmt(m.avg_price)} color={T.navy} />
         <Metric label="€/m²"      value={`€${m.avg_price_m2}`} color={T.textSub} />
       </div>
-      <div style={{ marginTop:8, color:hov ? T.gold : T.textMuted, fontSize:11, fontWeight:600 }}>Explore →</div>
+      <div style={{ marginTop:8, color:hov ? T.navy : T.textMuted, fontSize:11, fontWeight:600 }}>Explore →</div>
     </div>
   );
 }
@@ -56,13 +56,13 @@ function ListingCard({ l, active, onSelect, onHover }) {
       onClick={onSelect}
       onMouseEnter={() => { setHov(true); onHover && onHover(l.listing_id); }}
       onMouseLeave={() => { setHov(false); onHover && onHover(null); }}
-      style={{ background: active ? T.goldLight : hov ? T.bgHover : T.bgCard,
+      style={{ background: active ? T.navyLight : hov ? T.bgHover : T.bgCard,
         border:`2px solid ${active ? T.borderAccent : hov ? T.borderAccent : T.border}`,
         borderRadius:12, padding:"16px 18px", cursor:"pointer",
         transition:"all 0.15s", boxShadow:lit ? T.shadowMd : T.shadow }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
         <div>
-          <div style={{ fontWeight:700, fontSize:14, color:lit ? T.gold : T.text }}>{l.property_name}</div>
+          <div style={{ fontWeight:700, fontSize:14, color:lit ? T.navy : T.text }}>{l.property_name}</div>
           <div style={{ color:T.textSub, fontSize:11, marginTop:2 }}>{l.developer}</div>
         </div>
         {l.esg_grade && l.esg_grade !== "nan" && <Tag label={`ESG ${l.esg_grade}`} color={esgColor}/>}
@@ -81,7 +81,7 @@ function ListingCard({ l, active, onSelect, onHover }) {
       )}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"7px 10px", marginBottom:10 }}>
         <Metric label="Apts"     value={l.units} />
-        <Metric label="Avg"      value={fmt(l.avg_price)}     color={T.gold} />
+        <Metric label="Avg"      value={fmt(l.avg_price)}     color={T.navy} />
         <Metric label="€/m²"     value={`€${l.avg_price_m2}`} color={T.textSub} />
         <Metric label="From"     value={fmt(l.min_price)}     color={T.green} />
         <Metric label="To"       value={fmt(l.max_price)}     color={T.red} />
@@ -91,7 +91,7 @@ function ListingCard({ l, active, onSelect, onHover }) {
         <Pill on={l.has_pool} label="Pool"/><Pill on={l.has_parking} label="Parking"/>
         <Pill on={l.has_terrace} label="Terrace"/><Pill on={l.has_lift} label="Lift"/>
       </div>
-      <div style={{ marginTop:10, color:lit ? T.gold : T.textMuted, fontSize:11, fontWeight:600 }}>View apartments →</div>
+      <div style={{ marginTop:10, color:lit ? T.navy : T.textMuted, fontSize:11, fontWeight:600 }}>View apartments →</div>
     </div>
   );
 }
@@ -173,7 +173,7 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200, nav
           display:"flex", alignItems:"center", gap:6, minWidth:width, boxShadow:T.shadow }}>
         <span style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase", fontWeight:600, whiteSpace:"nowrap" }}>{label}</span>
         {hasVal
-          ? <span style={{ background:T.gold, color:"#fff", borderRadius:4, fontSize:10, fontWeight:700, padding:"1px 6px" }}>{value.length}</span>
+          ? <span style={{ background:T.navy, color:"#fff", borderRadius:4, fontSize:10, fontWeight:700, padding:"1px 6px" }}>{value.length}</span>
           : <span style={{ color:T.textSub, fontSize:12, flex:1 }}>{ navigateOnSelect ? "Type to search…" : "All" }</span>}
         <span style={{ color:T.textMuted, fontSize:10, marginLeft:"auto" }}>{open?"▲":"▼"}</span>
       </div>
@@ -194,14 +194,14 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200, nav
               display:"flex", flexWrap:"wrap", gap:4 }}>
               {value.map(v=>(
                 <span key={v} onClick={e=>{e.stopPropagation();onChange(value.filter(x=>x!==v));}}
-                  style={{ background:T.goldLight, border:`1px solid ${T.borderAccent}`,
-                    color:T.gold, fontSize:10, fontWeight:700, padding:"2px 6px",
+                  style={{ background:T.navyLight, border:`1px solid ${T.borderAccent}`,
+                    color:T.navy, fontSize:10, fontWeight:700, padding:"2px 6px",
                     borderRadius:4, cursor:"pointer" }}>
                   {v} ×
                 </span>
               ))}
               <span onClick={e=>{e.stopPropagation();onChange([]);setQuery("");}}
-                style={{ color:"#DC2626", fontSize:10, cursor:"pointer", alignSelf:"center" }}>Clear all</span>
+                style={{ color:"#6B2A2A", fontSize:10, cursor:"pointer", alignSelf:"center" }}>Clear all</span>
             </div>
           )}
           <div style={{ maxHeight:240, overflowY:"auto" }}>
@@ -212,15 +212,15 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200, nav
                   return (
                     <div key={opt} onClick={e=>{e.stopPropagation();handleSelect(opt);}}
                       style={{ padding:"8px 12px", cursor:"pointer", fontSize:12,
-                        background:sel?T.goldLight:"transparent", color:sel?T.gold:T.text,
-                        borderLeft:`3px solid ${sel?T.gold:"transparent"}`,
+                        background:sel?T.navyLight:"transparent", color:sel?T.navy:T.text,
+                        borderLeft:`3px solid ${sel?T.navy:"transparent"}`,
                         display:"flex", alignItems:"center", gap:8,
                         transition:"background 0.1s" }}
                       onMouseEnter={e=>{ if(!sel) e.currentTarget.style.background=T.bgStripe; }}
                       onMouseLeave={e=>{ if(!sel) e.currentTarget.style.background="transparent"; }}>
                       {!navigateOnSelect && (
                         <span style={{ width:14, height:14, borderRadius:3, flexShrink:0,
-                          border:`2px solid ${sel?T.gold:T.border}`, background:sel?T.gold:"transparent",
+                          border:`2px solid ${sel?T.navy:T.border}`, background:sel?T.navy:"transparent",
                           display:"inline-flex", alignItems:"center", justifyContent:"center" }}>
                           {sel&&<span style={{ color:"#fff", fontSize:8, fontWeight:900 }}>✓</span>}
                         </span>
@@ -277,7 +277,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       label:    l.property_name,
       sublabel: `${fmt(l.avg_price)} · ${l.units} apts`,
       active:   l.listing_id === activePin,
-      color:    T.blue,
+      color:    T.navyMid,
     })), [mapListings, activePin]);
 
   // ── Municipality selector view ────────────────────────────────────────
@@ -296,12 +296,12 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
     return (
       <div style={{ padding:"20px 20px", maxWidth:1700, margin:"0 auto" }}>
         <div style={{ marginBottom:22 }}>
-          <h2 style={{ margin:0, fontFamily:"'DM Serif Display',serif", fontSize:28, color:T.text, fontWeight:400 }}>
-            Select a <em style={{ color:T.gold }}>Municipality</em>
+          <h2 style={{ margin:0, fontFamily:"'Inter',sans-serif", fontSize:28, color:T.text, fontWeight:400 }}>
+            Select a <span style={{ color:T.navy }}>Municipality</span>
           </h2>
           <p style={{ color:T.textSub, fontSize:13, margin:"6px 0 0" }}>
             {sorted.length} {sorted.length!==1?"municipalities":"municipality"} shown
-            {selMuni.length>0 && <span style={{ color:T.gold }}> · {selMuni.length} selected</span>}
+            {selMuni.length>0 && <span style={{ color:T.navy }}> · {selMuni.length} selected</span>}
           </p>
         </div>
 
@@ -323,15 +323,15 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
           />
           {(selProvince.length > 0 || selMuni.length > 0) && (
             <button onClick={() => { setSelProvince([]); setSelMuni([]); }}
-              style={{ background:"#FEF2F2", border:"1px solid rgba(220,38,38,0.3)", color:"#DC2626",
+              style={{ background:"#FEF2F2", border:"1px solid rgba(220,38,38,0.3)", color:"#6B2A2A",
                 padding:"6px 12px", borderRadius:7, cursor:"pointer", fontSize:11 }}>✕ Clear filters</button>
           )}
           <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
             <span style={{ color:T.textMuted, fontSize:11, fontWeight:600, textTransform:"uppercase", alignSelf:"center" }}>Sort</span>
             {[["units","Units"],["listings","Devel."],["avg_price","Avg Price"],["avg_price_m2","€/m²"]].map(([s,lbl])=>(
               <button key={s} onClick={()=>setSortBy(s)} style={{
-                background:sortBy===s?T.goldLight:"#fff", border:`1px solid ${sortBy===s?T.borderAccent:T.border}`,
-                color:sortBy===s?T.gold:T.textSub, padding:"6px 12px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:600 }}>{lbl}</button>
+                background:sortBy===s?T.navyLight:"#fff", border:`1px solid ${sortBy===s?T.borderAccent:T.border}`,
+                color:sortBy===s?T.navy:T.textSub, padding:"6px 12px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:600 }}>{lbl}</button>
             ))}
           </div>
         </div>
@@ -363,8 +363,8 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18, flexWrap:"wrap", gap:12 }}>
         <div>
-          <h2 style={{ margin:0, fontFamily:"'DM Serif Display',serif", fontSize:26, color:T.text, fontWeight:400 }}>
-            <em style={{ color:T.gold }}>{municipality}</em>
+          <h2 style={{ margin:0, fontFamily:"'Inter',sans-serif", fontSize:28, color:T.text, fontWeight:400 }}>
+            <em style={{ color:T.navy }}>{municipality}</em>
           </h2>
           <div style={{ color:T.textSub, fontSize:12, marginTop:4 }}>
             {stats.total_listings} developments · {stats.total_units} apartments
@@ -382,7 +382,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
         <StatCard label="Developments"     value={stats.total_listings} accent={T.text} />
         <StatCard label="Total Apartments" value={stats.total_units?.toLocaleString()} />
         <StatCard label="Avg Price"        value={fmt(stats.avg_price)} />
-        <StatCard label="Avg €/m²"         value={`€${stats.avg_price_m2}`} accent={T.blue} />
+        <StatCard label="Avg €/m²"         value={`€${stats.avg_price_m2}`} accent={T.navyMid} />
         <StatCard label="Price Range"      value={`${fmt(stats.price_range?.[0])} – ${fmt(stats.price_range?.[1])}`} accent={T.textSub} />
       </div>
 
@@ -445,7 +445,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                     <a href={`https://www.google.com/maps?q=${pinTarget.lat},${pinTarget.lng}`}
                       target="_blank" rel="noreferrer"
                       style={{ position:"absolute", bottom:6, right:6, background:"rgba(255,255,255,0.92)",
-                        borderRadius:4, fontSize:10, fontWeight:600, color:"#1a73e8",
+                        borderRadius:4, fontSize:10, fontWeight:600, color:"#2D3F8F",
                         padding:"2px 7px", textDecoration:"none", boxShadow:"0 1px 4px rgba(0,0,0,0.2)", zIndex:10 }}>
                       Open in Google Maps ↗
                     </a>
@@ -477,10 +477,10 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                           </td>
                           <td style={{ padding:"7px 10px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
                           <td style={{ padding:"7px 10px", textAlign:"right", color:T.green, fontWeight:500, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
-                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.gold, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
+                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
                           <td style={{ padding:"7px 10px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price!=null?`€${Math.round(row.max_price).toLocaleString()}`:"—"}</td>
                           <td style={{ padding:"7px 10px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size!=null?`${row.avg_size}m²`:"—"}</td>
-                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.blue, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2)}`:"—"}</td>
+                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2)}`:"—"}</td>
                         </tr>
                       );
                     })}
@@ -505,8 +505,8 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                       <YAxis yAxisId="m" orientation="right" tickFormatter={v=>`€${v}`} tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
                       <Legend wrapperStyle={{ fontSize:10 }} />
-                      <Line yAxisId="p" type="monotone" dataKey="avg_price" name="Avg Price" stroke={T.gold} strokeWidth={2.5} dot={{ r:4, fill:T.gold }} />
-                      <Line yAxisId="m" type="monotone" dataKey="avg_price_m2" name="€/m²" stroke={T.blue} strokeWidth={2} strokeDasharray="5 3" dot={{ r:3 }} />
+                      <Line yAxisId="p" type="monotone" dataKey="avg_price" name="Avg Price" stroke={T.navy} strokeWidth={2.5} dot={{ r:4, fill:T.navy }} />
+                      <Line yAxisId="m" type="monotone" dataKey="avg_price_m2" name="€/m²" stroke={T.navyMid} strokeWidth={2} strokeDasharray="5 3" dot={{ r:3 }} />
                     </LineChart>
                   </ResponsiveContainer>}
             </ChartCard>

@@ -56,7 +56,7 @@ export default function LeafletMap({
       const map = L.map(elRef.current, {
         zoomControl: true, scrollWheelZoom: false, attributionControl: false,
       }).setView(center || [39.47, -0.38], zoom);
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { maxZoom: 19 }).addTo(map);
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", { maxZoom: 19 }).addTo(map);
       L.control.attribution({ prefix: false }).addAttribution('© <a href="https://carto.com">CARTO</a>').addTo(map);
       layerGroup.current  = L.layerGroup().addTo(map);
       circleLayer.current = L.layerGroup().addTo(map);
@@ -84,7 +84,7 @@ export default function LeafletMap({
       const valid = markers.filter(m => m.lat && m.lng);
       valid.forEach(m => {
         const isActive = !!m.active;
-        const color    = isActive ? "#C9A84C" : (m.color || "#2563EB");
+        const color    = isActive ? "#0B1239" : (m.color || "#2D3F8F");
         const size     = isActive ? 36 : 26;
         const marker   = L.marker([m.lat, m.lng], {
           icon: makeIcon(color, size, isActive),
@@ -136,11 +136,11 @@ export default function LeafletMap({
         const c  = [radiusCenter.lat, radiusCenter.lng];
         const rM = radiusKm * 1000;
         L.circle(c, {
-          radius: rM, color: "#C9A84C", weight: 2, opacity: 0.8,
-          fillColor: "#C9A84C", fillOpacity: 0.08,
+          radius: rM, color: "#0B1239", weight: 2, opacity: 0.8,
+          fillColor: "#0B1239", fillOpacity: 0.08,
         }).addTo(circleLayer.current);
         L.circleMarker(c, {
-          radius: 5, color: "#C9A84C", fillColor: "#C9A84C", fillOpacity: 1, weight: 2,
+          radius: 5, color: "#0B1239", fillColor: "#0B1239", fillOpacity: 1, weight: 2,
         }).addTo(circleLayer.current);
         try {
           const pad = radiusKm < 0.5 ? [50, 50] : radiusKm < 2 ? [40, 40] : [30, 30];
@@ -167,7 +167,7 @@ export default function LeafletMap({
         borderRadius: 12, overflow: "hidden",
         border: "1px solid #E4E0D8",
         boxShadow: "0 2px 10px rgba(0,0,0,0.07)",
-        height, background: "#f0ede6",
+        height, background: "#eeeae3",
       }}>
         <div ref={elRef} style={{ width: "100%", height: "100%" }} />
       </div>

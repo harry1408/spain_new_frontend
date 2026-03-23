@@ -4,8 +4,8 @@ import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Legend } from "recharts";
 
-const PRICE_COLOR = "#C9A84C";
-const M2_COLOR    = "#3B82F6";
+const PRICE_COLOR = "#0B1239";
+const M2_COLOR    = "#4A5A8A";
 
 // ── Multiselect dropdown ───────────────────────────────────────────────────
 function MultiSelect({ label, options, value, onChange, placeholder = "All", maxDisplay = 2, disabled = false }) {
@@ -36,7 +36,7 @@ function MultiSelect({ label, options, value, onChange, placeholder = "All", max
       <div style={{ fontSize: 10, fontWeight: 700, color: T.textMuted, textTransform: "uppercase",
         marginBottom: 4, letterSpacing: "0.05em" }}>{label}</div>
       <div onClick={() => !disabled && setOpen(o => !o)} style={{
-        background: disabled ? "#F7F6F2" : "#fff",
+        background: disabled ? "#FFFFFF" : "#fff",
         border: `1px solid ${value.length && !disabled ? T.borderAccent : T.border}`,
         borderRadius: 10, padding: "10px 14px", cursor: disabled ? "not-allowed" : "pointer", minWidth: 200,
         display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -63,14 +63,14 @@ function MultiSelect({ label, options, value, onChange, placeholder = "All", max
               placeholder="Search…"
               style={{ width: "100%", border: `1px solid ${T.border}`, borderRadius: 7,
                 padding: "6px 10px", fontSize: 12, outline: "none",
-                background: "#FAFAF8", color: T.text }} />
+                background: "#F2F4F6", color: T.text }} />
           </div>
           {value.length > 0 && (
             <div style={{ padding: "6px 10px", borderBottom: `1px solid ${T.border}`,
               display: "flex", gap: 6, flexWrap: "wrap" }}>
               {value.map(v => (
                 <span key={v} onClick={e => { e.stopPropagation(); toggle(v); }}
-                  style={{ background: T.goldLight, color: T.gold, borderRadius: 5,
+                  style={{ background: T.navyLight, color: T.navy, borderRadius: 5,
                     padding: "2px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
                   {v} ✕
                 </span>
@@ -84,15 +84,15 @@ function MultiSelect({ label, options, value, onChange, placeholder = "All", max
                 <div key={opt} onClick={() => toggle(opt)}
                   style={{ padding: "8px 14px", cursor: "pointer", fontSize: 12,
                     display: "flex", alignItems: "center", gap: 8,
-                    background: value.includes(opt) ? T.goldLight : "transparent",
-                    color: value.includes(opt) ? T.gold : T.text,
+                    background: value.includes(opt) ? T.navyLight : "transparent",
+                    color: value.includes(opt) ? T.navy : T.text,
                     fontWeight: value.includes(opt) ? 600 : 400,
                     transition: "background 0.1s" }}
-                  onMouseEnter={e => { if (!value.includes(opt)) e.currentTarget.style.background = "#F7F6F2"; }}
+                  onMouseEnter={e => { if (!value.includes(opt)) e.currentTarget.style.background = "#FFFFFF"; }}
                   onMouseLeave={e => { if (!value.includes(opt)) e.currentTarget.style.background = "transparent"; }}>
                   <span style={{ width: 14, height: 14, borderRadius: 4, flexShrink: 0,
-                    border: `2px solid ${value.includes(opt) ? T.gold : T.border}`,
-                    background: value.includes(opt) ? T.gold : "#fff",
+                    border: `2px solid ${value.includes(opt) ? T.navy : T.border}`,
+                    background: value.includes(opt) ? T.navy : "#fff",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: 9, color: "#fff" }}>
                     {value.includes(opt) ? "✓" : ""}
@@ -128,8 +128,8 @@ function RadiusSelect({ value, onChange }) {
         {opts.map(v => (
           <button key={v ?? "any"} onClick={() => onChange(v)}
             style={{ padding: "9px 14px", borderRadius: 9, border: `1px solid ${value === v ? T.borderAccent : T.border}`,
-              background: value === v ? T.goldLight : "#fff",
-              color: value === v ? T.gold : T.textSub,
+              background: value === v ? T.navyLight : "#fff",
+              color: value === v ? T.navy : T.textSub,
               fontSize: 12, fontWeight: 700, cursor: "pointer",
               boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
             {v === null ? "Any" : `${v}km`}
@@ -174,7 +174,7 @@ function ResultCard({ l, onSelect, active, onHover }) {
           )}
         </div>
         {l.esg_grade && l.esg_grade !== "Unknown" && (
-          <span style={{ background: ESG_COLORS[l.esg_grade] || "#9CA3AF",
+          <span style={{ background: ESG_COLORS[l.esg_grade] || "#8A96B4",
             color: "#fff", borderRadius: 5, padding: "2px 8px", fontSize: 10,
             fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0, alignSelf: "flex-start" }}>
             ESG {l.esg_grade}
@@ -208,14 +208,14 @@ function ResultCard({ l, onSelect, active, onHover }) {
       {unitTypes.length > 0 && (
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {unitTypes.map(ut => (
-            <span key={ut} style={{ background: UNIT_COLORS[ut] || "#9CA3AF",
+            <span key={ut} style={{ background: UNIT_COLORS[ut] || "#8A96B4",
               color: "#fff", borderRadius: 4, padding: "2px 7px",
               fontSize: 10, fontWeight: 700 }}>{ut}</span>
           ))}
         </div>
       )}
 
-      <div style={{ fontSize: 11, color: T.gold, fontWeight: 600, marginTop: -4 }}>
+      <div style={{ fontSize: 11, color: T.navy, fontWeight: 600, marginTop: -4 }}>
         View development →
       </div>
     </div>
@@ -337,7 +337,7 @@ export default function SearchPage({ onSelectListing }) {
         label:    l.property_name,
         sublabel: `${fmt(l.avg_price)} · ${l.units} apts`,
         active:   l.listing_id === activePin,
-        color:    l.listing_id === activePin ? T.blue : "#9CA3AF",
+        color:    l.listing_id === activePin ? T.navyMid : "#8A96B4",
       }));
   }, [results, activePin]);
 
@@ -475,7 +475,7 @@ export default function SearchPage({ onSelectListing }) {
   };
 
   return (
-    <div style={{ padding: "20px 20px", maxWidth: 1700, margin: "0 auto" }}>
+    <div style={{ padding: "20px 20px", maxWidth: 1700, margin: "0 auto", background:"#F2F4F6", minHeight:"100vh" }}>
 
       {/* ── Primary search row ── */}
       <div style={{ marginBottom: 16 }}>
@@ -505,8 +505,8 @@ export default function SearchPage({ onSelectListing }) {
               disabled={selStreet.length === 0}
               style={{ height: 42, padding: "0 32px 0 12px", borderRadius: 10,
                 border: `1px solid ${radiusKm && selStreet.length ? T.borderAccent : T.border}`,
-                background: selStreet.length === 0 ? "#F7F6F2" : "#fff",
-                color: radiusKm && selStreet.length ? T.gold : T.textMuted,
+                background: selStreet.length === 0 ? "#FFFFFF" : "#fff",
+                color: radiusKm && selStreet.length ? T.navy : T.textMuted,
                 fontSize: 13, fontWeight: 700, cursor: selStreet.length === 0 ? "not-allowed" : "pointer",
                 opacity: selStreet.length === 0 ? 0.5 : 1,
                 boxShadow: "0 1px 4px rgba(0,0,0,0.06)", outline: "none",
@@ -525,7 +525,7 @@ export default function SearchPage({ onSelectListing }) {
 
           <div style={{ position:"relative", alignSelf:"flex-end" }}>
             <button onClick={() => { if (canSearch) { doSearch(); } else { setShowTip(true); setTimeout(()=>setShowTip(false),2500); } }}
-              style={{ padding: "10px 28px", background: canSearch ? T.gold : "#D1C9B8", border: "none",
+              style={{ padding: "10px 28px", background: canSearch ? T.navy : "#C5CBE9", border: "none",
                 borderRadius: 10, color: "#fff", fontSize: 13, fontWeight: 700,
                 cursor: canSearch ? "pointer" : "not-allowed",
                 boxShadow: canSearch ? "0 2px 8px rgba(201,168,76,0.3)" : "none",
@@ -534,7 +534,7 @@ export default function SearchPage({ onSelectListing }) {
             </button>
             {showTip && (
               <div style={{ position:"absolute", top:"calc(100% + 8px)", left:"50%", transform:"translateX(-50%)",
-                background:"#1A1A2E", color:"#fff", fontSize:11, fontWeight:600,
+                background:"#0b1239", color:"#fff", fontSize:11, fontWeight:600,
                 padding:"6px 12px", borderRadius:8, whiteSpace:"nowrap", zIndex:100,
                 boxShadow:"0 4px 12px rgba(0,0,0,0.2)" }}>
                 ← Please select an area or street first
@@ -571,7 +571,7 @@ export default function SearchPage({ onSelectListing }) {
                     prev.includes(ut) ? prev.filter(x => x !== ut) : [...prev, ut])}
                     style={{ padding:"5px 10px", borderRadius:20, fontSize:11, fontWeight:700,
                       cursor:"pointer", transition:"all 0.15s",
-                      background: selUnit.includes(ut) ? UNIT_COLORS[ut] || "#555" : "#F7F6F2",
+                      background: selUnit.includes(ut) ? UNIT_COLORS[ut] || "#555" : "#FFFFFF",
                       border:`1.5px solid ${selUnit.includes(ut) ? UNIT_COLORS[ut] || "#555" : "transparent"}`,
                       color: selUnit.includes(ut) ? "#fff" : T.textSub,
                       boxShadow: selUnit.includes(ut) ? "0 2px 6px rgba(0,0,0,0.18)" : "none" }}>
@@ -593,7 +593,7 @@ export default function SearchPage({ onSelectListing }) {
                     style={{ width:30, height:30, borderRadius:"50%", fontSize:12, fontWeight:800,
                       cursor:"pointer", transition:"all 0.15s",
                       border:`2px solid ${selEsg.includes(g) ? ESG_COLORS[g]||"#555" : T.border}`,
-                      background: selEsg.includes(g) ? ESG_COLORS[g]||"#555" : "#F7F6F2",
+                      background: selEsg.includes(g) ? ESG_COLORS[g]||"#555" : "#FFFFFF",
                       color: selEsg.includes(g) ? "#fff" : T.textSub,
                       boxShadow: selEsg.includes(g) ? `0 2px 8px ${ESG_COLORS[g]}55` : "none" }}>
                     {g}
@@ -621,7 +621,7 @@ export default function SearchPage({ onSelectListing }) {
                       <button key={lbl} onClick={() => { setMinPrice(active?"":mn); setMaxPrice(active?"":mx); }}
                         style={{ padding:"3px 9px", borderRadius:20, fontSize:10, fontWeight:700,
                           cursor:"pointer", transition:"all 0.15s",
-                          background: active ? PRICE_COLOR : "#F7F6F2",
+                          background: active ? PRICE_COLOR : "#FFFFFF",
                           border:`1.5px solid ${active ? PRICE_COLOR : "transparent"}`,
                           color: active ? "#fff" : T.textSub }}>
                         {lbl}
@@ -633,12 +633,12 @@ export default function SearchPage({ onSelectListing }) {
                 <input type="number" placeholder="Min €" value={minPrice} onChange={e => setMinPrice(e.target.value)}
                   style={{ width:80, padding:"4px 7px", borderRadius:7, fontSize:11,
                     border:`1.5px solid ${minPrice ? PRICE_COLOR : T.border}`, outline:"none",
-                    color:T.text, background:"#FAFAF8" }} />
+                    color:T.text, background:"#F2F4F6" }} />
                 <span style={{ color:T.textMuted, fontSize:11 }}>–</span>
                 <input type="number" placeholder="Max €" value={maxPrice} onChange={e => setMaxPrice(e.target.value)}
                   style={{ width:80, padding:"4px 7px", borderRadius:7, fontSize:11,
                     border:`1.5px solid ${maxPrice ? PRICE_COLOR : T.border}`, outline:"none",
-                    color:T.text, background:"#FAFAF8" }} />
+                    color:T.text, background:"#F2F4F6" }} />
               </div>
             </div>
 
@@ -660,7 +660,7 @@ export default function SearchPage({ onSelectListing }) {
                       <button key={lbl} onClick={() => { setMinM2(active?"":mn); setMaxM2(active?"":mx); }}
                         style={{ padding:"3px 9px", borderRadius:20, fontSize:10, fontWeight:700,
                           cursor:"pointer", transition:"all 0.15s",
-                          background: active ? M2_COLOR : "#F7F6F2",
+                          background: active ? M2_COLOR : "#FFFFFF",
                           border:`1.5px solid ${active ? M2_COLOR : "transparent"}`,
                           color: active ? "#fff" : T.textSub }}>
                         {lbl}
@@ -672,19 +672,19 @@ export default function SearchPage({ onSelectListing }) {
                 <input type="number" placeholder="Min" value={minM2} onChange={e => setMinM2(e.target.value)}
                   style={{ width:75, padding:"4px 7px", borderRadius:7, fontSize:11,
                     border:`1.5px solid ${minM2 ? M2_COLOR : T.border}`, outline:"none",
-                    color:T.text, background:"#FAFAF8" }} />
+                    color:T.text, background:"#F2F4F6" }} />
                 <span style={{ color:T.textMuted, fontSize:11 }}>–</span>
                 <input type="number" placeholder="Max" value={maxM2} onChange={e => setMaxM2(e.target.value)}
                   style={{ width:75, padding:"4px 7px", borderRadius:7, fontSize:11,
                     border:`1.5px solid ${maxM2 ? M2_COLOR : T.border}`, outline:"none",
-                    color:T.text, background:"#FAFAF8" }} />
+                    color:T.text, background:"#F2F4F6" }} />
               </div>
             </div>
 
             {/* Active filters count + reset */}
             {(selUnit.length + selEsg.length > 0 || minPrice || maxPrice || minM2 || maxM2) && (
               <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:8, alignSelf:"center" }}>
-                <span style={{ background:T.goldLight, color:T.gold, borderRadius:20,
+                <span style={{ background:T.navyLight, color:T.navy, borderRadius:20,
                   padding:"4px 12px", fontSize:11, fontWeight:700, whiteSpace:"nowrap" }}>
                   {[selUnit.length, selEsg.length, minPrice||maxPrice?1:0, minM2||maxM2?1:0]
                     .reduce((a,b)=>a+b,0)} filter{[selUnit.length, selEsg.length, minPrice||maxPrice?1:0, minM2||maxM2?1:0].reduce((a,b)=>a+b,0)!==1?"s":""} active
@@ -750,8 +750,8 @@ export default function SearchPage({ onSelectListing }) {
                         <input type="range" min="0" max="30" step="0.1"
                           value={radiusKm ?? 0}
                           onChange={e => setRadiusKm(+e.target.value === 0 ? null : +e.target.value)}
-                          style={{ flex:1, accentColor:T.gold, cursor:"pointer" }} />
-                        <span style={{ fontSize:11, fontWeight:700, color:T.gold, minWidth:70, textAlign:"right" }}>
+                          style={{ flex:1, accentColor:"#0B1239", cursor:"pointer" }} />
+                        <span style={{ fontSize:11, fontWeight:700, color:T.navy, minWidth:70, textAlign:"right" }}>
                           {radiusKm ? (radiusKm < 1 ? `${Math.round(radiusKm*1000)}m` : `${radiusKm}km`) : "All"}
                         </span>
                         {radiusKm && <button onClick={() => setRadiusKm(null)}
@@ -786,14 +786,14 @@ export default function SearchPage({ onSelectListing }) {
                             {utStats.map((row, i) => (
                               <tr key={row.unit_type} style={{ borderBottom:`1px solid ${T.border}`, background:i%2===0?T.bgStripe:"#fff" }}>
                                 <td style={{ padding:"7px 8px" }}>
-                                  <span style={{ background:UNIT_COLORS[row.unit_type]||"#9CA3AF", color:"#fff",
+                                  <span style={{ background:UNIT_COLORS[row.unit_type]||"#8A96B4", color:"#fff",
                                     fontWeight:700, fontSize:11, padding:"2px 7px", borderRadius:4 }}>{row.unit_type}</span>
                                 </td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price ? fmt(row.min_price) : "—"}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.gold, fontWeight:700 }}>{row.avg_price ? fmt(row.avg_price) : "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price ? fmt(row.avg_price) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price ? fmt(row.max_price) : "—"}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.blue, fontWeight:600 }}>{row.avg_price_m2 ? `€${row.avg_price_m2}` : "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_price_m2 ? `€${row.avg_price_m2}` : "—"}</td>
                               </tr>
                             ))}
                           </tbody>

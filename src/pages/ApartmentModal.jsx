@@ -49,7 +49,7 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
       active:   l.listing_id === listingId || l.listing_id === activePin,
       color:    l.listing_id === listingId ? T.gold
               : l.listing_id === activePin ? T.blue
-              : "#9CA3AF",
+              : "#8A96B4",
     }));
   }, [nearbyListings, listingId, activePin]);
 
@@ -94,7 +94,7 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
 
       {/* Modal panel */}
       <div onClick={e=>e.stopPropagation()}
-        style={{ background:"#F7F6F2", borderRadius:16, width:"100%", maxWidth:1100,
+        style={{ background:"#f5f2ed", borderRadius:16, width:"100%", maxWidth:1100,
           boxShadow:"0 24px 80px rgba(0,0,0,0.22)", overflow:"hidden", marginBottom:32 }}>
 
         {/* ── Header ────────────────────────────────────────────────── */}

@@ -63,13 +63,13 @@ function AVMSection({ apt, comparables, utColor }) {
             borderBottom:`1px solid ${T.border}`, background:T.bgStripe }}>
             <input type="checkbox" checked={allSelected} ref={el => { if (el) el.indeterminate = !allSelected && !noneSelected; }}
               onChange={toggleAll}
-              style={{ width:14, height:14, cursor:"pointer", accentColor:T.gold }} />
+              style={{ width:14, height:14, cursor:"pointer", accentColor:"#0B1239" }} />
             <span style={{ fontSize:11, color:T.textMuted, fontWeight:600 }}>
               {selected.size} of {comparables.length} comparables selected
             </span>
             {!allSelected && (
               <button onClick={() => setSelected(new Set(allIds))}
-                style={{ marginLeft:"auto", fontSize:10, color:T.gold, background:"none",
+                style={{ marginLeft:"auto", fontSize:10, color:T.navy, background:"none",
                   border:`1px solid ${T.borderAccent}`, borderRadius:5, padding:"2px 8px", cursor:"pointer" }}>
                 Select all
               </button>
@@ -92,38 +92,38 @@ function AVMSection({ apt, comparables, utColor }) {
                 {comparables.map((a, i) => {
                   const isThis   = a.sub_listing_id === apt.sub_listing_id;
                   const checked  = selected.has(a.sub_listing_id);
-                  const rowBg    = isThis ? "rgba(201,168,76,0.12)" : checked ? "#fff" : "#FAFAF9";
+                  const rowBg    = isThis ? "rgba(201,168,76,0.12)" : checked ? "#fff" : "#F8F9AF9";
                   return (
                     <tr key={a.sub_listing_id}
                       onClick={() => !isThis && toggle(a.sub_listing_id)}
                       style={{ background:rowBg, borderBottom:`1px solid ${T.border}`,
-                        borderLeft:`3px solid ${isThis ? T.gold : checked ? T.green : "#E5E7EB"}`,
+                        borderLeft:`3px solid ${isThis ? T.navy : checked ? T.green : "#E5E7EB"}`,
                         cursor: isThis ? "default" : "pointer",
                         opacity: checked || isThis ? 1 : 0.45,
                         transition:"all 0.12s" }}>
                       <td style={{ padding:"8px 10px", textAlign:"center" }}>
                         {isThis
-                          ? <span style={{ fontSize:10, color:T.gold, fontWeight:700 }}>★</span>
+                          ? <span style={{ fontSize:10, color:T.navy, fontWeight:700 }}>★</span>
                           : <input type="checkbox" checked={checked} onChange={() => toggle(a.sub_listing_id)}
                               onClick={e => e.stopPropagation()}
                               style={{ width:13, height:13, cursor:"pointer", accentColor:T.green }} />
                         }
                       </td>
                       <td style={{ padding:"8px 10px", maxWidth:130 }}>
-                        <div style={{ fontWeight: isThis?700:500, color: isThis?T.gold:T.text,
+                        <div style={{ fontWeight: isThis?700:500, color: isThis?T.navy:T.text,
                           whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
                           {a.property_name}
-                          {isThis && <span style={{ marginLeft:5, fontSize:9, color:T.gold }}>(this apt)</span>}
+                          {isThis && <span style={{ marginLeft:5, fontSize:9, color:T.navy }}>(this apt)</span>}
                         </div>
                         <div style={{ color:T.textMuted, fontSize:10 }}>{a.municipality}</div>
                       </td>
                       <td style={{ padding:"8px 10px", textAlign:"right", color:T.textSub }}>{a.floor||"—"}</td>
                       <td style={{ padding:"8px 10px", textAlign:"right" }}>{a.size ? `${a.size}m²` : "—"}</td>
                       <td style={{ padding:"8px 10px", textAlign:"right", fontWeight:600,
-                        color: checked && !isThis ? T.blue : T.textSub }}>
+                        color: checked && !isThis ? T.navyMid : T.textSub }}>
                         {a.price_per_m2 ? `€${Math.round(a.price_per_m2)}` : "—"}
                       </td>
-                      <td style={{ padding:"8px 10px", textAlign:"right", color: isThis?T.gold:T.text,
+                      <td style={{ padding:"8px 10px", textAlign:"right", color: isThis?T.navy:T.text,
                         fontWeight: isThis?700:500 }}>{fmtFull(a.price)}</td>
                       <td style={{ padding:"8px 10px", textAlign:"right", color:T.textSub }}>{a.bedrooms??"—"}</td>
                     </tr>
@@ -138,26 +138,26 @@ function AVMSection({ apt, comparables, utColor }) {
         <div style={{ position:"sticky", top:16 }}>
           {/* Estimate box */}
           <div style={{ background: estimate ? "linear-gradient(135deg,#1A1A2E 0%,#2D2D4A 100%)" : T.bgCard,
-            border:`2px solid ${estimate ? "#C9A84C" : T.border}`,
+            border:`2px solid ${estimate ? "#0B1239" : T.border}`,
             borderRadius:16, padding:"24px 22px", marginBottom:12, boxShadow:T.shadowMd }}>
 
-            <div style={{ color:"#C9A84C", fontSize:10, textTransform:"uppercase",
+            <div style={{ color:"#0B1239", fontSize:10, textTransform:"uppercase",
               letterSpacing:"0.1em", fontWeight:700, marginBottom:8 }}>
               AVM Estimate
             </div>
 
             {noneSelected ? (
-              <div style={{ color:"#9CA3AF", fontSize:13, textAlign:"center", padding:"12px 0" }}>
+              <div style={{ color:"#8A96B4", fontSize:13, textAlign:"center", padding:"12px 0" }}>
                 Select comparables to generate estimate
               </div>
             ) : !estimate ? (
-              <div style={{ color:"#9CA3AF", fontSize:13 }}>Insufficient data</div>
+              <div style={{ color:"#8A96B4", fontSize:13 }}>Insufficient data</div>
             ) : (
               <>
-                <div style={{ color:"#F7F6F2", fontWeight:800, fontSize:32, marginBottom:4 }}>
+                <div style={{ color:"#FFFFFF", fontWeight:800, fontSize:32, marginBottom:4 }}>
                   {fmtFull(estimate)}
                 </div>
-                <div style={{ color:"#9CA3AF", fontSize:11, marginBottom:16 }}>
+                <div style={{ color:"#8A96B4", fontSize:11, marginBottom:16 }}>
                   {selected.size} comparable{selected.size!==1?"s":""} ·
                   median €{Math.round(median)}/m² × {apt.size}m²
                 </div>
@@ -166,14 +166,14 @@ function AVMSection({ apt, comparables, utColor }) {
                 {diff !== null && (
                   <div style={{ background:"rgba(255,255,255,0.07)", borderRadius:10,
                     padding:"12px 14px", marginBottom:14 }}>
-                    <div style={{ color:"#9CA3AF", fontSize:10, textTransform:"uppercase",
+                    <div style={{ color:"#8A96B4", fontSize:10, textTransform:"uppercase",
                       fontWeight:600, marginBottom:6 }}>vs Listed Price</div>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                       <div>
                         <span style={{ color: diffColor, fontWeight:800, fontSize:18 }}>
                           {diff > 0 ? "+" : ""}{fmtFull(diff)}
                         </span>
-                        <span style={{ color:"#9CA3AF", fontSize:11, marginLeft:6 }}>
+                        <span style={{ color:"#8A96B4", fontSize:11, marginLeft:6 }}>
                           ({diff > 0 ? "+" : ""}{diffPct}%)
                         </span>
                       </div>
@@ -189,14 +189,14 @@ function AVMSection({ apt, comparables, utColor }) {
                 {/* Breakdown */}
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
                   {[
-                    ["Median €/m²", `€${Math.round(median)}`, T.blue],
-                    ["Your size", `${apt.size} m²`, "#9CA3AF"],
-                    ["Listed at", fmtFull(listed), T.gold],
-                    ["Estimate", fmtFull(estimate), "#C9A84C"],
+                    ["Median €/m²", `€${Math.round(median)}`, T.navyMid],
+                    ["Your size", `${apt.size} m²`, "#8A96B4"],
+                    ["Listed at", fmtFull(listed), T.navy],
+                    ["Estimate", fmtFull(estimate), "#0B1239"],
                   ].map(([lbl, val, color]) => (
                     <div key={lbl} style={{ background:"rgba(255,255,255,0.05)",
                       borderRadius:8, padding:"8px 10px" }}>
-                      <div style={{ color:"#6B7280", fontSize:9, textTransform:"uppercase",
+                      <div style={{ color:"#6B7A9F", fontSize:9, textTransform:"uppercase",
                         fontWeight:600, marginBottom:2 }}>{lbl}</div>
                       <div style={{ color, fontWeight:700, fontSize:13 }}>{val}</div>
                     </div>
@@ -228,7 +228,7 @@ function AVMSection({ apt, comparables, utColor }) {
                     return (
                       <div key={i} title={`€${Math.round(v)}/m²`}
                         style={{ flex:1, height:h, borderRadius:"2px 2px 0 0",
-                          background: isMedian ? T.blue : "#D1C9B8",
+                          background: isMedian ? T.navyMid : "#C5CBE9",
                           transition:"height 0.3s" }} />
                     );
                   });
@@ -237,7 +237,7 @@ function AVMSection({ apt, comparables, utColor }) {
               <div style={{ display:"flex", justifyContent:"space-between",
                 color:T.textMuted, fontSize:9, marginTop:3 }}>
                 <span>€{Math.round(Math.min(...selComps.map(a=>a.price_per_m2)))}</span>
-                <span style={{ color:T.blue, fontWeight:700 }}>med €{Math.round(median)}</span>
+                <span style={{ color:T.navyMid, fontWeight:700 }}>med €{Math.round(median)}</span>
                 <span>€{Math.round(Math.max(...selComps.map(a=>a.price_per_m2)))}</span>
               </div>
             </div>
@@ -258,7 +258,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
   const [radiusKm,      setRadiusKm]      = useState(null); // null = comarca mode
   const [loading,       setLoading]       = useState(true);
 
-  const utColor = UNIT_COLORS[apt.unit_type] || T.gold;
+  const utColor = UNIT_COLORS[apt.unit_type] || T.navy;
 
   const periodSort = p => {
     const MO = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
@@ -294,8 +294,8 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
       label:    l.property_name,
       sublabel: `${fmt(l.avg_price)} avg · ${l.units} apts`,
       active:   l.listing_id === listingId || l.listing_id === activePin,
-      color:    l.listing_id === listingId ? T.gold
-              : l.listing_id === activePin ? T.blue : "#9CA3AF",
+      color:    l.listing_id === listingId ? T.navy
+              : l.listing_id === activePin ? T.navyMid : "#8A96B4",
     }));
   }, [nearbyListings, listingId, activePin]);
 
@@ -314,9 +314,9 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
 
   const SortBtn = ({ col, label }) => (
     <button onClick={() => setSortCol(col)}
-      style={{ background: sortCol===col ? T.goldLight : "#fff",
+      style={{ background: sortCol===col ? T.navyLight : "#fff",
         border: `1px solid ${sortCol===col ? T.borderAccent : T.border}`,
-        color: sortCol===col ? T.gold : T.textSub,
+        color: sortCol===col ? T.navy : T.textSub,
         padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:11,
         fontWeight: sortCol===col?700:500 }}>
       {label}
@@ -324,7 +324,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
   );
 
   return (
-    <div style={{ minHeight:"100vh", background:"#F7F6F2" }}>
+    <div style={{ minHeight:"100vh", background:"#F2F4F6" }}>
       <div style={{ maxWidth:1700, margin:"0 auto" }}>
 
         {/* ── Header ────────────────────────────────────────────────── */}
@@ -343,10 +343,10 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
           <div style={{ marginLeft:"auto", display:"flex", gap:24, alignItems:"center" }}>
             <div style={{ textAlign:"right" }}>
               <div style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>Listed Price</div>
-              <div style={{ color:T.gold, fontWeight:800, fontSize:22 }}>{fmtFull(apt.price)}</div>
+              <div style={{ color:T.navy, fontWeight:800, fontSize:22 }}>{fmtFull(apt.price)}</div>
               <div style={{ color:T.textSub, fontSize:11 }}>€{apt.price_per_m2 ? Math.round(apt.price_per_m2) : "—"}/m²</div>
               {apt.last_updated && (
-                <div style={{ color:"#6B7280", fontSize:10, marginTop:3 }}>
+                <div style={{ color:"#6B7A9F", fontSize:10, marginTop:3 }}>
                   🕒 {apt.last_updated.replace("Listing updated on ","").replace("listing updated on ","")}
                 </div>
               )}
@@ -374,7 +374,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
             {apt.unit_url && (
               <a href={apt.unit_url} target="_blank" rel="noreferrer"
                 style={{ display:"inline-flex", alignItems:"center", gap:4,
-                  color:"#fff", background:T.blue, fontSize:12, fontWeight:700,
+                  color:"#fff", background:T.navyMid, fontSize:12, fontWeight:700,
                   textDecoration:"none", padding:"6px 14px", borderRadius:7 }}>
                 Idealista ↗
               </a>
@@ -406,7 +406,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                     <div>Only 1 snapshot so far — price history will appear as more data is collected</div>
                     <div style={{ marginTop:12, background:T.bgStripe, borderRadius:8, padding:"10px 18px", display:"inline-block" }}>
                       <span style={{ color:T.textMuted, fontSize:11 }}>Current: </span>
-                      <span style={{ color:T.gold, fontWeight:700 }}>{fmtFull(apt.price)}</span>
+                      <span style={{ color:T.navy, fontWeight:700 }}>{fmtFull(apt.price)}</span>
                       <span style={{ color:T.textMuted, fontSize:11 }}> ({aptTrend[0]?.period || "—"})</span>
                     </div>
                   </div>
@@ -416,7 +416,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                       {aptTrend.map((pt,i) => (
                         <div key={pt.period} style={{ textAlign:"center" }}>
                           <div style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>{pt.period}</div>
-                          <div style={{ color: i===aptTrend.length-1 ? T.gold : T.text,
+                          <div style={{ color: i===aptTrend.length-1 ? T.navy : T.text,
                             fontWeight: i===aptTrend.length-1 ? 700 : 600, fontSize:14 }}>{fmtFull(pt.price)}</div>
                           <div style={{ color:T.textSub, fontSize:10 }}>€{pt.price_per_m2}/m²</div>
                         </div>
@@ -436,8 +436,8 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                         <Line yAxisId="p" type="monotone" dataKey="price" name="Price"
                           stroke={utColor} strokeWidth={3} dot={{ r:6, fill:utColor, stroke:"#fff", strokeWidth:2 }}/>
                         <Line yAxisId="m" type="monotone" dataKey="price_per_m2" name="€/m²"
-                          stroke={T.blue} strokeWidth={2} strokeDasharray="5 3"
-                          dot={{ r:4, fill:T.blue }}/>
+                          stroke={T.navyMid} strokeWidth={2} strokeDasharray="5 3"
+                          dot={{ r:4, fill:T.navyMid }}/>
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
@@ -510,9 +510,9 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                               const mDiff = isThis || !apt.price_per_m2 ? null : (a.price_per_m2||0) - apt.price_per_m2;
                               const rowBg = isThis   ? "rgba(201,168,76,0.15)"
                                           : isPinned ? "rgba(74,128,176,0.10)"
-                                          : isCur    ? T.goldLight
+                                          : isCur    ? T.navyLight
                                           : i%2===0  ? T.bgStripe : "#fff";
-                              const borderColor = isThis ? T.gold : isPinned ? T.blue : isCur ? "rgba(201,168,76,0.4)" : "transparent";
+                              const borderColor = isThis ? T.navy : isPinned ? T.navyMid : isCur ? "rgba(201,168,76,0.4)" : "transparent";
                               const DiffTag = ({ d, isEur }) => {
                                 if (isThis || d == null) return null;
                                 const up = d > 0;
@@ -532,15 +532,15 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                                     cursor:"pointer", transition:"background 0.1s" }}>
                                   <td style={{ padding:"8px 10px", maxWidth:140 }}>
                                     <div style={{ fontWeight:isCur||isPinned?700:500,
-                                      color:isThis?T.gold:isPinned?T.blue:isCur?T.gold:T.text, fontSize:11,
+                                      color:isThis?T.navy:isPinned?T.navyMid:isCur?T.navy:T.text, fontSize:11,
                                       whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:130 }}>{a.property_name}</div>
                                     <div style={{ color:T.textMuted, fontSize:10 }}>{a.municipality}</div>
-                                    {isThis&&<div style={{ fontSize:9,color:T.gold,fontWeight:700 }}>◀ This apt</div>}
-                                    {isPinned&&!isThis&&<div style={{ fontSize:9,color:T.blue,fontWeight:700 }}>📍 Pinned</div>}
+                                    {isThis&&<div style={{ fontSize:9,color:T.navy,fontWeight:700 }}>◀ This apt</div>}
+                                    {isPinned&&!isThis&&<div style={{ fontSize:9,color:T.navyMid,fontWeight:700 }}>📍 Pinned</div>}
                                   </td>
                                   <td style={{ padding:"8px 10px", textAlign:"right", whiteSpace:"nowrap" }}>{a.floor||"—"}</td>
                                   <td style={{ padding:"8px 10px", textAlign:"right", whiteSpace:"nowrap" }}>
-                                    <div style={{ color:isThis?T.gold:T.text, fontWeight:isThis?700:600 }}>{fmtFull(a.price)}</div>
+                                    <div style={{ color:isThis?T.navy:T.text, fontWeight:isThis?700:600 }}>{fmtFull(a.price)}</div>
                                     <DiffTag d={pDiff} isEur={false}/>
                                   </td>
                                   <td style={{ padding:"8px 10px", textAlign:"right", whiteSpace:"nowrap" }}>
@@ -554,13 +554,13 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                                       <Pill on={a.has_pool} label="Pool"/><Pill on={a.has_lift} label="Lift"/>
                                     </div>
                                   </td>
-                                  <td style={{ padding:"8px 10px", whiteSpace:"nowrap", fontSize:10, color:"#6B7280" }}>
+                                  <td style={{ padding:"8px 10px", whiteSpace:"nowrap", fontSize:10, color:"#6B7A9F" }}>
                                     {a.last_updated ? a.last_updated.replace("Listing updated on ","").replace("listing updated on ","") : "—"}
                                   </td>
                                   <td style={{ padding:"8px 10px", textAlign:"center" }}>
                                     {a.unit_url&&<a href={a.unit_url} target="_blank" rel="noreferrer"
                                       style={{ display:"inline-flex", alignItems:"center", gap:3,
-                                        color:"#fff", background:T.blue, fontSize:10, fontWeight:700,
+                                        color:"#fff", background:T.navyMid, fontSize:10, fontWeight:700,
                                         textDecoration:"none", padding:"3px 9px", borderRadius:5,
                                         whiteSpace:"nowrap" }}>Idealista ↗</a>}
                                   </td>

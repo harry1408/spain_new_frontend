@@ -28,7 +28,7 @@ export function MultiPinGoogleMap({ markers = [], activePin, currentLat, current
       <a href={`https://www.google.com/maps?q=${center.lat},${center.lng}`}
         target="_blank" rel="noreferrer"
         style={{ position:"absolute", bottom:8, right:8, background:"rgba(255,255,255,0.92)",
-          borderRadius:4, fontSize:10, fontWeight:600, color:"#1a73e8",
+          borderRadius:4, fontSize:10, fontWeight:600, color:"#1e40af",
           padding:"3px 8px", textDecoration:"none",
           boxShadow:"0 1px 4px rgba(0,0,0,0.2)", zIndex:10 }}>
         Open in Google Maps ↗
@@ -53,7 +53,7 @@ export function GoogleMapEmbed({ lat, lng, height = "220px", zoom = 16 }) {
       <a href={`https://www.google.com/maps?q=${lat},${lng}`}
         target="_blank" rel="noreferrer"
         style={{ position:"absolute", bottom:6, right:6, background:"rgba(255,255,255,0.92)",
-          borderRadius:4, fontSize:10, fontWeight:600, color:"#1a73e8",
+          borderRadius:4, fontSize:10, fontWeight:600, color:"#1e40af",
           padding:"2px 7px", textDecoration:"none", boxShadow:"0 1px 4px rgba(0,0,0,0.2)", zIndex:10 }}>
         Open in Google Maps ↗
       </a>
@@ -78,7 +78,7 @@ export function MapThumbnail({ lat, lng, height = 90, zoom = 15, overlay }) {
       <a href={`https://www.google.com/maps?q=${lat},${lng}`}
         target="_blank" rel="noreferrer"
         style={{ position:"absolute", bottom:4, right:5, background:"rgba(255,255,255,0.85)",
-          borderRadius:3, fontSize:9, fontWeight:600, color:"#1a73e8",
+          borderRadius:3, fontSize:9, fontWeight:600, color:"#1e40af",
           padding:"1px 5px", textDecoration:"none", zIndex:10 }}>
         Google Maps ↗
       </a>

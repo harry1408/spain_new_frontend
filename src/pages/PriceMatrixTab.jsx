@@ -3,7 +3,7 @@ import { T, fmt, fmtFull, UNIT_COLORS, Pill } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 
 function DeltaBadge({ change, pct }) {
-  if (change === 0 || change == null) return <span style={{ color:"#9CA3AF", fontSize:10 }}>—</span>;
+  if (change === 0 || change == null) return <span style={{ color:"#8A96B4", fontSize:10 }}>—</span>;
   const up = change > 0;
   return (
     <span style={{ display:"inline-flex", alignItems:"center", gap:3,
@@ -17,7 +17,7 @@ function DeltaBadge({ change, pct }) {
 }
 
 function PriceCell({ value, prevValue, isLatest }) {
-  if (value == null) return <td style={{ padding:"10px 14px", textAlign:"right", color:"#9CA3AF", borderLeft:"1px solid rgba(255,255,255,0.04)" }}>—</td>;
+  if (value == null) return <td style={{ padding:"10px 14px", textAlign:"right", color:"#8A96B4", borderLeft:"1px solid rgba(255,255,255,0.04)" }}>—</td>;
   const changed = prevValue != null && value !== prevValue;
   const up = prevValue != null && value > prevValue;
   return (
@@ -35,7 +35,7 @@ function PriceCell({ value, prevValue, isLatest }) {
 }
 
 function Pm2Cell({ value, prevValue, isLatest }) {
-  if (value == null) return <td style={{ padding:"10px 14px", textAlign:"right", color:"#9CA3AF" }}>—</td>;
+  if (value == null) return <td style={{ padding:"10px 14px", textAlign:"right", color:"#8A96B4" }}>—</td>;
   const changed = prevValue != null && value !== prevValue;
   const up = prevValue != null && value > prevValue;
   return (
@@ -130,8 +130,8 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
     </th>
   );
 
-  if (loading) return <div style={{ padding:60, textAlign:"center", color:"#6B7280" }}>Loading price matrix…</div>;
-  if (!matrix || !periods.length) return <div style={{ padding:60, textAlign:"center", color:"#6B7280" }}>No data.</div>;
+  if (loading) return <div style={{ padding:60, textAlign:"center", color:"#6B7A9F" }}>Loading price matrix…</div>;
+  if (!matrix || !periods.length) return <div style={{ padding:60, textAlign:"center", color:"#6B7A9F" }}>No data.</div>;
 
   const latestPeriod = periods[periods.length - 1];
   const hasFilters = unitTypeFilter.length || search || minPrice || maxPrice || (changedOnly && anyChanges);
@@ -152,14 +152,14 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
       {/* ── Summary strip ─────────────────────────────────────────────── */}
       <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
         {[
-          { label:"Showing",       value:`${stats.total} of ${stats.totalAll} apts`, color:"#1A1A2E" },
+          { label:"Showing",       value:`${stats.total} of ${stats.totalAll} apts`, color:"#0b1239" },
           { label:"Avg Price",     value:fmtFull(stats.avgPrice),                    color:"#C9A84C" },
           { label:"Price Changed", value:stats.changed,                              color: stats.changed>0?"#E8A838":"#3a4555" },
           { label:"Increased ▲",  value:stats.increased,                            color:"#E74C3C" },
-          { label:"Decreased ▼",  value:stats.decreased,                            color:"#16A34A" },
+          { label:"Decreased ▼",  value:stats.decreased,                            color:"#1A4A2A" },
         ].map(s => (
           <div key={s.label} style={{ background:"#fff", border:"1px solid #E4E0D8", borderRadius:12, padding:"12px 18px", minWidth:110 }}>
-            <div style={{ color:"#9CA3AF", fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>{s.label}</div>
+            <div style={{ color:"#8A96B4", fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>{s.label}</div>
             <div style={{ color:s.color, fontWeight:700, fontSize:16 }}>{s.value}</div>
           </div>
         ))}
@@ -170,22 +170,22 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
 
         {/* Search */}
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Type or floor…"
-          style={{ background:"#F0EDE6", border:"1px solid #C9A84C", color:"#1A1A2E", padding:"8px 12px", borderRadius:8, fontSize:12, width:150, outline:"none" }} />
+          style={{ background:"#F0EDE6", border:"1px solid #C9A84C", color:"#0b1239", padding:"8px 12px", borderRadius:8, fontSize:12, width:150, outline:"none" }} />
 
         {/* Price range */}
         <div style={{ display:"flex", gap:4, alignItems:"center" }}>
-          <span style={{ color:"#9CA3AF", fontSize:11 }}>€</span>
+          <span style={{ color:"#8A96B4", fontSize:11 }}>€</span>
           <input value={minPrice} onChange={e=>setMinPrice(e.target.value)} placeholder="Min K"
-            style={{ background:"#F0EDE6", border:"1px solid #E4E0D8", color:"#1A1A2E", padding:"8px 10px", borderRadius:8, fontSize:12, width:80, outline:"none", textAlign:"right" }} />
-          <span style={{ color:"#9CA3AF", fontSize:11 }}>–</span>
+            style={{ background:"#F0EDE6", border:"1px solid #E4E0D8", color:"#0b1239", padding:"8px 10px", borderRadius:8, fontSize:12, width:80, outline:"none", textAlign:"right" }} />
+          <span style={{ color:"#8A96B4", fontSize:11 }}>–</span>
           <input value={maxPrice} onChange={e=>setMaxPrice(e.target.value)} placeholder="Max K"
-            style={{ background:"#F0EDE6", border:"1px solid #E4E0D8", color:"#1A1A2E", padding:"8px 10px", borderRadius:8, fontSize:12, width:80, outline:"none", textAlign:"right" }} />
-          <span style={{ color:"#9CA3AF", fontSize:10 }}>× 1,000</span>
+            style={{ background:"#F0EDE6", border:"1px solid #E4E0D8", color:"#0b1239", padding:"8px 10px", borderRadius:8, fontSize:12, width:80, outline:"none", textAlign:"right" }} />
+          <span style={{ color:"#8A96B4", fontSize:10 }}>× 1,000</span>
         </div>
 
         {/* Unit type */}
         <div style={{ display:"flex", gap:5, alignItems:"center", flexWrap:"wrap" }}>
-          <span style={{ color:"#9CA3AF", fontSize:10, textTransform:"uppercase" }}>Type</span>
+          <span style={{ color:"#8A96B4", fontSize:10, textTransform:"uppercase" }}>Type</span>
           {unitTypes.map(ut => (
             <button key={ut} onClick={() => setUnitTypeFilter(prev => prev.includes(ut)?prev.filter(x=>x!==ut):[...prev,ut])}
               style={{ background:unitTypeFilter.includes(ut)?UNIT_COLORS[ut]||"#aaa":"#fff",
@@ -196,7 +196,7 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
         </div>
 
         {/* Metric toggle */}
-        <div style={{ display:"flex", gap:3, background:"#F7F6F2", border:"1px solid #E4E0D8", borderRadius:8, padding:3 }}>
+        <div style={{ display:"flex", gap:3, background:"#f5f2ed", border:"1px solid #E4E0D8", borderRadius:8, padding:3 }}>
           {[["price","Price"],["ppm2","€/m²"],["both","Both"]].map(([k,lbl]) => (
             <button key={k} onClick={() => setShowMetric(k)}
               style={{ background:showMetric===k?"rgba(232,168,56,0.2)":"transparent",
@@ -209,7 +209,7 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
         {/* Changed only — shows tooltip explaining why it's disabled when no changes exist */}
         <div style={{ position:"relative" }} title={!anyChanges?"No price changes detected yet — will activate when prices move between snapshots":""}>
           <button onClick={() => anyChanges && setChangedOnly(v => !v)}
-            style={{ background:changedOnly&&anyChanges?"rgba(232,168,56,0.15)":"#F7F6F2",
+            style={{ background:changedOnly&&anyChanges?"rgba(232,168,56,0.15)":"#F8F9FA",
               border:`1px solid ${changedOnly&&anyChanges?"rgba(232,168,56,0.5)":"rgba(255,255,255,0.1)"}`,
               color:changedOnly&&anyChanges?T.gold:anyChanges?T.textSub:T.textMuted,
               padding:"6px 12px", borderRadius:7,
@@ -222,12 +222,12 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
         {/* Clear */}
         {hasFilters && (
           <button onClick={() => { setUnitTypeFilter([]); setSearch(""); setMinPrice(""); setMaxPrice(""); setChangedOnly(false); }}
-            style={{ background:"#FEF2F2", border:"1px solid #DC2626", color:"#DC2626", padding:"6px 12px", borderRadius:7, cursor:"pointer", fontSize:11 }}>
+            style={{ background:"#FEF2F2", border:"1px solid #DC2626", color:"#6B2A2A", padding:"6px 12px", borderRadius:7, cursor:"pointer", fontSize:11 }}>
             ✕ Clear
           </button>
         )}
 
-        <div style={{ marginLeft:"auto", color:"#6B7280", fontSize:12 }}>
+        <div style={{ marginLeft:"auto", color:"#6B7A9F", fontSize:12 }}>
           {rows.length} of {allRows.length} apartments
         </div>
       </div>
@@ -243,7 +243,7 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
               <SortTh col="bedrooms"  right={true}>Beds</SortTh>
               <SortTh col="bathrooms" right={true}>Baths</SortTh>
               <SortTh col={null}      right={false} style={{ minWidth:160 }}>Amenities</SortTh>
-              <SortTh col={null}      right={false} style={{ whiteSpace:"nowrap", color:"#9CA3AF" }}>Updated</SortTh>
+              <SortTh col={null}      right={false} style={{ whiteSpace:"nowrap", color:"#8A96B4" }}>Updated</SortTh>
 
               {periods.map((p, pi) => {
                 const isLatest = p === latestPeriod;
@@ -253,7 +253,7 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
                     style={{ padding:"10px 14px", textAlign:"center",
                       color: isLatest?"#E8A838":"#8fa0b0",
                       fontSize:10, textTransform:"uppercase", letterSpacing:"0.06em",
-                      background: isLatest?"rgba(232,168,56,0.08)":"#F7F6F2",
+                      background: isLatest?"rgba(232,168,56,0.08)":"#F8F9FA",
                       borderBottom:"1px solid rgba(255,255,255,0.1)",
                       borderLeft:"1px solid rgba(255,255,255,0.07)",
                       whiteSpace:"nowrap" }}>
@@ -319,7 +319,7 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
                       <Pill on={row.has_storage} label="Str"/>
                     </div>
                   </td>
-                  <td style={{ padding:"10px 14px", whiteSpace:"nowrap", fontSize:10, color:"#6B7280" }}>
+                  <td style={{ padding:"10px 14px", whiteSpace:"nowrap", fontSize:10, color:"#6B7A9F" }}>
                     {row.last_updated
                       ? row.last_updated.replace("Listing updated on ","").replace("listing updated on ","")
                       : "—"}
@@ -389,9 +389,9 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
         </table>
       </div>
 
-      <div style={{ marginTop:10, color:"#9CA3AF", fontSize:11 }}>
+      <div style={{ marginTop:10, color:"#8A96B4", fontSize:11 }}>
         ★ = latest snapshot &nbsp;·&nbsp; ▲/▼ in cell = change vs prior period &nbsp;·&nbsp;
-        Rows tinted <span style={{ color:"#E74C3C" }}>red</span> / <span style={{ color:"#16A34A" }}>green</span> if price moved &nbsp;·&nbsp;
+        Rows tinted <span style={{ color:"#E74C3C" }}>red</span> / <span style={{ color:"#1A4A2A" }}>green</span> if price moved &nbsp;·&nbsp;
         Price range filter uses thousands (e.g. 200 = €200,000)
       </div>
     </div>
