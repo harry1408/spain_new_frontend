@@ -668,7 +668,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                     <XAxis dataKey="period" tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
                     <YAxis yAxisId="price" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
                     <YAxis yAxisId="m2" orientation="right" tickFormatter={v=>`€${v}`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <Tooltip formatter={(v,n)=>n==="Avg Price"?[fmtFull(v),n]:[`€${v}`,n]} contentStyle={{ background:"#fff", border:"1px solid #C9A84C", borderRadius:8, fontSize:12 }} />
+                    <Tooltip formatter={(v,n)=>n==="Avg Price"?[fmtFull(v),n]:[`€${v}`,n]} contentStyle={{ background:"#fff", border:"1px solid #0B1239", borderRadius:8, fontSize:12 }} />
                     <Legend wrapperStyle={{ fontSize:11, color:"#6B7A9F" }} />
                     <Line yAxisId="price" type="monotone" dataKey="avg_price" name="Avg Price" stroke={T.navy} strokeWidth={2.5} dot={{ r:5, fill:T.navy }} />
                     <Line yAxisId="m2" type="monotone" dataKey="avg_price_m2" name="Avg €/m²" stroke={M2_COLOR} strokeWidth={2.5} dot={{ r:5, fill:M2_COLOR }} strokeDasharray="5 3" />
@@ -685,7 +685,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                     <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
                     <XAxis dataKey="period" tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ background:"#fff", border:"1px solid #C9A84C", borderRadius:8, fontSize:12 }} />
+                    <Tooltip contentStyle={{ background:"#fff", border:"1px solid #0B1239", borderRadius:8, fontSize:12 }} />
                     <Legend wrapperStyle={{ fontSize:11, color:"#6B7A9F" }} />
                     <Bar dataKey="total" name="Total Units" fill={M2_COLOR} radius={[4,4,0,0]} />
                     <Bar dataKey="new"   name="New Listings" fill={T.green} radius={[4,4,0,0]} />
@@ -703,7 +703,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                     <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
                     <XAxis dataKey="period" tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
                     <YAxis tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <Tooltip formatter={(v)=>[fmtFull(v)]} contentStyle={{ background:"#fff", border:"1px solid #C9A84C", borderRadius:8, fontSize:12 }} />
+                    <Tooltip formatter={(v)=>[fmtFull(v)]} contentStyle={{ background:"#fff", border:"1px solid #0B1239", borderRadius:8, fontSize:12 }} />
                     <Legend wrapperStyle={{ fontSize:11 }} />
                     {ut_lines.map(ut=>(
                       <Line key={ut} type="monotone" dataKey={ut} stroke={UNIT_COLORS[ut]||"#aaa"} strokeWidth={2} dot={{ r:4, fill:UNIT_COLORS[ut]||"#aaa" }} />

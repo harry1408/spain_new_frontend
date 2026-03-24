@@ -484,17 +484,17 @@ export default function SearchPage({ onSelectListing }) {
             label="Municipality"
             options={opts.municipalities}
             value={selMuni}
-            onChange={setSelMuni}
-            placeholder="Select municipalities…"
-            maxDisplay={2}
+            onChange={v => setSelMuni(v.length > 1 ? [v[v.length-1]] : v)}
+            placeholder="Select a municipality…"
+            maxDisplay={1}
           />
           <MultiSelect
             label="Area / Street / Locality"
             options={opts.locations}
             value={selStreet}
-            onChange={selMuni.length > 0 ? setSelStreet : () => {}}
+            onChange={selMuni.length > 0 ? (v => setSelStreet(v.length > 1 ? [v[v.length-1]] : v)) : () => {}}
             placeholder={selMuni.length > 0 ? "Select area or street…" : "Select municipality first…"}
-            maxDisplay={2}
+            maxDisplay={1}
             disabled={selMuni.length === 0}
           />
           {/* Km Radius dropdown */}

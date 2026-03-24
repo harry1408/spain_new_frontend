@@ -29,7 +29,7 @@ export const T = {
   textPrice:   "#0B1239",   // prices — full navy
 
   // Gold — ONLY for current-listing highlight & active nav
-  gold:      "#C9A84C",
+  gold:      "#0B1239",
   goldLight: "#FBF4E0",
 
   // Semantic — navy family

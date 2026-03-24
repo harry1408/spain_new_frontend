@@ -22,7 +22,7 @@ function PriceCell({ value, prevValue, isLatest }) {
   const up = prevValue != null && value > prevValue;
   return (
     <td style={{ padding:"10px 14px", textAlign:"right", borderLeft:`1px solid ${T.border}`, background: isLatest?"rgba(232,168,56,0.05)":"transparent" }}>
-      <div style={{ color: isLatest?"#C9A84C":"#5a4e35", fontWeight: isLatest?700:600, fontSize:13 }}>
+      <div style={{ color: isLatest?"#0B1239":"#5a4e35", fontWeight: isLatest?700:600, fontSize:13 }}>
         {fmtFull(value)}
       </div>
       {changed && (
@@ -121,7 +121,7 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
   const SortTh = ({ col, children, right=true, style={} }) => (
     <th onClick={() => col && (col===sortCol ? setSortDir(d=>d==="asc"?"desc":"asc") : (setSortCol(col),setSortDir("asc")))}
       style={{ padding:"10px 14px", textAlign:right?"right":"left",
-        color: sortCol===col?T.gold:T.textMuted,
+        color: sortCol===col?T.navy:T.textMuted,
         fontSize:10, textTransform:"uppercase", letterSpacing:"0.06em",
         cursor:col?"pointer":"default", whiteSpace:"nowrap", userSelect:"none",
         background:T.bgStripe, borderBottom:`1px solid ${T.border}`,
@@ -153,7 +153,7 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
       <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
         {[
           { label:"Showing",       value:`${stats.total} of ${stats.totalAll} apts`, color:"#0b1239" },
-          { label:"Avg Price",     value:fmtFull(stats.avgPrice),                    color:"#C9A84C" },
+          { label:"Avg Price",     value:fmtFull(stats.avgPrice),                    color:"#0B1239" },
           { label:"Price Changed", value:stats.changed,                              color: stats.changed>0?"#E8A838":"#3a4555" },
           { label:"Increased ▲",  value:stats.increased,                            color:"#E74C3C" },
           { label:"Decreased ▼",  value:stats.decreased,                            color:"#1A4A2A" },
@@ -170,16 +170,16 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
 
         {/* Search */}
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Type or floor…"
-          style={{ background:"#F0EDE6", border:"1px solid #C9A84C", color:"#0b1239", padding:"8px 12px", borderRadius:8, fontSize:12, width:150, outline:"none" }} />
+          style={{ background:"#EEF1F5", border:"1px solid #0B1239", color:"#0b1239", padding:"8px 12px", borderRadius:8, fontSize:12, width:150, outline:"none" }} />
 
         {/* Price range */}
         <div style={{ display:"flex", gap:4, alignItems:"center" }}>
           <span style={{ color:"#8A96B4", fontSize:11 }}>€</span>
           <input value={minPrice} onChange={e=>setMinPrice(e.target.value)} placeholder="Min K"
-            style={{ background:"#F0EDE6", border:"1px solid #E4E0D8", color:"#0b1239", padding:"8px 10px", borderRadius:8, fontSize:12, width:80, outline:"none", textAlign:"right" }} />
+            style={{ background:"#EEF1F5", border:"1px solid #E4E0D8", color:"#0b1239", padding:"8px 10px", borderRadius:8, fontSize:12, width:80, outline:"none", textAlign:"right" }} />
           <span style={{ color:"#8A96B4", fontSize:11 }}>–</span>
           <input value={maxPrice} onChange={e=>setMaxPrice(e.target.value)} placeholder="Max K"
-            style={{ background:"#F0EDE6", border:"1px solid #E4E0D8", color:"#0b1239", padding:"8px 10px", borderRadius:8, fontSize:12, width:80, outline:"none", textAlign:"right" }} />
+            style={{ background:"#EEF1F5", border:"1px solid #E4E0D8", color:"#0b1239", padding:"8px 10px", borderRadius:8, fontSize:12, width:80, outline:"none", textAlign:"right" }} />
           <span style={{ color:"#8A96B4", fontSize:10 }}>× 1,000</span>
         </div>
 
@@ -211,7 +211,7 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
           <button onClick={() => anyChanges && setChangedOnly(v => !v)}
             style={{ background:changedOnly&&anyChanges?"rgba(232,168,56,0.15)":"#F8F9FA",
               border:`1px solid ${changedOnly&&anyChanges?"rgba(232,168,56,0.5)":"rgba(255,255,255,0.1)"}`,
-              color:changedOnly&&anyChanges?T.gold:anyChanges?T.textSub:T.textMuted,
+              color:changedOnly&&anyChanges?T.navy:anyChanges?T.textSub:T.textMuted,
               padding:"6px 12px", borderRadius:7,
               cursor:anyChanges?"pointer":"not-allowed",
               fontSize:11, opacity:anyChanges?1:0.5 }}>
@@ -373,11 +373,11 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
                   const avgP   = prices.length ? Math.round(prices.reduce((a,b)=>a+b,0)/prices.length) : null;
                   const avgM   = ppm2s.length  ? Math.round(ppm2s.reduce((a,b)=>a+b,0)/ppm2s.length)  : null;
                   const isL    = period === latestPeriod;
-                  if (showMetric==="price") return <td key={period} style={{ padding:"9px 14px", textAlign:"right", color:isL?T.gold:T.textSub, fontWeight:600, borderLeft:`1px solid ${T.border}` }}>{fmtFull(avgP)}</td>;
+                  if (showMetric==="price") return <td key={period} style={{ padding:"9px 14px", textAlign:"right", color:isL?T.navy:T.textSub, fontWeight:600, borderLeft:`1px solid ${T.border}` }}>{fmtFull(avgP)}</td>;
                   if (showMetric==="ppm2")  return <td key={period} style={{ padding:"9px 14px", textAlign:"right", color:isL?T.blue:T.textSub, fontWeight:600, borderLeft:`1px solid ${T.border}` }}>€{avgM}</td>;
                   return (
                     <React.Fragment key={period}>
-                      <td style={{ padding:"9px 14px", textAlign:"right", color:isL?T.gold:T.textSub, fontWeight:600, borderLeft:`1px solid ${T.border}` }}>{fmtFull(avgP)}</td>
+                      <td style={{ padding:"9px 14px", textAlign:"right", color:isL?T.navy:T.textSub, fontWeight:600, borderLeft:`1px solid ${T.border}` }}>{fmtFull(avgP)}</td>
                       <td style={{ padding:"9px 14px", textAlign:"right", color:isL?T.blue:T.textSub, fontWeight:600 }}>€{avgM}</td>
                     </React.Fragment>
                   );

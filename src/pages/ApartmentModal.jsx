@@ -13,7 +13,7 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
   const [sortCol,       setSortCol]       = useState("price");
   const [loading,       setLoading]       = useState(true);
 
-  const utColor = UNIT_COLORS[apt.unit_type] || T.gold;
+  const utColor = UNIT_COLORS[apt.unit_type] || T.navy;
 
   const periodSort = p => {
     const MO = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
@@ -47,7 +47,7 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
       label:    l.property_name,
       sublabel: `${fmt(l.avg_price)} avg · ${l.units} apts`,
       active:   l.listing_id === listingId || l.listing_id === activePin,
-      color:    l.listing_id === listingId ? T.gold
+      color:    l.listing_id === listingId ? T.navy
               : l.listing_id === activePin ? T.blue
               : "#8A96B4",
     }));
@@ -77,9 +77,9 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
 
   const SortBtn = ({ col, label }) => (
     <button onClick={() => setSortCol(col)}
-      style={{ background: sortCol===col ? T.goldLight : "#fff",
+      style={{ background: sortCol===col ? T.navyLight : "#fff",
         border: `1px solid ${sortCol===col ? T.borderAccent : T.border}`,
-        color: sortCol===col ? T.gold : T.textSub,
+        color: sortCol===col ? T.navy : T.textSub,
         padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:11, fontWeight: sortCol===col?700:500 }}>
       {label}
     </button>
@@ -113,7 +113,7 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
           <div style={{ marginLeft:"auto", display:"flex", gap:24, alignItems:"center" }}>
             <div style={{ textAlign:"right" }}>
               <div style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>Latest Price</div>
-              <div style={{ color:T.gold, fontWeight:800, fontSize:22 }}>{fmtFull(apt.price)}</div>
+              <div style={{ color:T.navy, fontWeight:800, fontSize:22 }}>{fmtFull(apt.price)}</div>
               <div style={{ color:T.textSub, fontSize:11 }}>€{apt.price_per_m2 ? Math.round(apt.price_per_m2) : "—"}/m²</div>
             </div>
             {priceStats && (
@@ -168,7 +168,7 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
                     <div>Only 1 snapshot so far — price history will appear as more data is collected</div>
                     <div style={{ marginTop:12, background:T.bgStripe, borderRadius:8, padding:"10px 18px", display:"inline-block" }}>
                       <span style={{ color:T.textMuted, fontSize:11 }}>Current: </span>
-                      <span style={{ color:T.gold, fontWeight:700 }}>{fmtFull(apt.price)}</span>
+                      <span style={{ color:T.navy, fontWeight:700 }}>{fmtFull(apt.price)}</span>
                       <span style={{ color:T.textMuted, fontSize:11 }}> ({aptTrend[0]?.period || "—"})</span>
                     </div>
                   </div>
@@ -179,7 +179,7 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
                       {aptTrend.map((pt,i) => (
                         <div key={pt.period} style={{ textAlign:"center" }}>
                           <div style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>{pt.period}</div>
-                          <div style={{ color: i===aptTrend.length-1 ? T.gold : T.text,
+                          <div style={{ color: i===aptTrend.length-1 ? T.navy : T.text,
                             fontWeight: i===aptTrend.length-1 ? 700 : 600, fontSize:14 }}>{fmtFull(pt.price)}</div>
                           <div style={{ color:T.textSub, fontSize:10 }}>€{pt.price_per_m2}/m²</div>
                         </div>
@@ -255,9 +255,9 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
                               const mDiff = isThis || !apt.price_per_m2 ? null : (a.price_per_m2||0) - apt.price_per_m2;
                               const rowBg = isThis   ? "rgba(201,168,76,0.15)"
                                           : isPinned ? "rgba(74,128,176,0.10)"
-                                          : isCur    ? T.goldLight
+                                          : isCur    ? T.navyLight
                                           : i%2===0  ? T.bgStripe : "#fff";
-                              const borderColor = isThis  ? T.gold
+                              const borderColor = isThis  ? T.navy
                                                 : isPinned? T.blue
                                                 : isCur   ? "rgba(201,168,76,0.4)"
                                                 : "transparent";
@@ -280,15 +280,15 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
                                     cursor:"pointer", transition:"background 0.1s" }}>
                                   <td style={{ padding:"8px 10px", maxWidth:140 }}>
                                     <div style={{ fontWeight:isCur||isPinned?700:500,
-                                      color:isThis?T.gold:isPinned?T.blue:isCur?T.gold:T.text, fontSize:11,
+                                      color:isThis?T.navy:isPinned?T.blue:isCur?T.navy:T.text, fontSize:11,
                                       whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:130 }}>{a.property_name}</div>
                                     <div style={{ color:T.textMuted, fontSize:10 }}>{a.municipality}</div>
-                                    {isThis&&<div style={{ fontSize:9,color:T.gold,fontWeight:700 }}>◀ This apt</div>}
+                                    {isThis&&<div style={{ fontSize:9,color:T.navy,fontWeight:700 }}>◀ This apt</div>}
                                     {isPinned&&!isThis&&<div style={{ fontSize:9,color:T.blue,fontWeight:700 }}>📍 Pinned</div>}
                                   </td>
                                   <td style={{ padding:"8px 10px", textAlign:"right", whiteSpace:"nowrap" }}>{a.floor||"—"}</td>
                                   <td style={{ padding:"8px 10px", textAlign:"right", whiteSpace:"nowrap" }}>
-                                    <div style={{ color:isThis?T.gold:T.text, fontWeight:isThis?700:600 }}>{fmtFull(a.price)}</div>
+                                    <div style={{ color:isThis?T.navy:T.text, fontWeight:isThis?700:600 }}>{fmtFull(a.price)}</div>
                                     <DiffTag d={pDiff} isEur={false}/>
                                   </td>
                                   <td style={{ padding:"8px 10px", textAlign:"right", whiteSpace:"nowrap" }}>
@@ -341,15 +341,15 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
                     return (
                       <div key={l.listing_id}
                         onClick={() => !isCur && setActivePin(p => p===l.listing_id ? null : l.listing_id)}
-                        style={{ background: isCur?T.goldLight:isPinned?"rgba(74,128,176,0.10)":"#fff",
+                        style={{ background: isCur?T.navyLight:isPinned?"rgba(74,128,176,0.10)":"#fff",
                           border:`2px solid ${isCur?T.borderAccent:isPinned?T.blue:T.border}`,
                           borderRadius:12, padding:"14px 18px", boxShadow:T.shadow,
                           cursor:isCur?"default":"pointer", transition:"border-color 0.15s" }}>
                         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:6 }}>
                           <div>
-                            <div style={{ fontWeight:700, fontSize:13, color:isCur?T.gold:isPinned?T.blue:T.text }}>
+                            <div style={{ fontWeight:700, fontSize:13, color:isCur?T.navy:isPinned?T.blue:T.text }}>
                               {l.property_name}
-                              {isCur&&<span style={{ marginLeft:6, fontSize:10, background:T.gold, color:"#fff",
+                              {isCur&&<span style={{ marginLeft:6, fontSize:10, background:T.navy, color:"#fff",
                                 padding:"1px 6px", borderRadius:4 }}>Current</span>}
                               {isPinned&&!isCur&&<span style={{ marginLeft:6, fontSize:9, background:T.blue, color:"#fff",
                                 padding:"1px 6px", borderRadius:4 }}>📍 Pinned</span>}
@@ -360,7 +360,7 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
                             <Tag label={`ESG ${l.esg_grade}`} color={ESG_COLORS[l.esg_grade]||"#999"}/>}
                         </div>
                         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"4px 8px", fontSize:12 }}>
-                          {[["Apts",l.units,T.text],["Avg",fmt(l.avg_price),T.gold],
+                          {[["Apts",l.units,T.text],["Avg",fmt(l.avg_price),T.navy],
                             ["Min",fmt(l.min_price),T.green],["€/m²",`€${l.avg_price_m2}`,T.textSub]].map(([label,val,color])=>(
                             <div key={label}>
                               <div style={{ color:T.textMuted, fontSize:9, textTransform:"uppercase", fontWeight:600 }}>{label}</div>
