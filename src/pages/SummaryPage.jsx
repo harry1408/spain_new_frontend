@@ -77,7 +77,7 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200 }) {
               {value.map(v=>(
                 <span key={v} onClick={e=>{e.stopPropagation();onChange(value.filter(x=>x!==v));}}
                   style={{ background:T.navyLight, border:`1px solid ${T.borderAccent}`,
-                    color:T.navy, fontSize:10, fontWeight:700, padding:"2px 6px",
+                    color:"#fff", fontSize:10, fontWeight:700, padding:"2px 6px",
                     borderRadius:4, cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}>
                   {v} <span style={{ fontSize:11 }}>×</span>
                 </span>
@@ -96,7 +96,7 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200 }) {
                     <div key={opt} onClick={e=>{e.stopPropagation();onChange(sel?value.filter(v=>v!==opt):[...value,opt]);}}
                       style={{ padding:"7px 12px", cursor:"pointer", fontSize:12,
                         background:sel?T.navyLight:"transparent",
-                        color:sel?T.navy:T.text,
+                        color:sel?"#fff":T.text,
                         borderLeft:`3px solid ${sel?T.navy:"transparent"}`,
                         display:"flex", alignItems:"center", gap:8 }}>
                       <span style={{ width:14, height:14, borderRadius:3,
@@ -130,7 +130,7 @@ function MultiSelect({ label, options, value, onChange }) {
             <div key={opt} onClick={() => onChange(value.includes(opt)?value.filter(v=>v!==opt):[...value,opt])}
               style={{ padding:"6px 10px", cursor:"pointer", borderRadius:5, fontSize:12,
                 background: value.includes(opt)?T.navyLight:"transparent",
-                color: value.includes(opt)?T.navy:T.text }}>
+                color: value.includes(opt)?"#fff":T.text }}>
               {value.includes(opt)?"✓ ":""}{opt}
             </div>
           ))}
@@ -243,7 +243,7 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
   const mapMarkers = selectedDots.filter(d => d.lat && d.lng && !(Math.abs(d.lat - 39.47) < 0.001 && Math.abs(d.lng + 0.38) < 0.001)).map(d => ({
     id: d.sub_listing_id, lat: d.lat, lng: d.lng,
     label: d.property_name,
-    sublabel: `${d.unit_type} · ${fmtFull(d.price)} · ${d.size}m²${d.price_per_m2 ? ` · €${Math.round(d.price_per_m2)}/m²` : ""}`,
+    sublabel: `${d.unit_type} · ${fmtFull(d.price)} · ${d.size}m²${d.price_per_m2 ? ` · €${Math.round(d.price_per_m2).toLocaleString("en")}/m²` : ""}`,
     active: true,
     color: UNIT_COLORS[d.unit_type] || T.navy,
   }));
@@ -349,7 +349,7 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
                         borderLeft:`3px solid ${UNIT_COLORS[d.unit_type]||T.navy}` }}>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontWeight:600, color:T.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.property_name}</div>
-                        <div style={{ color:T.textMuted }}>{d.unit_type} · {fmtFull(d.price)}{d.price_per_m2 ? ` · €${Math.round(d.price_per_m2)}/m²` : ""} · {d.size}m² · {d.municipality}</div>
+                        <div style={{ color:T.textMuted }}>{d.unit_type} · {fmtFull(d.price)}{d.price_per_m2 ? ` · €${Math.round(d.price_per_m2).toLocaleString("en")}/m²` : ""} · {d.size}m² · {d.municipality}</div>
                       </div>
                       {onGoListing && (
                         <button
@@ -607,9 +607,9 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                       return (
                         <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:10, padding:"10px 14px", boxShadow:T.shadowMd, fontSize:12, pointerEvents:"none" }}>
                           <div style={{ fontWeight:700, color:UNIT_COLORS[d.unit_type]||T.navy, marginBottom:4 }}>{d.unit_type} — {d.property_name}</div>
-                          <div style={{ color:T.text }}>Price: <strong style={{ color:T.navy }}>{fmtFull(d.price)}</strong>{d.price_per_m2 ? <span style={{ color:T.textSub, fontSize:11 }}> · €{Math.round(d.price_per_m2)}/m²</span> : ""}</div>
+                          <div style={{ color:T.text }}>Price: <strong style={{ color:T.navy }}>{fmtFull(d.price)}</strong>{d.price_per_m2 ? <span style={{ color:T.textSub, fontSize:11 }}> · €{Math.round(d.price_per_m2).toLocaleString("en")}/m²</span> : ""}</div>
                           <div style={{ color:T.text }}>Size: <strong>{d.size} m²</strong></div>
-                          {d.price_per_m2 && <div style={{ color:T.textSub }}>€/m²: {Math.round(d.price_per_m2)}</div>}
+                          {d.price_per_m2 && <div style={{ color:T.textSub }}>€/m²: {Math.round(d.price_per_m2).toLocaleString("en")}</div>}
                           <div style={{ color:T.textMuted, marginTop:4, fontSize:11 }}>{d.municipality} · {d.floor||"—"}</div>
                           <div style={{ color:T.navyMid, fontSize:11, marginTop:3 }}>Click to open details ↗</div>
                         </div>

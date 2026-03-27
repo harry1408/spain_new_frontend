@@ -38,7 +38,7 @@ function DelistedCard({ l, onClick }) {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"7px 10px" }}>
         {[["Apts", l.units, T.text],
           ["Last Avg", fmt(l.avg_price), PRICE_COLOR],
-          ["€/m²", `€${Math.round(l.avg_price_m2||0)}`, M2_COLOR],
+          ["€/m²", l.avg_price_m2 ? `€${Math.round(l.avg_price_m2).toLocaleString("en")}` : "—", M2_COLOR],
           ["From", fmt(l.min_price), T.green],
           ["To", fmt(l.max_price), T.red],
           ["Avg Size", `${l.avg_size}m²`, T.textSub],
@@ -104,7 +104,7 @@ function DelistedApartments({ listingId, listingName, onBack }) {
       <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
         <StatCard label="Total Apartments" value={apts.length} />
         <StatCard label="Avg Price (last)" value={fmt(apts.length ? apts.reduce((s,a)=>s+a.price,0)/apts.length : 0)} />
-        <StatCard label="Avg €/m² (last)"  value={`€${Math.round(apts.length ? apts.reduce((s,a)=>s+(a.price_per_m2||0),0)/apts.length : 0)}`} accent={M2_COLOR} />
+        <StatCard label="Avg €/m² (last)"  value={`€${Math.round(apts.length ? apts.reduce((s,a)=>s+(a.price_per_m2||0),0)/apts.length : 0).toLocaleString("en")}`} accent={M2_COLOR} />
         <StatCard label="Avg Size"          value={`${Math.round(apts.length ? apts.reduce((s,a)=>s+(a.size||0),0)/apts.length : 0)}m²`} accent={T.textSub} />
       </div>
 
@@ -141,7 +141,7 @@ function DelistedApartments({ listingId, listingName, onBack }) {
                     <td style={{ padding:"9px 12px", textAlign:"right" }}>{a.bathrooms ?? "—"}</td>
                     <td style={{ padding:"9px 12px", textAlign:"right", color:PRICE_COLOR, fontWeight:700 }}>{fmtFull(a.price)}</td>
                     <td style={{ padding:"9px 12px", textAlign:"right", color:M2_COLOR, fontWeight:600 }}>
-                      {a.price_per_m2 ? `€${Math.round(a.price_per_m2)}` : "—"}
+                      {a.price_per_m2 ? `€${Math.round(a.price_per_m2).toLocaleString("en")}` : "—"}
                     </td>
                     <td style={{ padding:"9px 12px" }}>
                       <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>

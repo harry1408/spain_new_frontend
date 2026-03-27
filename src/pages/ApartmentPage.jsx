@@ -121,7 +121,7 @@ function AVMSection({ apt, comparables, utColor }) {
                       <td style={{ padding:"8px 10px", textAlign:"right" }}>{a.size ? `${a.size}m²` : "—"}</td>
                       <td style={{ padding:"8px 10px", textAlign:"right", fontWeight:600,
                         color: checked && !isThis ? T.navyMid : T.textSub }}>
-                        {a.price_per_m2 ? `€${Math.round(a.price_per_m2)}` : "—"}
+                        {a.price_per_m2 ? `€${Math.round(a.price_per_m2).toLocaleString("en")}` : "—"}
                       </td>
                       <td style={{ padding:"8px 10px", textAlign:"right", color: isThis?T.navy:T.text,
                         fontWeight: isThis?700:500 }}>{fmtFull(a.price)}</td>
@@ -189,7 +189,7 @@ function AVMSection({ apt, comparables, utColor }) {
                 {/* Breakdown */}
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
                   {[
-                    ["Median €/m²", `€${Math.round(median)}`, T.navyMid],
+                    ["Median €/m²", `€${Math.round(median).toLocaleString("en")}`, T.navyMid],
                     ["Your size", `${apt.size} m²`, "#8A96B4"],
                     ["Listed at", fmtFull(listed), T.navy],
                     ["Estimate", fmtFull(estimate), "#0B1239"],
@@ -236,9 +236,9 @@ function AVMSection({ apt, comparables, utColor }) {
               </div>
               <div style={{ display:"flex", justifyContent:"space-between",
                 color:T.textMuted, fontSize:9, marginTop:3 }}>
-                <span>€{Math.round(Math.min(...selComps.map(a=>a.price_per_m2)))}</span>
-                <span style={{ color:T.navyMid, fontWeight:700 }}>med €{Math.round(median)}</span>
-                <span>€{Math.round(Math.max(...selComps.map(a=>a.price_per_m2)))}</span>
+                <span>€{Math.round(Math.min(...selComps.map(a=>a.price_per_m2))).toLocaleString("en")}</span>
+                <span style={{ color:T.navyMid, fontWeight:700 }}>med €{Math.round(median).toLocaleString("en")}</span>
+                <span>€{Math.round(Math.max(...selComps.map(a=>a.price_per_m2))).toLocaleString("en")}</span>
               </div>
             </div>
           )}
@@ -257,6 +257,9 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
   const [sortCol,       setSortCol]       = useState("price");
   const [radiusKm,      setRadiusKm]      = useState(null); // null = comarca mode
   const [loading,       setLoading]       = useState(true);
+  const [floorPlans,    setFloorPlans]    = useState([]);
+  const [fpIdx,         setFpIdx]         = useState(0);
+  const [fpLightbox,    setFpLightbox]    = useState(false);
 
   const utColor = UNIT_COLORS[apt.unit_type] || T.navy;
 
@@ -265,6 +268,15 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
     const [m, y] = (p||"").split(" ");
     return (parseInt(y||"0")-2000)*100 + (MO[m]||0);
   };
+
+  // Fetch floor plans once per listing (not re-fetched on radius change)
+  useEffect(() => {
+    setFloorPlans([]); setFpIdx(0);
+    fetch(`${API}/listing/photos/${listingId}`)
+      .then(r => r.json())
+      .then(d => setFloorPlans(d.floor_plans || []))
+      .catch(() => {});
+  }, [listingId]);
 
   useEffect(() => {
     setLoading(true);
@@ -316,7 +328,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
     <button onClick={() => setSortCol(col)}
       style={{ background: sortCol===col ? T.navyLight : "#fff",
         border: `1px solid ${sortCol===col ? T.borderAccent : T.border}`,
-        color: sortCol===col ? T.navy : T.textSub,
+        color: sortCol===col ? "#fff" : T.textSub,
         padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:11,
         fontWeight: sortCol===col?700:500 }}>
       {label}
@@ -344,7 +356,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
             <div style={{ textAlign:"right" }}>
               <div style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>Listed Price</div>
               <div style={{ color:T.navy, fontWeight:800, fontSize:22 }}>{fmtFull(apt.price)}</div>
-              <div style={{ color:T.textSub, fontSize:11 }}>€{apt.price_per_m2 ? Math.round(apt.price_per_m2) : "—"}/m²</div>
+              <div style={{ color:T.textSub, fontSize:11 }}>€{apt.price_per_m2 ? Math.round(apt.price_per_m2).toLocaleString("en") : "—"}/m²</div>
               {apt.last_updated && (
                 <div style={{ color:"#6B7A9F", fontSize:10, marginTop:3 }}>
                   🕒 {apt.last_updated.replace("Listing updated on ","").replace("listing updated on ","")}
@@ -391,6 +403,61 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
             <div style={{ padding:60, textAlign:"center", color:T.textSub }}>Loading analysis…</div>
           ) : (
             <>
+              {/* ── Floor Plans ──────────────────────────────────────── */}
+              {floorPlans.length > 0 && (
+                <div style={{ marginBottom:28 }}>
+                  <div style={{ fontWeight:700, fontSize:14, color:T.text, marginBottom:10 }}>
+                    Floor Plans <span style={{ color:T.textMuted, fontWeight:400, fontSize:11 }}>({floorPlans.length})</span>
+                  </div>
+                  <div style={{ display:"flex", gap:12, overflowX:"auto", paddingBottom:6 }}>
+                    {floorPlans.map((url, i) => (
+                      <div key={i} onClick={() => { setFpIdx(i); setFpLightbox(true); }}
+                        style={{ flexShrink:0, width:200, height:150, borderRadius:10, overflow:"hidden",
+                          border:`2px solid ${fpIdx===i?T.borderAccent:T.border}`, cursor:"zoom-in",
+                          boxShadow:T.shadow, background:"#f8f9fb" }}>
+                        <img src={url} alt={`Floor plan ${i+1}`}
+                          style={{ width:"100%", height:"100%", objectFit:"contain", display:"block" }}
+                          onError={e => { e.target.parentElement.style.display="none"; }} />
+                      </div>
+                    ))}
+                  </div>
+                  {/* Lightbox */}
+                  {fpLightbox && (
+                    <div onClick={() => setFpLightbox(false)}
+                      style={{ position:"fixed", inset:0, zIndex:9999, background:"rgba(0,0,0,0.92)",
+                        display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      <img src={floorPlans[fpIdx]} alt={`Floor plan ${fpIdx+1}`}
+                        onClick={e => e.stopPropagation()}
+                        style={{ maxWidth:"90vw", maxHeight:"88vh", objectFit:"contain",
+                          borderRadius:8, boxShadow:"0 8px 40px rgba(0,0,0,0.6)" }}
+                        onError={e => { e.target.style.display="none"; }} />
+                      {floorPlans.length > 1 && (<>
+                        <button onClick={e => { e.stopPropagation(); setFpIdx(i => (i-1+floorPlans.length)%floorPlans.length); }}
+                          style={{ position:"fixed", left:24, top:"50%", transform:"translateY(-50%)",
+                            background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
+                            width:48, height:48, borderRadius:"50%", cursor:"pointer", fontSize:28,
+                            display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
+                        <button onClick={e => { e.stopPropagation(); setFpIdx(i => (i+1)%floorPlans.length); }}
+                          style={{ position:"fixed", right:24, top:"50%", transform:"translateY(-50%)",
+                            background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
+                            width:48, height:48, borderRadius:"50%", cursor:"pointer", fontSize:28,
+                            display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
+                      </>)}
+                      <button onClick={() => setFpLightbox(false)}
+                        style={{ position:"fixed", top:16, right:20, background:"rgba(255,255,255,0.15)",
+                          border:"none", color:"#fff", width:40, height:40, borderRadius:"50%",
+                          cursor:"pointer", fontSize:20, display:"flex", alignItems:"center",
+                          justifyContent:"center" }}>✕</button>
+                      <div style={{ position:"fixed", top:20, left:"50%", transform:"translateX(-50%)",
+                        background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:13, fontWeight:600,
+                        padding:"6px 16px", borderRadius:20 }}>
+                        Floor Plan {fpIdx+1} / {floorPlans.length}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ── Section 1: Price History ─────────────────────────── */}
               <div style={{ marginBottom:32 }}>
                 <div style={{ fontWeight:700, fontSize:15, color:T.text, marginBottom:16,
@@ -532,9 +599,9 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                                     cursor:"pointer", transition:"background 0.1s" }}>
                                   <td style={{ padding:"8px 10px", maxWidth:140 }}>
                                     <div style={{ fontWeight:isCur||isPinned?700:500,
-                                      color:isThis?T.navy:isPinned?T.navyMid:isCur?T.navy:T.text, fontSize:11,
+                                      color:isThis?T.navy:isPinned?T.navyMid:isCur?"#fff":T.text, fontSize:11,
                                       whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:130 }}>{a.property_name}</div>
-                                    <div style={{ color:T.textMuted, fontSize:10 }}>{a.municipality}</div>
+                                    <div style={{ color:isCur?"rgba(255,255,255,0.7)":T.textMuted, fontSize:10 }}>{a.municipality}</div>
                                     {isThis&&<div style={{ fontSize:9,color:T.navy,fontWeight:700 }}>◀ This apt</div>}
                                     {isPinned&&!isThis&&<div style={{ fontSize:9,color:T.navyMid,fontWeight:700 }}>📍 Pinned</div>}
                                   </td>
@@ -544,7 +611,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                                     <DiffTag d={pDiff} isEur={false}/>
                                   </td>
                                   <td style={{ padding:"8px 10px", textAlign:"right", whiteSpace:"nowrap" }}>
-                                    <div style={{ color:T.textSub }}>{a.price_per_m2?`€${Math.round(a.price_per_m2)}`:"—"}</div>
+                                    <div style={{ color:T.textSub }}>{a.price_per_m2?`€${Math.round(a.price_per_m2).toLocaleString("en")}`:"—"}</div>
                                     <DiffTag d={mDiff} isEur={true}/>
                                   </td>
                                   <td style={{ padding:"8px 10px", textAlign:"right" }}>{a.bedrooms??"—"}</td>

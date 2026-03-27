@@ -21,7 +21,7 @@ function PriceCell({ value, prevValue, isLatest }) {
   const changed = prevValue != null && value !== prevValue;
   const up = prevValue != null && value > prevValue;
   return (
-    <td style={{ padding:"10px 14px", textAlign:"right", borderLeft:`1px solid ${T.border}`, background: isLatest?"rgba(232,168,56,0.05)":"transparent" }}>
+    <td style={{ padding:"10px 14px", textAlign:"right", borderLeft:`1px solid ${T.border}`, background: isLatest?"rgba(235,101,44,0.06)":"transparent" }}>
       <div style={{ color: isLatest?"#0B1239":"#5a4e35", fontWeight: isLatest?700:600, fontSize:13 }}>
         {fmtFull(value)}
       </div>
@@ -39,7 +39,7 @@ function Pm2Cell({ value, prevValue, isLatest }) {
   const changed = prevValue != null && value !== prevValue;
   const up = prevValue != null && value > prevValue;
   return (
-    <td style={{ padding:"10px 14px", textAlign:"right", background: isLatest?"rgba(232,168,56,0.05)":"transparent" }}>
+    <td style={{ padding:"10px 14px", textAlign:"right", background: isLatest?"rgba(235,101,44,0.06)":"transparent" }}>
       <div style={{ color: isLatest?"#4a80b0":"#4a6070", fontWeight: isLatest?600:500, fontSize:12 }}>
         €{value}
       </div>
@@ -154,7 +154,7 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
         {[
           { label:"Showing",       value:`${stats.total} of ${stats.totalAll} apts`, color:"#0b1239" },
           { label:"Avg Price",     value:fmtFull(stats.avgPrice),                    color:"#0B1239" },
-          { label:"Price Changed", value:stats.changed,                              color: stats.changed>0?"#E8A838":"#3a4555" },
+          { label:"Price Changed", value:stats.changed,                              color: stats.changed>0?"#eb652c":"#3a4555" },
           { label:"Increased ▲",  value:stats.increased,                            color:"#E74C3C" },
           { label:"Decreased ▼",  value:stats.decreased,                            color:"#1A4A2A" },
         ].map(s => (
@@ -199,9 +199,9 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
         <div style={{ display:"flex", gap:3, background:"#f5f2ed", border:"1px solid #E4E0D8", borderRadius:8, padding:3 }}>
           {[["price","Price"],["ppm2","€/m²"],["both","Both"]].map(([k,lbl]) => (
             <button key={k} onClick={() => setShowMetric(k)}
-              style={{ background:showMetric===k?"rgba(232,168,56,0.2)":"transparent",
-                border:`1px solid ${showMetric===k?"rgba(232,168,56,0.5)":"transparent"}`,
-                color:showMetric===k?"#E8A838":"#8fa0b0",
+              style={{ background:showMetric===k?"rgba(235,101,44,0.12)":"transparent",
+                border:`1px solid ${showMetric===k?"rgba(235,101,44,0.4)":"transparent"}`,
+                color:showMetric===k?"#eb652c":"#8fa0b0",
                 padding:"5px 11px", borderRadius:6, cursor:"pointer", fontSize:11 }}>{lbl}</button>
           ))}
         </div>
@@ -209,8 +209,8 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
         {/* Changed only — shows tooltip explaining why it's disabled when no changes exist */}
         <div style={{ position:"relative" }} title={!anyChanges?"No price changes detected yet — will activate when prices move between snapshots":""}>
           <button onClick={() => anyChanges && setChangedOnly(v => !v)}
-            style={{ background:changedOnly&&anyChanges?"rgba(232,168,56,0.15)":"#F8F9FA",
-              border:`1px solid ${changedOnly&&anyChanges?"rgba(232,168,56,0.5)":"rgba(255,255,255,0.1)"}`,
+            style={{ background:changedOnly&&anyChanges?"rgba(235,101,44,0.10)":"#F8F9FA",
+              border:`1px solid ${changedOnly&&anyChanges?"rgba(235,101,44,0.4)":"rgba(255,255,255,0.1)"}`,
               color:changedOnly&&anyChanges?T.navy:anyChanges?T.textSub:T.textMuted,
               padding:"6px 12px", borderRadius:7,
               cursor:anyChanges?"pointer":"not-allowed",
@@ -251,9 +251,9 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
                 return (
                   <th key={p} colSpan={colSpan}
                     style={{ padding:"10px 14px", textAlign:"center",
-                      color: isLatest?"#E8A838":"#8fa0b0",
+                      color: isLatest?"#eb652c":"#8fa0b0",
                       fontSize:10, textTransform:"uppercase", letterSpacing:"0.06em",
-                      background: isLatest?"rgba(232,168,56,0.08)":"#F8F9FA",
+                      background: isLatest?"rgba(235,101,44,0.09)":"#F8F9FA",
                       borderBottom:"1px solid rgba(255,255,255,0.1)",
                       borderLeft:"1px solid rgba(255,255,255,0.07)",
                       whiteSpace:"nowrap" }}>

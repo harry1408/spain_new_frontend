@@ -79,7 +79,7 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
     <button onClick={() => setSortCol(col)}
       style={{ background: sortCol===col ? T.navyLight : "#fff",
         border: `1px solid ${sortCol===col ? T.borderAccent : T.border}`,
-        color: sortCol===col ? T.navy : T.textSub,
+        color: sortCol===col ? "#fff" : T.textSub,
         padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:11, fontWeight: sortCol===col?700:500 }}>
       {label}
     </button>
@@ -114,7 +114,7 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
             <div style={{ textAlign:"right" }}>
               <div style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>Latest Price</div>
               <div style={{ color:T.navy, fontWeight:800, fontSize:22 }}>{fmtFull(apt.price)}</div>
-              <div style={{ color:T.textSub, fontSize:11 }}>€{apt.price_per_m2 ? Math.round(apt.price_per_m2) : "—"}/m²</div>
+              <div style={{ color:T.textSub, fontSize:11 }}>€{apt.price_per_m2 ? Math.round(apt.price_per_m2).toLocaleString("en") : "—"}/m²</div>
             </div>
             {priceStats && (
               <div style={{ textAlign:"right" }}>
@@ -280,9 +280,9 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
                                     cursor:"pointer", transition:"background 0.1s" }}>
                                   <td style={{ padding:"8px 10px", maxWidth:140 }}>
                                     <div style={{ fontWeight:isCur||isPinned?700:500,
-                                      color:isThis?T.navy:isPinned?T.blue:isCur?T.navy:T.text, fontSize:11,
+                                      color:isThis?T.navy:isPinned?T.blue:isCur?"#fff":T.text, fontSize:11,
                                       whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:130 }}>{a.property_name}</div>
-                                    <div style={{ color:T.textMuted, fontSize:10 }}>{a.municipality}</div>
+                                    <div style={{ color:isCur?"rgba(255,255,255,0.7)":T.textMuted, fontSize:10 }}>{a.municipality}</div>
                                     {isThis&&<div style={{ fontSize:9,color:T.navy,fontWeight:700 }}>◀ This apt</div>}
                                     {isPinned&&!isThis&&<div style={{ fontSize:9,color:T.blue,fontWeight:700 }}>📍 Pinned</div>}
                                   </td>
@@ -292,7 +292,7 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
                                     <DiffTag d={pDiff} isEur={false}/>
                                   </td>
                                   <td style={{ padding:"8px 10px", textAlign:"right", whiteSpace:"nowrap" }}>
-                                    <div style={{ color:T.textSub }}>{a.price_per_m2?`€${Math.round(a.price_per_m2)}`:"—"}</div>
+                                    <div style={{ color:T.textSub }}>{a.price_per_m2?`€${Math.round(a.price_per_m2).toLocaleString("en")}`:"—"}</div>
                                     <DiffTag d={mDiff} isEur={true}/>
                                   </td>
                                   <td style={{ padding:"8px 10px", textAlign:"right" }}>{a.bedrooms??"—"}</td>

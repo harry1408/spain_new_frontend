@@ -69,6 +69,17 @@ export default function LeafletMap({
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Re-center when center prop changes (e.g. street preview) ─────────────
+  useEffect(() => {
+    if (!center) return;
+    let attempts = 0;
+    const pan = () => {
+      if (!mapRef.current) { if (++attempts < 20) setTimeout(pan, 80); return; }
+      mapRef.current.setView(center, zoom, { animate: true });
+    };
+    pan();
+  }, [center, zoom]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Re-draw markers ───────────────────────────────────────────────────────
   useEffect(() => {
     let attempts = 0;

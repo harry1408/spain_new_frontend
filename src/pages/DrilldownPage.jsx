@@ -6,11 +6,11 @@ import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 
 // ── tiny helpers ────────────────────────────────────────────────────────
-function Metric({ label, value, color }) {
+function Metric({ label, value, color, active }) {
   return (
     <div>
-      <div style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase", letterSpacing:"0.07em", fontWeight:600 }}>{label}</div>
-      <div style={{ color:color||T.text, fontWeight:600, fontSize:13, marginTop:1 }}>{value}</div>
+      <div style={{ color:active ? "rgba(255,255,255,0.6)" : T.textMuted, fontSize:10, textTransform:"uppercase", letterSpacing:"0.07em", fontWeight:600 }}>{label}</div>
+      <div style={{ color:active ? "#fff" : (color||T.text), fontWeight:600, fontSize:13, marginTop:1 }}>{value}</div>
     </div>
   );
 }
@@ -62,8 +62,8 @@ function ListingCard({ l, active, onSelect, onHover }) {
         transition:"all 0.15s", boxShadow:lit ? T.shadowMd : T.shadow }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
         <div>
-          <div style={{ fontWeight:700, fontSize:14, color:lit ? T.navy : T.text }}>{l.property_name}</div>
-          <div style={{ color:T.textSub, fontSize:11, marginTop:2 }}>{l.developer}</div>
+          <div style={{ fontWeight:700, fontSize:14, color:active ? "#fff" : T.text }}>{l.property_name}</div>
+          <div style={{ color:active ? "rgba(255,255,255,0.75)" : T.textSub, fontSize:11, marginTop:2 }}>{l.developer}</div>
         </div>
         {l.esg_grade && l.esg_grade !== "nan" && <Tag label={`ESG ${l.esg_grade}`} color={esgColor}/>}
       </div>
@@ -80,18 +80,18 @@ function ListingCard({ l, active, onSelect, onHover }) {
         </div>
       )}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"7px 10px", marginBottom:10 }}>
-        <Metric label="Apts"     value={l.units} />
-        <Metric label="Avg"      value={fmt(l.avg_price)}     color={T.navy} />
-        <Metric label="€/m²"     value={`€${l.avg_price_m2}`} color={T.textSub} />
-        <Metric label="From"     value={fmt(l.min_price)}     color={T.green} />
-        <Metric label="To"       value={fmt(l.max_price)}     color={T.red} />
-        <Metric label="Avg Size" value={`${l.avg_size}m²`} />
+        <Metric label="Apts"     value={l.units}               active={active} />
+        <Metric label="Avg"      value={fmt(l.avg_price)}      color={T.navy}    active={active} />
+        <Metric label="€/m²"     value={`€${l.avg_price_m2}`}  color={T.textSub} active={active} />
+        <Metric label="From"     value={fmt(l.min_price)}      color={T.green}   active={active} />
+        <Metric label="To"       value={fmt(l.max_price)}      color={T.red}     active={active} />
+        <Metric label="Avg Size" value={`${l.avg_size}m²`}                       active={active} />
       </div>
       <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
         <Pill on={l.has_pool} label="Pool"/><Pill on={l.has_parking} label="Parking"/>
         <Pill on={l.has_terrace} label="Terrace"/><Pill on={l.has_lift} label="Lift"/>
       </div>
-      <div style={{ marginTop:10, color:lit ? T.navy : T.textMuted, fontSize:11, fontWeight:600 }}>View apartments →</div>
+      <div style={{ marginTop:10, color:active ? "rgba(255,255,255,0.8)" : T.textMuted, fontSize:11, fontWeight:600 }}>View apartments →</div>
     </div>
   );
 }
@@ -195,7 +195,7 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200, nav
               {value.map(v=>(
                 <span key={v} onClick={e=>{e.stopPropagation();onChange(value.filter(x=>x!==v));}}
                   style={{ background:T.navyLight, border:`1px solid ${T.borderAccent}`,
-                    color:T.navy, fontSize:10, fontWeight:700, padding:"2px 6px",
+                    color:"#fff", fontSize:10, fontWeight:700, padding:"2px 6px",
                     borderRadius:4, cursor:"pointer" }}>
                   {v} ×
                 </span>
@@ -212,7 +212,7 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200, nav
                   return (
                     <div key={opt} onClick={e=>{e.stopPropagation();handleSelect(opt);}}
                       style={{ padding:"8px 12px", cursor:"pointer", fontSize:12,
-                        background:sel?T.navyLight:"transparent", color:sel?T.navy:T.text,
+                        background:sel?T.navyLight:"transparent", color:sel?"#fff":T.text,
                         borderLeft:`3px solid ${sel?T.navy:"transparent"}`,
                         display:"flex", alignItems:"center", gap:8,
                         transition:"background 0.1s" }}
@@ -331,7 +331,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
             {[["units","Units"],["listings","Devel."],["avg_price","Avg Price"],["avg_price_m2","€/m²"]].map(([s,lbl])=>(
               <button key={s} onClick={()=>setSortBy(s)} style={{
                 background:sortBy===s?T.navyLight:"#fff", border:`1px solid ${sortBy===s?T.borderAccent:T.border}`,
-                color:sortBy===s?T.navy:T.textSub, padding:"6px 12px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:600 }}>{lbl}</button>
+                color:sortBy===s?"#fff":T.textSub, padding:"6px 12px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:600 }}>{lbl}</button>
             ))}
           </div>
         </div>
@@ -480,7 +480,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                           <td style={{ padding:"7px 10px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
                           <td style={{ padding:"7px 10px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price!=null?`€${Math.round(row.max_price).toLocaleString()}`:"—"}</td>
                           <td style={{ padding:"7px 10px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size!=null?`${row.avg_size}m²`:"—"}</td>
-                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2)}`:"—"}</td>
+                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2).toLocaleString("en")}`:"—"}</td>
                         </tr>
                       );
                     })}

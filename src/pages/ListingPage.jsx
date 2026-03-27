@@ -96,7 +96,7 @@ function ComparePanel({ listing, current, onGoListing, onClose }) {
             {[
               ["Avg Price",  fmt(listing.avg_price),   pd],
               ["Min Price",  fmt(listing.min_price),   null],
-              ["€/m²",       `€${Math.round(listing.avg_price_m2||0)}`, md],
+              ["€/m²",       listing.avg_price_m2 ? `€${Math.round(listing.avg_price_m2).toLocaleString("en")}` : "—", md],
               ["Apartments", listing.units,            null],
               ["Avg Size",   `${listing.avg_size}m²`,  null],
               ["Unit Types", listing.unit_types||"—",  null],
@@ -162,7 +162,7 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
               {/* Header */}
               <div>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:4, marginBottom:4 }}>
-                  <div style={{ fontWeight:700, fontSize:12, color:isCur?T.navy:isSel?T.navyMid:T.text,
+                  <div style={{ fontWeight:700, fontSize:12, color:isCur?"#fff":isSel?T.navyMid:T.text,
                     overflow:"hidden", textOverflow:"ellipsis",
                     display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>
                     {l.property_name}
@@ -170,7 +170,7 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
                   {l.esg_grade&&l.esg_grade!=="nan"&&
                     <Tag label={`ESG ${l.esg_grade}`} color={ESG_COLORS[l.esg_grade]||"#999"}/>}
                 </div>
-                <div style={{ color:T.textSub, fontSize:10 }}>{l.municipality}</div>
+                <div style={{ color:isCur?"rgba(255,255,255,0.75)":T.textSub, fontSize:10 }}>{l.municipality}</div>
                 {(isCur||isSel) && (
                   <span style={{ marginTop:3, display:"inline-block", fontSize:9,
                     background:isCur?T.navy:T.navyMid, color:"#fff", padding:"1px 6px", borderRadius:3 }}>
@@ -182,10 +182,10 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
               {/* Stats — vertical stack */}
               <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
                 {[["Apartments",l.units,T.text],["Avg Price",fmt(l.avg_price),T.navy],
-                  ["Min Price",fmt(l.min_price),T.green],["€/m²",`€${Math.round(l.avg_price_m2||0)}`,T.navyMid]].map(([lbl,val,color])=>(
+                  ["Min Price",fmt(l.min_price),T.green],["€/m²",l.avg_price_m2?`€${Math.round(l.avg_price_m2).toLocaleString("en")}`:"—",T.navyMid]].map(([lbl,val,color])=>(
                   <div key={lbl} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                    <div style={{ color:T.textMuted, fontSize:10, fontWeight:600 }}>{lbl}</div>
-                    <div style={{ color, fontWeight:700, fontSize:12 }}>{val}</div>
+                    <div style={{ color:isCur?"rgba(255,255,255,0.6)":T.textMuted, fontSize:10, fontWeight:600 }}>{lbl}</div>
+                    <div style={{ color:isCur?"#fff":color, fontWeight:700, fontSize:12 }}>{val}</div>
                   </div>
                 ))}
               </div>
@@ -236,9 +236,12 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
   const [showAddrMap, setShowAddrMap] = useState(false);
   const [pulse,       setPulse]       = useState(false);
   const [photos,      setPhotos]      = useState([]);
+  const [floorPlans,  setFloorPlans]  = useState([]);
   const [photoIdx,    setPhotoIdx]    = useState(0);
+  const [fpIdx,       setFpIdx]       = useState(0);
   const [photoLoading,setPhotoLoading]= useState(false);
   const [lightbox,    setLightbox]    = useState(false);
+  const [fpLightbox,  setFpLightbox]  = useState(false);
 
   // Trigger heartbeat when highlight prop is set (navigated from scatter chart)
   useEffect(() => {
@@ -252,7 +255,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
   useEffect(() => {
     setLoading(true); setData(null); setMeta(null); setNearby(null);
     setShowAddrMap(false);
-    setPhotos([]); setPhotoIdx(0); setPhotoLoading(true);
+    setPhotos([]); setFloorPlans([]); setPhotoIdx(0); setFpIdx(0); setPhotoLoading(true);
     Promise.all([
       fetch(`${API}/drilldown/listing/${listingId}`).then(r=>r.json()),
       fetch(`${API}/listing/meta/${listingId}`).then(r=>r.json()),
@@ -261,6 +264,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
     ]).then(([d,m,nb,ph]) => {
       setData(d); setMeta(m); setNearby(nb);
       setPhotos(ph.photos || []);
+      setFloorPlans(ph.floor_plans || []);
       setPhotoLoading(false);
       setLoading(false);
     }).catch(() => { setLoading(false); setPhotoLoading(false); });
@@ -308,15 +312,22 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
             {" · "}<span>{data.delivery_date?.replace("Delivery : ","")}</span>
             {" · "}<span style={{ color:T.green, fontWeight:600 }}>{data.total_units} apartments</span>
           </div>
-          {meta?.city_area && (() => {
-            const addr = String(meta.city_area).replace(/ NN/g,"").replace(/,\s*Valencia\s*$/i,"").trim();
+          {(meta?.city_area || meta?.street) && (() => {
+            const parts = [];
+            if (meta.street && meta.street !== "nan") parts.push(String(meta.street).trim());
+            if (meta.city_area) {
+              const ca = String(meta.city_area).replace(/ NN/g,"").replace(/,\s*Valencia\s*$/i,"").trim();
+              if (ca && ca !== "nan" && ca !== parts[0]) parts.push(ca);
+            }
+            if (meta.comarca && meta.comarca !== "nan") parts.push(String(meta.comarca).trim());
+            const addr = parts.join(", ");
             return (
               <div style={{ position:"relative", display:"inline-block" }}>
                 <div onClick={()=>setShowAddrMap(v=>!v)}
                   style={{ color:T.textMuted, fontSize:11, display:"flex", alignItems:"center",
                     gap:4, cursor:"pointer", userSelect:"none" }}>
                   <span>📍</span>
-                  <span style={{ textDecoration:"underline dotted", textUnderlineOffset:2 }}>{addr}</span>
+                  <span style={{ textDecoration:"underline dotted", textUnderlineOffset:2 }}>{addr || data.municipality}</span>
                   <span style={{ fontSize:10, opacity:0.6 }}>{showAddrMap?"▲":"▼"}</span>
                 </div>
                 {showAddrMap && meta.lat && (
@@ -448,6 +459,62 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
           </div>
         );
       })()}
+
+      {/* Floor Plans */}
+      {floorPlans.length > 0 && (
+        <div style={{ marginBottom:16 }}>
+          <div style={{ fontWeight:700, fontSize:13, color:T.text, marginBottom:8 }}>
+            Floor Plans <span style={{ color:T.textMuted, fontWeight:400, fontSize:11 }}>({floorPlans.length})</span>
+          </div>
+          <div style={{ display:"flex", gap:12, overflowX:"auto", paddingBottom:6 }}>
+            {floorPlans.map((url, i) => (
+              <div key={i} onClick={() => { setFpIdx(i); setFpLightbox(true); }}
+                style={{ flexShrink:0, width:180, height:140, borderRadius:10, overflow:"hidden",
+                  border:`2px solid ${fpIdx===i?T.borderAccent:T.border}`, cursor:"zoom-in",
+                  boxShadow:T.shadow, background:"#f8f9fb" }}>
+                <img src={url} alt={`Floor plan ${i+1}`}
+                  style={{ width:"100%", height:"100%", objectFit:"contain", display:"block" }}
+                  onError={e => { e.target.parentElement.style.display="none"; }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Floor Plan Lightbox */}
+      {fpLightbox && floorPlans.length > 0 && (
+        <div onClick={() => setFpLightbox(false)}
+          style={{ position:"fixed", inset:0, zIndex:9999, background:"rgba(0,0,0,0.92)",
+            display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <img src={floorPlans[fpIdx]} alt={`Floor plan ${fpIdx+1}`}
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth:"90vw", maxHeight:"88vh", objectFit:"contain",
+              borderRadius:8, boxShadow:"0 8px 40px rgba(0,0,0,0.6)" }}
+            onError={e => { e.target.style.display="none"; }} />
+          {floorPlans.length > 1 && (<>
+            <button onClick={e => { e.stopPropagation(); setFpIdx(i => (i-1+floorPlans.length)%floorPlans.length); }}
+              style={{ position:"fixed", left:24, top:"50%", transform:"translateY(-50%)",
+                background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
+                width:48, height:48, borderRadius:"50%", cursor:"pointer", fontSize:28,
+                display:"flex", alignItems:"center", justifyContent:"center", backdropFilter:"blur(4px)" }}>‹</button>
+            <button onClick={e => { e.stopPropagation(); setFpIdx(i => (i+1)%floorPlans.length); }}
+              style={{ position:"fixed", right:24, top:"50%", transform:"translateY(-50%)",
+                background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
+                width:48, height:48, borderRadius:"50%", cursor:"pointer", fontSize:28,
+                display:"flex", alignItems:"center", justifyContent:"center", backdropFilter:"blur(4px)" }}>›</button>
+          </>)}
+          <button onClick={() => setFpLightbox(false)}
+            style={{ position:"fixed", top:16, right:20, background:"rgba(255,255,255,0.15)",
+              border:"none", color:"#fff", width:40, height:40, borderRadius:"50%",
+              cursor:"pointer", fontSize:20, display:"flex", alignItems:"center",
+              justifyContent:"center", backdropFilter:"blur(4px)" }}>✕</button>
+          <div style={{ position:"fixed", top:20, left:"50%", transform:"translateX(-50%)",
+            background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:13, fontWeight:600,
+            padding:"6px 16px", borderRadius:20, backdropFilter:"blur(4px)" }}>
+            Floor Plan {fpIdx+1} / {floorPlans.length}
+          </div>
+        </div>
+      )}
 
       {/* Price Matrix */}
       <div style={{ marginBottom:4 }}>

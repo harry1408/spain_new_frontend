@@ -70,7 +70,7 @@ function MultiSelect({ label, options, value, onChange, placeholder = "All", max
               display: "flex", gap: 6, flexWrap: "wrap" }}>
               {value.map(v => (
                 <span key={v} onClick={e => { e.stopPropagation(); toggle(v); }}
-                  style={{ background: T.navyLight, color: T.navy, borderRadius: 5,
+                  style={{ background: T.navyLight, color: "#fff", borderRadius: 5,
                     padding: "2px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
                   {v} ✕
                 </span>
@@ -85,7 +85,7 @@ function MultiSelect({ label, options, value, onChange, placeholder = "All", max
                   style={{ padding: "8px 14px", cursor: "pointer", fontSize: 12,
                     display: "flex", alignItems: "center", gap: 8,
                     background: value.includes(opt) ? T.navyLight : "transparent",
-                    color: value.includes(opt) ? T.navy : T.text,
+                    color: value.includes(opt) ? "#fff" : T.text,
                     fontWeight: value.includes(opt) ? 600 : 400,
                     transition: "background 0.1s" }}
                   onMouseEnter={e => { if (!value.includes(opt)) e.currentTarget.style.background = "#FFFFFF"; }}
@@ -225,6 +225,7 @@ function ResultCard({ l, onSelect, active, onHover }) {
 // ── Main SearchPage ────────────────────────────────────────────────────────
 export default function SearchPage({ onSelectListing }) {
   const [opts, setOpts]         = useState({ municipalities: [], locations: [] });
+  const [streetCoords, setStreetCoords] = useState({});
   const [selMuni,  setSelMuni]  = useState([]);
   const [selStreet, setSelStreet] = useState([]);
   const [radiusKm, setRadiusKm] = useState(null);
@@ -242,6 +243,7 @@ export default function SearchPage({ onSelectListing }) {
   const [searched, setSearched] = useState(false);
   const [activePin, setActivePin] = useState(null);
   const [trend, setTrend] = useState([]);
+  const [serverUtStats, setServerUtStats] = useState([]);
 
 
   // Fixed center for radius searches — set once from first search results
@@ -290,6 +292,7 @@ export default function SearchPage({ onSelectListing }) {
       .then(d => {
         const listings = d.listings || [];
         setResults(listings);
+        setServerUtStats(d.unit_type_stats || []);
         setLoading(false);
         // Fetch trend using ref so we always have current selMuni
         const munis = selMuniRef.current;
@@ -301,15 +304,34 @@ export default function SearchPage({ onSelectListing }) {
             .then(d => setTrend(Array.isArray(d) ? d : []))
             .catch(() => {});
         }
-        // On first fetch (no radius yet), store center and auto-set default radius
+        // On first fetch (no radius yet), store center and auto-set radius to encompass all results
         if (!currentRadius && !searchCenterRef.current) {
           const withCoords = listings.filter(l => l.lat && l.lng);
-          if (withCoords.length) {
-            const lat = withCoords.reduce((a,b) => a+b.lat, 0) / withCoords.length;
-            const lng = withCoords.reduce((a,b) => a+b.lng, 0) / withCoords.length;
+          // Use area center from backend (geocoded street or municipality centroid) if available
+          const areaCenter = d.area_center;
+          if (areaCenter && !withCoords.length) {
+            // Geocoded street with no results in range — still show the street on map
+            searchCenterRef.current = areaCenter;
+            setSearchCenter(areaCenter);
+            setRadiusKm(2);
+          } else if (withCoords.length) {
+            const lat = areaCenter ? areaCenter.lat : withCoords.reduce((a,b) => a+b.lat, 0) / withCoords.length;
+            const lng = areaCenter ? areaCenter.lng : withCoords.reduce((a,b) => a+b.lng, 0) / withCoords.length;
             searchCenterRef.current = { lat, lng };
+            setSearchCenter({ lat, lng });
+            // Compute radius to encompass all listings + 20% buffer
+            const toRad = d => d * Math.PI / 180;
+            const haversineKm = (la1, lo1, la2, lo2) => {
+              const dLat = toRad(la2-la1), dLng = toRad(lo2-lo1);
+              const a = Math.sin(dLat/2)**2 + Math.cos(toRad(la1)) * Math.cos(toRad(la2)) * Math.sin(dLng/2)**2;
+              return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            };
+            const maxDist = withCoords.length > 1
+              ? Math.max(...withCoords.map(l => haversineKm(lat, lng, l.lat, l.lng)))
+              : 1;
+            const autoRadius = Math.max(0.5, Math.ceil(maxDist * 1.2 * 10) / 10);
             isAutoRadiusRef.current = true;
-            setRadiusKm(0.1);
+            setRadiusKm(autoRadius);
           }
         }
         // When radius active, add newly found municipalities to Area/Street filter options
@@ -322,7 +344,7 @@ export default function SearchPage({ onSelectListing }) {
         }
       })
       .catch(() => setLoading(false));
-  }, [searched, radiusKm, _buildQs]);
+  }, [searched, radiusKm]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
 
@@ -344,26 +366,8 @@ export default function SearchPage({ onSelectListing }) {
   const displayResults = results || [];
 
   // ── Charts computed from displayResults ─────────────────────────────────
-  const utStats = useMemo(() => {
-    const utMap = {};
-    displayResults.forEach(l => {
-      (l.unit_types||"").split(", ").filter(Boolean).forEach(ut => {
-        if (!utMap[ut]) utMap[ut] = { unit_type:ut, count:0, prices:[], m2s:[] };
-        utMap[ut].count += l.units || 0;
-        if (l.avg_price) utMap[ut].prices.push(l.avg_price);
-        if (l.avg_price_m2) utMap[ut].m2s.push(l.avg_price_m2);
-      });
-    });
-    const ORDER = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
-    return ORDER.filter(u => utMap[u]).map(u => ({
-      unit_type: u,
-      count: utMap[u].count,
-      avg_price: utMap[u].prices.length ? Math.round(utMap[u].prices.reduce((a,b)=>a+b,0)/utMap[u].prices.length) : null,
-      avg_price_m2: utMap[u].m2s.length ? Math.round(utMap[u].m2s.reduce((a,b)=>a+b,0)/utMap[u].m2s.length) : null,
-      min_price: utMap[u].prices.length ? Math.min(...utMap[u].prices) : null,
-      max_price: utMap[u].prices.length ? Math.max(...utMap[u].prices) : null,
-    }));
-  }, [displayResults]);
+  // Use server-computed unit_type_stats (unit-level accuracy) when available
+  const utStats = serverUtStats.length > 0 ? serverUtStats : [];
 
   const priceDist = useMemo(() => {
     const bins = [
@@ -401,8 +405,8 @@ export default function SearchPage({ onSelectListing }) {
     })).filter(b => b.count > 0);
   }, [displayResults]);
 
-  const hasSelection = selMuni.length > 0 && selStreet.length > 0;
-  const canSearch = selMuni.length > 0 && selStreet.length > 0;
+  const hasSelection = selMuni.length > 0;
+  const canSearch = selMuni.length > 0;
   const [showTip, setShowTip] = useState(false);
   const ALL_UTS = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
   const ALL_ESG = ["A","B","C","D","E","F","G"];
@@ -411,7 +415,10 @@ export default function SearchPage({ onSelectListing }) {
   useEffect(() => {
     fetch(`${API}/search/options`)
       .then(r => r.json())
-      .then(d => setOpts({ municipalities: d.municipalities || [], locations: d.locations || [] }))
+      .then(d => {
+        setOpts({ municipalities: d.municipalities || [], locations: d.locations || [] });
+        setStreetCoords(d.street_coords || {});
+      })
       .catch(() => {});
   }, []);
 
@@ -421,7 +428,10 @@ export default function SearchPage({ onSelectListing }) {
       // Reset to all streets when no municipality selected
       fetch(`${API}/search/options`)
         .then(r => r.json())
-        .then(d => setOpts(prev => ({ ...prev, locations: d.locations || [] })))
+        .then(d => {
+          setOpts(prev => ({ ...prev, locations: d.locations || [] }));
+          setStreetCoords(d.street_coords || {});
+        })
         .catch(() => {});
       return;
     }
@@ -431,11 +441,25 @@ export default function SearchPage({ onSelectListing }) {
       .then(r => r.json())
       .then(d => {
         setOpts(prev => ({ ...prev, locations: d.locations || [] }));
+        setStreetCoords(d.street_coords || {});
         // Only clear selections that don't exist in the new municipality
         setSelStreet(prev => prev.filter(s => (d.locations || []).includes(s)));
       })
       .catch(() => {});
   }, [selMuni]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Immediately center map on geocoded street when selected
+  useEffect(() => {
+    if (!selStreet.length) return;
+    for (const s of selStreet) {
+      const c = streetCoords[s];
+      if (c) {
+        searchCenterRef.current = { lat: c.lat, lng: c.lng };
+        setSearchCenter({ lat: c.lat, lng: c.lng });
+        break;
+      }
+    }
+  }, [selStreet, streetCoords]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const doSearch = () => {
     searchCenterRef.current = null;
@@ -448,13 +472,22 @@ export default function SearchPage({ onSelectListing }) {
     setTimeout(() => setSearched(true), 0);
   };
 
-  // Auto-search only when BOTH municipality AND street are selected
+  // Auto-search when municipality/street selection changes
   useEffect(() => {
-    if (!selMuni.length || !selStreet.length) return;
+    if (!selMuni.length) return;
     const timer = setTimeout(() => {
-      searchCenterRef.current = null;
+      // Preserve geocoded street center if one is selected; otherwise reset
+      const geoCenter = selStreet.length
+        ? selStreet.map(s => streetCoords[s]).find(Boolean) ?? null
+        : null;
+      if (geoCenter) {
+        searchCenterRef.current = { lat: geoCenter.lat, lng: geoCenter.lng };
+        setSearchCenter({ lat: geoCenter.lat, lng: geoCenter.lng });
+      } else {
+        searchCenterRef.current = null;
+        setSearchCenter(null);
+      }
       isAutoRadiusRef.current = false;
-      setSearchCenter(null);
       setRadiusKm(null);
       setActivePin(null);
       setResults(null);
@@ -470,6 +503,7 @@ export default function SearchPage({ onSelectListing }) {
     setMinPrice(""); setMaxPrice(""); setMinM2(""); setMaxM2("");
     setResults(null); setSearched(false);
     setActivePin(null); setTrend([]); setSearchCenter(null);
+    setServerUtStats([]);
     searchCenterRef.current = null;
     isAutoRadiusRef.current = false;
   };
@@ -497,30 +531,25 @@ export default function SearchPage({ onSelectListing }) {
             maxDisplay={1}
             disabled={selMuni.length === 0}
           />
-          {/* Km Radius dropdown */}
+          {/* Km Radius display */}
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: T.textMuted,
               textTransform: "uppercase", marginBottom: 4, letterSpacing: "0.05em" }}>Km Radius</div>
-            <select value={radiusKm ?? ""} onChange={e => selStreet.length > 0 && setRadiusKm(e.target.value === "" ? null : +e.target.value)}
-              disabled={selStreet.length === 0}
-              style={{ height: 42, padding: "0 32px 0 12px", borderRadius: 10,
-                border: `1px solid ${radiusKm && selStreet.length ? T.borderAccent : T.border}`,
-                background: selStreet.length === 0 ? "#FFFFFF" : "#fff",
-                color: radiusKm && selStreet.length ? T.navy : T.textMuted,
-                fontSize: 13, fontWeight: 700, cursor: selStreet.length === 0 ? "not-allowed" : "pointer",
-                opacity: selStreet.length === 0 ? 0.5 : 1,
-                boxShadow: "0 1px 4px rgba(0,0,0,0.06)", outline: "none",
-                appearance: "none", WebkitAppearance: "none",
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239CA3AF' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`,
-                backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center",
-                minWidth: 120 }}>
-              <option value="">Any radius</option>
-              <option value="0.1">100 m</option>
-              <option value="0.5">500 m</option>
-              {[1,1.5,2,3,5,10,20,30].map(v => (
-                <option key={v} value={v}>{v < 1 ? `${v*1000}m` : `${v} km`}</option>
-              ))}
-            </select>
+            <div style={{ height: 42, padding: "0 12px", borderRadius: 10, display: "flex", alignItems: "center", gap: 6,
+              border: `1px solid ${radiusKm && selMuni.length ? T.borderAccent : T.border}`,
+              background: selMuni.length === 0 ? "#FFFFFF" : "#fff",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.06)", minWidth: 120,
+              opacity: selMuni.length === 0 ? 0.5 : 1 }}>
+              <span style={{ fontSize: 13, fontWeight: 700,
+                color: radiusKm && selMuni.length ? T.navy : T.textMuted }}>
+                {radiusKm ? (radiusKm < 1 ? `${Math.round(radiusKm * 1000)} m` : `${radiusKm} km`) : "Auto"}
+              </span>
+              {radiusKm && selMuni.length > 0 && (
+                <button onClick={() => setRadiusKm(null)}
+                  style={{ background: "none", border: "none", color: T.textMuted, fontSize: 12,
+                    cursor: "pointer", padding: 0, lineHeight: 1 }} title="Reset to auto">↺</button>
+              )}
+            </div>
           </div>
 
           <div style={{ position:"relative", alignSelf:"flex-end" }}>
@@ -537,7 +566,7 @@ export default function SearchPage({ onSelectListing }) {
                 background:"#0b1239", color:"#fff", fontSize:11, fontWeight:600,
                 padding:"6px 12px", borderRadius:8, whiteSpace:"nowrap", zIndex:100,
                 boxShadow:"0 4px 12px rgba(0,0,0,0.2)" }}>
-                ← Please select an area or street first
+                ← Please select a municipality first
                 <div style={{ position:"absolute", top:-5, left:"50%", transform:"translateX(-50%)",
                   width:0, height:0, borderLeft:"5px solid transparent", borderRight:"5px solid transparent",
                   borderBottom:"5px solid #1A1A2E" }} />
@@ -684,7 +713,7 @@ export default function SearchPage({ onSelectListing }) {
             {/* Active filters count + reset */}
             {(selUnit.length + selEsg.length > 0 || minPrice || maxPrice || minM2 || maxM2) && (
               <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:8, alignSelf:"center" }}>
-                <span style={{ background:T.navyLight, color:T.navy, borderRadius:20,
+                <span style={{ background:T.navyLight, color:"#fff", borderRadius:20,
                   padding:"4px 12px", fontSize:11, fontWeight:700, whiteSpace:"nowrap" }}>
                   {[selUnit.length, selEsg.length, minPrice||maxPrice?1:0, minM2||maxM2?1:0]
                     .reduce((a,b)=>a+b,0)} filter{[selUnit.length, selEsg.length, minPrice||maxPrice?1:0, minM2||maxM2?1:0].reduce((a,b)=>a+b,0)!==1?"s":""} active
@@ -707,15 +736,48 @@ export default function SearchPage({ onSelectListing }) {
         </div>
       )}
 
+      {/* Street preview map — shown immediately when a geocoded street is selected */}
+      {!loading && searchCenter && (results === null || results.length === 0) && (
+        <div style={{ marginTop: 16, display: "flex", gap: 20, alignItems: "flex-start" }}>
+          <div style={{ width: 340, flexShrink: 0 }}>
+            <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+              <span>📍</span>
+              <span>{selStreet.length > 0 ? `Showing location: ${selStreet[0]}` : "Selected location"}</span>
+            </div>
+            {results !== null && results.length === 0 && (
+              <div style={{ color: T.textMuted, fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                No developments found near this street
+                <div style={{ fontSize: 12, fontWeight: 400, marginTop: 4 }}>Try increasing the radius</div>
+              </div>
+            )}
+          </div>
+          <div style={{ flex: 1, maxWidth: 500 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8,
+              background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:8, padding:"6px 12px" }}>
+              <span style={{ fontSize:10, color:T.textMuted, whiteSpace:"nowrap" }}>📍 Radius:</span>
+              <input type="range" min="0.1" max="30" step="0.1"
+                value={radiusKm ?? 0.1}
+                onChange={e => setRadiusKm(+e.target.value)}
+                style={{ flex:1, accentColor:"#0B1239", cursor:"pointer" }} />
+              <span style={{ fontSize:11, fontWeight:700, color:T.navy, minWidth:40, textAlign:"right" }}>
+                {radiusKm ? (radiusKm < 1 ? `${Math.round(radiusKm*1000)}m` : `${radiusKm}km`) : "Auto"}
+              </span>
+              {radiusKm && <button onClick={() => setRadiusKm(null)}
+                style={{ background:"none", border:"none", color:T.textMuted, fontSize:11, cursor:"pointer", padding:0 }}
+                title="Reset to auto">↺</button>}
+            </div>
+            <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${T.border}`,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.07)", height: 240 }}>
+              <LeafletMap markers={[]} height="240px"
+                center={searchCenter} zoom={15} />
+            </div>
+          </div>
+        </div>
+      )}
+
       {!loading && searched && results !== null && (
         <>
-          {results.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "60px 20px", color: T.textMuted }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>No developments match your search</div>
-              <div style={{ fontSize: 12, marginTop: 6 }}>Try broadening filters or increasing the radius</div>
-            </div>
-          ) : (
+          {results.length === 0 ? null : (
             <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 20, alignItems: "start" }}>
 
                 {/* ── LEFT: scrollable card list ── */}
@@ -747,15 +809,16 @@ export default function SearchPage({ onSelectListing }) {
                       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8,
                         background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:8, padding:"6px 12px" }}>
                         <span style={{ fontSize:10, color:T.textMuted, whiteSpace:"nowrap" }}>📍 Radius:</span>
-                        <input type="range" min="0" max="30" step="0.1"
-                          value={radiusKm ?? 0}
-                          onChange={e => setRadiusKm(+e.target.value === 0 ? null : +e.target.value)}
+                        <input type="range" min="0.1" max="30" step="0.1"
+                          value={radiusKm ?? 0.1}
+                          onChange={e => setRadiusKm(+e.target.value)}
                           style={{ flex:1, accentColor:"#0B1239", cursor:"pointer" }} />
-                        <span style={{ fontSize:11, fontWeight:700, color:T.navy, minWidth:70, textAlign:"right" }}>
-                          {radiusKm ? (radiusKm < 1 ? `${Math.round(radiusKm*1000)}m` : `${radiusKm}km`) : "All"}
+                        <span style={{ fontSize:11, fontWeight:700, color:T.navy, minWidth:40, textAlign:"right" }}>
+                          {radiusKm ? (radiusKm < 1 ? `${Math.round(radiusKm*1000)}m` : `${radiusKm}km`) : "Auto"}
                         </span>
                         {radiusKm && <button onClick={() => setRadiusKm(null)}
-                          style={{ background:"none", border:"none", color:T.textMuted, fontSize:11, cursor:"pointer", padding:0 }}>✕</button>}
+                          style={{ background:"none", border:"none", color:T.textMuted, fontSize:11, cursor:"pointer", padding:0 }}
+                          title="Reset to auto">↺</button>}
                       </div>
                       <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
                         boxShadow:"0 2px 8px rgba(0,0,0,0.07)", height:280 }}>
@@ -790,10 +853,10 @@ export default function SearchPage({ onSelectListing }) {
                                     fontWeight:700, fontSize:11, padding:"2px 7px", borderRadius:4 }}>{row.unit_type}</span>
                                 </td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price ? fmt(row.min_price) : "—"}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price ? fmt(row.avg_price) : "—"}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price ? fmt(row.max_price) : "—"}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_price_m2 ? `€${row.avg_price_m2}` : "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{(row.min_price) ? fmt(row.min_price) : "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{(row.avg_price) ? fmt(row.avg_price) : "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{(row.max_price) ? fmt(row.max_price) : "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2 ?? row.avg_price_m2 ? `€${Math.round(row.avg_pm2 ?? row.avg_price_m2).toLocaleString("en")}` : "—"}</td>
                               </tr>
                             ))}
                           </tbody>
