@@ -51,7 +51,6 @@ function Pm2Cell({ value, prevValue, isLatest }) {
 export default function PriceMatrixTab({ listingId, onRowClick }) {
   const [matrix, setMatrix]   = useState(null);
   const [loading, setLoading] = useState(true);
-  const [flashRow, setFlashRow] = useState(null);
 
   const [unitTypeFilter,    setUnitTypeFilter]    = useState([]);
   const [showMetric,        setShowMetric]        = useState("both");
@@ -69,9 +68,6 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
       .then(d => {
         setMatrix(d);
         setLoading(false);
-        // Flash first row twice after load to hint it's clickable
-        setTimeout(() => setFlashRow("hint"), 400);
-        setTimeout(() => setFlashRow(null), 1800);
       })
       .catch(() => setLoading(false));
   }, [listingId]);
@@ -133,20 +129,13 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
   if (loading) return <div style={{ padding:60, textAlign:"center", color:"#6B7A9F" }}>Loading price matrix…</div>;
   if (!matrix || !periods.length) return <div style={{ padding:60, textAlign:"center", color:"#6B7A9F" }}>No data.</div>;
 
-  const latestPeriod = periods[periods.length - 1];
+  const latestPeriod    = periods[periods.length - 1];
+  const displayPeriods  = [...periods].reverse(); // latest first
   const hasFilters = unitTypeFilter.length || search || minPrice || maxPrice || (changedOnly && anyChanges);
 
   return (
     <div>
       <style>{`
-        @keyframes rowFlash {
-          0%   { background: inherit; }
-          20%  { background: rgba(201,168,76,0.25); }
-          40%  { background: inherit; }
-          65%  { background: rgba(201,168,76,0.25); }
-          100% { background: inherit; }
-        }
-        .row-flash { animation: rowFlash 1.4s ease-out forwards; }
       `}</style>
 
       {/* ── Summary strip ─────────────────────────────────────────────── */}
@@ -246,7 +235,7 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
               <SortTh col={null}      right={false} style={{ minWidth:160 }}>Amenities</SortTh>
               <SortTh col={null}      right={false} style={{ whiteSpace:"nowrap", color:"#8A96B4" }}>Updated</SortTh>
 
-              {periods.map((p, pi) => {
+              {displayPeriods.map((p, pi) => {
                 const isLatest = p === latestPeriod;
                 const colSpan = showMetric==="both" ? 2 : 1;
                 return (
@@ -258,7 +247,7 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
                       borderBottom:"1px solid rgba(255,255,255,0.1)",
                       borderLeft:"1px solid rgba(255,255,255,0.07)",
                       whiteSpace:"nowrap" }}>
-                    {p}{isLatest?" ★":""}
+                    {p}
                   </th>
                 );
               })}
@@ -270,7 +259,7 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
             {showMetric === "both" && (
               <tr style={{ background:T.bgStripe }}>
                 <th colSpan={7} style={{ padding:"3px 14px", borderBottom:`1px solid ${T.border}` }} />
-                {periods.map((p, pi) => (
+                {displayPeriods.map((p, pi) => (
                   <React.Fragment key={p}>
                     <th style={{ padding:"4px 14px", textAlign:"right", color:T.textMuted, fontSize:9, textTransform:"uppercase", letterSpacing:"0.05em", borderBottom:`1px solid ${T.border}`, borderLeft:`1px solid ${T.border}` }}>Price</th>
                     <th style={{ padding:"4px 14px", textAlign:"right", color:T.textMuted, fontSize:9, textTransform:"uppercase", letterSpacing:"0.05em", borderBottom:`1px solid ${T.border}` }}>€/m²</th>
@@ -295,7 +284,6 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
                     price:         row[`price_${latestPeriod}`] ?? null,
                     price_per_m2:  row[`ppm2_${latestPeriod}`]  ?? null,
                   })}
-                  className={ri === 0 && flashRow === "hint" ? "row-flash" : ""}
                   style={{ borderBottom:`1px solid ${T.border}`, background:rowBg,
                     cursor: onRowClick ? "pointer" : "default",
                     transition:"background 0.1s" }}
@@ -329,10 +317,11 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
                       : "—"}
                   </td>
 
-                  {periods.map((period, pi) => {
+                  {displayPeriods.map((period, pi) => {
                     const price    = row[`price_${period}`];
                     const ppm2     = row[`ppm2_${period}`];
-                    const prev     = pi > 0 ? periods[pi-1] : null;
+                    // In reversed display, the older (previous) period is one index to the right
+                    const prev     = pi < displayPeriods.length - 1 ? displayPeriods[pi+1] : null;
                     const prevP    = prev ? row[`price_${prev}`] : null;
                     const prevM    = prev ? row[`ppm2_${prev}`]  : null;
                     const isLatest = period === latestPeriod;
@@ -371,7 +360,7 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
                 <td colSpan={7} style={{ padding:"9px 14px", color:T.textMuted, fontSize:11, fontWeight:600 }}>
                   AVG — {rows.length} apartments
                 </td>
-                {periods.map((period) => {
+                {displayPeriods.map((period) => {
                   const prices = rows.map(r => r[`price_${period}`]).filter(Boolean);
                   const ppm2s  = rows.map(r => r[`ppm2_${period}`]).filter(Boolean);
                   const avgP   = prices.length ? Math.round(prices.reduce((a,b)=>a+b,0)/prices.length) : null;
@@ -394,7 +383,7 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
       </div>
 
       <div style={{ marginTop:10, color:"#8A96B4", fontSize:11 }}>
-        ★ = latest snapshot &nbsp;·&nbsp; ▲/▼ in cell = change vs prior period &nbsp;·&nbsp;
+        ▲/▼ in cell = change vs prior period &nbsp;·&nbsp;
         Rows tinted <span style={{ color:"#E74C3C" }}>red</span> / <span style={{ color:"#1A4A2A" }}>green</span> if price moved &nbsp;·&nbsp;
         Price range filter uses thousands (e.g. 200 = €200,000)
       </div>

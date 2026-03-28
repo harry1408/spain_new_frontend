@@ -65,17 +65,31 @@ function ListingCard({ l, active, onSelect, onHover }) {
           <div style={{ fontWeight:700, fontSize:14, color:active ? "#fff" : T.text }}>{l.property_name}</div>
           <div style={{ color:active ? "rgba(255,255,255,0.75)" : T.textSub, fontSize:11, marginTop:2 }}>{l.developer}</div>
         </div>
-        {l.esg_grade && l.esg_grade !== "nan" && <Tag label={`ESG ${l.esg_grade}`} color={esgColor}/>}
+        {l.esg_grade && l.esg_grade !== "nan" && (
+          active
+            ? <span style={{ fontSize:10, padding:"2px 8px", borderRadius:4, fontWeight:700,
+                background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.35)" }}>
+                ESG {l.esg_grade}
+              </span>
+            : <Tag label={`ESG ${l.esg_grade}`} color={esgColor}/>
+        )}
       </div>
       <AddressBreadcrumb cityArea={l.city_area} municipality={l.municipality} style={{ marginBottom:10 }} />
-      {l.unit_types && (
+      {(l.unit_types || l.house_types) && (
         <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:10 }}>
-          {l.unit_types.split(", ").filter(Boolean).map(ut => (
-            <span key={ut} style={{ fontSize:10, padding:"2px 7px", borderRadius:4,
-              background:`${UNIT_COLORS[ut]||"#aaa"}20`,
-              color:UNIT_COLORS[ut]||"#aaa",
-              border:`1px solid ${UNIT_COLORS[ut]||"#aaa"}55`,
-              fontWeight:700 }}>{ut}</span>
+          {l.unit_types && l.unit_types.split(", ").filter(Boolean).map(ut => (
+            <span key={ut} style={{ fontSize:10, padding:"2px 7px", borderRadius:4, fontWeight:700,
+              background: active ? "rgba(255,255,255,0.18)" : `${UNIT_COLORS[ut]||"#aaa"}20`,
+              color:      active ? "#fff"                    : UNIT_COLORS[ut]||"#aaa",
+              border:     active ? "1px solid rgba(255,255,255,0.35)" : `1px solid ${UNIT_COLORS[ut]||"#aaa"}55`,
+            }}>{ut}</span>
+          ))}
+          {l.house_types && l.house_types.split(", ").filter(Boolean).map(ht => (
+            <span key={ht} style={{ fontSize:10, padding:"2px 7px", borderRadius:4, fontWeight:700,
+              background: active ? "rgba(255,255,255,0.12)" : "rgba(100,100,140,0.10)",
+              color:      active ? "rgba(255,255,255,0.85)" : T.textSub,
+              border:     active ? "1px solid rgba(255,255,255,0.25)" : `1px solid ${T.border}`,
+            }}>{ht}</span>
           ))}
         </div>
       )}

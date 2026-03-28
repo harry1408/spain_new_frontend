@@ -149,7 +149,7 @@ function Delta({ cur, prev, field, format }) {
   const zero = diff === 0;
   return (
     <div style={{ fontSize:10, marginTop:2, color: zero?T.textMuted: up?T.navy:T.green }}>
-      {zero ? "↔ No change" : `${up?"▲":"▼"} ${format ? format(Math.abs(diff)) : Math.abs(diff).toLocaleString()} (${Math.abs(pct)}%)`}
+      {zero ? "↔ No change" : `${up?"▲":"▼"} ${format ? format(Math.abs(diff)) : Number(Math.abs(diff)).toLocaleString("en",{maximumFractionDigits:2})} (${Math.abs(pct)}%)`}
       <span style={{ color:"#8A96B4", marginLeft:4 }}>vs prev</span>
     </div>
   );
@@ -511,7 +511,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
             { label:"Total Apartments", field:"total_units", fmt:v=>v.toLocaleString() },
             { label:"Avg Price",        field:"avg_price",   fmt:fmt },
             { label:"Avg €/m²",         field:"avg_price_m2",fmt:v=>v != null ? `€${Math.round(v).toLocaleString("en")}` : "—" },
-            { label:"Avg Size",         field:"avg_size",    fmt:v=>`${v}m²` },
+            { label:"Avg Size",         field:"avg_size",    fmt:v=>v != null ? `${Number(v).toFixed(1)}m²` : "—" },
             { label:"Developments",     field:"total_developments", fmt:v=>v },
           ].map(({ label, field, fmt:f }) => (
             <StatCard key={label} label={label} value={f(stats[field])}>
@@ -730,9 +730,9 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                     <tr key={i} style={{ borderBottom:"1px solid "+T.border, background: row.period===filters.latest_period?"rgba(232,168,56,0.06)":"transparent" }}>
                       <td style={{ padding:"7px 10px", textAlign:"right", color: row.period===filters.latest_period?T.navy:T.text, fontWeight: row.period===filters.latest_period?600:400 }}>{row.period} {row.period===filters.latest_period&&"★"}</td>
                       <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{fmt(row.avg_price)}</td>
-                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>€{row.avg_price_m2}</td>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.avg_price_m2 != null ? `€${Math.round(row.avg_price_m2).toLocaleString("en")}` : "—"}</td>
                       <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.total_units?.toLocaleString()}</td>
-                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.avg_size} m²</td>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.avg_size != null ? `${Number(row.avg_size).toFixed(1)}m²` : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
