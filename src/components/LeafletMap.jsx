@@ -53,9 +53,12 @@ export default function LeafletMap({
     if (!elRef.current) return;
     const tid = setTimeout(() => {
       if (mapRef.current) return;
+      const initCenter = (radiusCtrRef.current?.lat && radiusKmRef.current)
+        ? [radiusCtrRef.current.lat, radiusCtrRef.current.lng]
+        : (center || [39.47, -0.38]);
       const map = L.map(elRef.current, {
         zoomControl: true, scrollWheelZoom: false, attributionControl: false,
-      }).setView(center || [39.47, -0.38], zoom);
+      }).setView(initCenter, zoom);
       L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", { maxZoom: 19 }).addTo(map);
       L.control.attribution({ prefix: false }).addAttribution('© <a href="https://carto.com">CARTO</a>').addTo(map);
       layerGroup.current  = L.layerGroup().addTo(map);
@@ -72,9 +75,13 @@ export default function LeafletMap({
   // ── Re-center when center prop changes (e.g. street preview) ─────────────
   useEffect(() => {
     if (!center) return;
+    // Skip plain setView when radius is active — radius effect handles fitBounds
+    if (radiusKmRef.current && radiusCtrRef.current?.lat) return;
     let attempts = 0;
     const pan = () => {
       if (!mapRef.current) { if (++attempts < 20) setTimeout(pan, 80); return; }
+      // Re-check inside callback — radius may have been set by the time map is ready
+      if (radiusKmRef.current && radiusCtrRef.current?.lat) return;
       mapRef.current.setView(center, zoom, { animate: true });
     };
     pan();

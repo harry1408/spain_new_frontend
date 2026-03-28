@@ -181,7 +181,7 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
                           <div style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>{pt.period}</div>
                           <div style={{ color: i===aptTrend.length-1 ? T.navy : T.text,
                             fontWeight: i===aptTrend.length-1 ? 700 : 600, fontSize:14 }}>{fmtFull(pt.price)}</div>
-                          <div style={{ color:T.textSub, fontSize:10 }}>€{pt.price_per_m2}/m²</div>
+                          <div style={{ color:T.textSub, fontSize:10 }}>€{pt.price_per_m2 ? Math.round(pt.price_per_m2).toLocaleString("en") : "—"}/m²</div>
                         </div>
                       ))}
                     </div>

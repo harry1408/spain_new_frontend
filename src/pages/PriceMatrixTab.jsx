@@ -41,7 +41,7 @@ function Pm2Cell({ value, prevValue, isLatest }) {
   return (
     <td style={{ padding:"10px 14px", textAlign:"right", background: isLatest?"rgba(235,101,44,0.06)":"transparent" }}>
       <div style={{ color: isLatest?"#4a80b0":"#4a6070", fontWeight: isLatest?600:500, fontSize:12 }}>
-        €{value}
+        €{Math.round(value).toLocaleString("en")}
       </div>
       {changed && <div style={{ fontSize:10, color: up?"#E74C3C":"#3DAA6E", marginTop:1 }}>{up?"▲":"▼"} €{Math.abs(value - prevValue).toFixed(1)}</div>}
     </td>
@@ -237,8 +237,9 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
         <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, minWidth:500 }}>
           <thead>
             <tr>
-              <SortTh col="unit_type" right={false}>Type</SortTh>
-              <SortTh col={null}      right={false}>Floor</SortTh>
+              <SortTh col="unit_type"  right={false}>Type</SortTh>
+              <SortTh col="house_type" right={false}>House Type</SortTh>
+              <SortTh col={null}       right={false}>Floor</SortTh>
               <SortTh col="size"      right={true}>Size</SortTh>
               <SortTh col="bedrooms"  right={true}>Beds</SortTh>
               <SortTh col="bathrooms" right={true}>Baths</SortTh>
@@ -304,6 +305,9 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
                   <td style={{ padding:"10px 14px", whiteSpace:"nowrap" }}>
                     <span style={{ background:UNIT_COLORS[row.unit_type]||"#aaa", color:"#fff",
                       fontWeight:700, fontSize:11, padding:"2px 8px", borderRadius:4 }}>{row.unit_type}</span>
+                  </td>
+                  <td style={{ padding:"10px 14px", whiteSpace:"nowrap", fontSize:11, color:T.textSub }}>
+                    {row.house_type && row.house_type !== "Not Mentioned" ? row.house_type : "—"}
                   </td>
                   <td style={{ padding:"10px 14px", color:T.textSub, whiteSpace:"nowrap", fontSize:11 }}>{row.floor||"—"}</td>
                   <td style={{ padding:"10px 14px", textAlign:"right", color:T.textSub, whiteSpace:"nowrap" }}>{row.size ? `${row.size} m²` : "—"}</td>
@@ -374,11 +378,11 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
                   const avgM   = ppm2s.length  ? Math.round(ppm2s.reduce((a,b)=>a+b,0)/ppm2s.length)  : null;
                   const isL    = period === latestPeriod;
                   if (showMetric==="price") return <td key={period} style={{ padding:"9px 14px", textAlign:"right", color:isL?T.navy:T.textSub, fontWeight:600, borderLeft:`1px solid ${T.border}` }}>{fmtFull(avgP)}</td>;
-                  if (showMetric==="ppm2")  return <td key={period} style={{ padding:"9px 14px", textAlign:"right", color:isL?T.blue:T.textSub, fontWeight:600, borderLeft:`1px solid ${T.border}` }}>€{avgM}</td>;
+                  if (showMetric==="ppm2")  return <td key={period} style={{ padding:"9px 14px", textAlign:"right", color:isL?T.blue:T.textSub, fontWeight:600, borderLeft:`1px solid ${T.border}` }}>{avgM != null ? `€${avgM.toLocaleString("en")}` : "—"}</td>;
                   return (
                     <React.Fragment key={period}>
                       <td style={{ padding:"9px 14px", textAlign:"right", color:isL?T.navy:T.textSub, fontWeight:600, borderLeft:`1px solid ${T.border}` }}>{fmtFull(avgP)}</td>
-                      <td style={{ padding:"9px 14px", textAlign:"right", color:isL?T.blue:T.textSub, fontWeight:600 }}>€{avgM}</td>
+                      <td style={{ padding:"9px 14px", textAlign:"right", color:isL?T.blue:T.textSub, fontWeight:600 }}>{avgM != null ? `€${avgM.toLocaleString("en")}` : "—"}</td>
                     </React.Fragment>
                   );
                 })}

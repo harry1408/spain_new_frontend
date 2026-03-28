@@ -39,7 +39,7 @@ function MuniCard({ m, onClick }) {
         <Metric label="Devel."    value={m.listings||"—"} />
         <Metric label="Apts"      value={m.units} />
         <Metric label="Avg Price" value={fmt(m.avg_price)} color={T.navy} />
-        <Metric label="€/m²"      value={`€${m.avg_price_m2}`} color={T.textSub} />
+        <Metric label="€/m²"      value={m.avg_price_m2 != null ? `€${Math.round(m.avg_price_m2).toLocaleString("en")}` : "—"} color={T.textSub} />
       </div>
       <div style={{ marginTop:8, color:hov ? T.navy : T.textMuted, fontSize:11, fontWeight:600 }}>Explore →</div>
     </div>
@@ -82,7 +82,7 @@ function ListingCard({ l, active, onSelect, onHover }) {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"7px 10px", marginBottom:10 }}>
         <Metric label="Apts"     value={l.units}               active={active} />
         <Metric label="Avg"      value={fmt(l.avg_price)}      color={T.navy}    active={active} />
-        <Metric label="€/m²"     value={`€${l.avg_price_m2}`}  color={T.textSub} active={active} />
+        <Metric label="€/m²"     value={l.avg_price_m2 != null ? `€${Math.round(l.avg_price_m2).toLocaleString("en")}` : "—"}  color={T.textSub} active={active} />
         <Metric label="From"     value={fmt(l.min_price)}      color={T.green}   active={active} />
         <Metric label="To"       value={fmt(l.max_price)}      color={T.red}     active={active} />
         <Metric label="Avg Size" value={`${l.avg_size}m²`}                       active={active} />
@@ -382,7 +382,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
         <StatCard label="Developments"     value={stats.total_listings} accent={T.text} />
         <StatCard label="Total Apartments" value={stats.total_units?.toLocaleString()} />
         <StatCard label="Avg Price"        value={fmt(stats.avg_price)} />
-        <StatCard label="Avg €/m²"         value={`€${stats.avg_price_m2}`} accent={T.navyMid} />
+        <StatCard label="Avg €/m²"         value={stats.avg_price_m2 != null ? `€${Math.round(stats.avg_price_m2).toLocaleString("en")}` : "—"} accent={T.navyMid} />
         <StatCard label="Price Range"      value={`${fmt(stats.price_range?.[0])} – ${fmt(stats.price_range?.[1])}`} accent={T.textSub} />
       </div>
 

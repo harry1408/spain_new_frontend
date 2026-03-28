@@ -257,7 +257,7 @@ export default function DelistedPage({ onGoListing }) {
           <StatCard label="Delisted Developments" value={summary.count} accent="#6B2A2A" />
           <StatCard label="Total Apartments"       value={(summary.units||0).toLocaleString()} />
           <StatCard label="Avg Last Price"         value={fmt(summary.avg_price)} />
-          <StatCard label="Avg Last €/m²"          value={`€${summary.avg_price_m2}`} accent={M2_COLOR} />
+          <StatCard label="Avg Last €/m²"          value={summary.avg_price_m2 != null ? `€${Math.round(summary.avg_price_m2).toLocaleString("en")}` : "—"} accent={M2_COLOR} />
         </div>
       )}
 

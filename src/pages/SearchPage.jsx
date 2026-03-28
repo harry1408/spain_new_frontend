@@ -117,28 +117,6 @@ function MultiSelect({ label, options, value, onChange, placeholder = "All", max
   );
 }
 
-// ── Radius selector ────────────────────────────────────────────────────────
-function RadiusSelect({ value, onChange }) {
-  const opts = [null, 1, 2, 5, 10, 20, 30];
-  return (
-    <div>
-      <div style={{ fontSize: 10, fontWeight: 700, color: T.textMuted, textTransform: "uppercase",
-        marginBottom: 4, letterSpacing: "0.05em" }}>Km Radius</div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {opts.map(v => (
-          <button key={v ?? "any"} onClick={() => onChange(v)}
-            style={{ padding: "9px 14px", borderRadius: 9, border: `1px solid ${value === v ? T.borderAccent : T.border}`,
-              background: value === v ? T.navyLight : "#fff",
-              color: value === v ? T.navy : T.textSub,
-              fontSize: 12, fontWeight: 700, cursor: "pointer",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-            {v === null ? "Any" : `${v}km`}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // ── Result card ────────────────────────────────────────────────────────────
 function ResultCard({ l, onSelect, active, onHover }) {
@@ -231,8 +209,9 @@ export default function SearchPage({ onSelectListing }) {
   const [radiusKm, setRadiusKm] = useState(null);
 
   // Secondary filters — enabled once primary selection made
-  const [selUnit, setSelUnit]   = useState([]);
-  const [selEsg,  setSelEsg]    = useState([]);
+  const [selUnit, setSelUnit]       = useState([]);
+  const [selEsg,  setSelEsg]        = useState([]);
+  const [selHouseType, setSelHouseType] = useState([]);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [minM2,   setMinM2]    = useState("");
@@ -263,6 +242,7 @@ export default function SearchPage({ onSelectListing }) {
     }
     selUnit.forEach(u => qs.append("unit_type", u));
     selEsg.forEach(e => qs.append("esg", e));
+    selHouseType.forEach(h => qs.append("house_type", h));
     if (minPrice) qs.set("min_price", minPrice);
     if (maxPrice) qs.set("max_price", maxPrice);
     if (minM2)    qs.set("min_m2", minM2);
@@ -273,7 +253,7 @@ export default function SearchPage({ onSelectListing }) {
       qs.set("lng", searchCenterRef.current.lng);
     }
     return qs;
-  }, [selMuni, selStreet, selUnit, selEsg, minPrice, maxPrice, minM2, maxM2]);
+  }, [selMuni, selStreet, selUnit, selEsg, selHouseType, minPrice, maxPrice, minM2, maxM2]);
 
   // Single useEffect mirrors ApartmentPage pattern
   useEffect(() => {
@@ -497,9 +477,20 @@ export default function SearchPage({ onSelectListing }) {
     return () => clearTimeout(timer);
   }, [selMuni, selStreet]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-apply secondary filters without resetting center/radius
+  useEffect(() => {
+    if (!selMuni.length) return;
+    const timer = setTimeout(() => {
+      setResults(null);
+      setSearched(false);
+      setTimeout(() => setSearched(true), 0);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [selUnit, selEsg, selHouseType, minPrice, maxPrice, minM2, maxM2]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const clearAll = () => {
     setSelMuni([]); setSelStreet([]); setRadiusKm(null);
-    setSelUnit([]); setSelEsg([]);
+    setSelUnit([]); setSelEsg([]); setSelHouseType([]);
     setMinPrice(""); setMaxPrice(""); setMinM2(""); setMaxM2("");
     setResults(null); setSearched(false);
     setActivePin(null); setTrend([]); setSearchCenter(null);
@@ -531,25 +522,27 @@ export default function SearchPage({ onSelectListing }) {
             maxDisplay={1}
             disabled={selMuni.length === 0}
           />
-          {/* Km Radius display */}
+          {/* Km Radius dropdown */}
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: T.textMuted,
               textTransform: "uppercase", marginBottom: 4, letterSpacing: "0.05em" }}>Km Radius</div>
-            <div style={{ height: 42, padding: "0 12px", borderRadius: 10, display: "flex", alignItems: "center", gap: 6,
-              border: `1px solid ${radiusKm && selMuni.length ? T.borderAccent : T.border}`,
-              background: selMuni.length === 0 ? "#FFFFFF" : "#fff",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.06)", minWidth: 120,
-              opacity: selMuni.length === 0 ? 0.5 : 1 }}>
-              <span style={{ fontSize: 13, fontWeight: 700,
-                color: radiusKm && selMuni.length ? T.navy : T.textMuted }}>
-                {radiusKm ? (radiusKm < 1 ? `${Math.round(radiusKm * 1000)} m` : `${radiusKm} km`) : "Auto"}
-              </span>
-              {radiusKm && selMuni.length > 0 && (
-                <button onClick={() => setRadiusKm(null)}
-                  style={{ background: "none", border: "none", color: T.textMuted, fontSize: 12,
-                    cursor: "pointer", padding: 0, lineHeight: 1 }} title="Reset to auto">↺</button>
-              )}
-            </div>
+            <select
+              disabled={selMuni.length === 0}
+              value={radiusKm ?? ""}
+              onChange={e => setRadiusKm(e.target.value === "" ? null : Number(e.target.value))}
+              style={{ height: 42, padding: "0 12px", borderRadius: 10,
+                border: `1px solid ${radiusKm && selMuni.length ? T.borderAccent : T.border}`,
+                background: "#fff", fontSize: 13, fontWeight: 700,
+                color: radiusKm && selMuni.length ? T.navy : T.textMuted,
+                boxShadow: "0 1px 4px rgba(0,0,0,0.06)", minWidth: 120,
+                opacity: selMuni.length === 0 ? 0.5 : 1,
+                cursor: selMuni.length === 0 ? "not-allowed" : "pointer",
+                outline: "none" }}>
+              <option value="">Auto</option>
+              {[0.5, 1, 2, 5, 10, 20, 30].map(v => (
+                <option key={v} value={v}>{v < 1 ? `${v * 1000} m` : `${v} km`}</option>
+              ))}
+            </select>
           </div>
 
           <div style={{ position:"relative", alignSelf:"flex-end" }}>
@@ -592,46 +585,34 @@ export default function SearchPage({ onSelectListing }) {
           <div style={{ display:"flex", alignItems:"flex-start", gap:24, flexWrap:"wrap" }}>
 
             {/* Unit Type */}
-            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-              <span style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Unit Type</span>
-              <div style={{ display:"flex", gap:3 }}>
-                {ALL_UTS.map(ut => (
-                  <button key={ut} onClick={() => setSelUnit(prev =>
-                    prev.includes(ut) ? prev.filter(x => x !== ut) : [...prev, ut])}
-                    style={{ padding:"5px 10px", borderRadius:20, fontSize:11, fontWeight:700,
-                      cursor:"pointer", transition:"all 0.15s",
-                      background: selUnit.includes(ut) ? UNIT_COLORS[ut] || "#555" : "#FFFFFF",
-                      border:`1.5px solid ${selUnit.includes(ut) ? UNIT_COLORS[ut] || "#555" : "transparent"}`,
-                      color: selUnit.includes(ut) ? "#fff" : T.textSub,
-                      boxShadow: selUnit.includes(ut) ? "0 2px 6px rgba(0,0,0,0.18)" : "none" }}>
-                    {ut}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <MultiSelect
+              label="Unit Type"
+              options={ALL_UTS}
+              value={selUnit}
+              onChange={setSelUnit}
+              placeholder="All types"
+              maxDisplay={2}
+            />
 
-            <div style={{ width:1, alignSelf:"stretch", background:T.border, margin:"2px 0" }} />
+            {/* ESG Grade */}
+            <MultiSelect
+              label="ESG Grade"
+              options={ALL_ESG}
+              value={selEsg}
+              onChange={setSelEsg}
+              placeholder="All grades"
+              maxDisplay={3}
+            />
 
-            {/* ESG */}
-            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-              <span style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>ESG Grade</span>
-              <div style={{ display:"flex", gap:4 }}>
-                {ALL_ESG.map(g => (
-                  <button key={g} onClick={() => setSelEsg(prev =>
-                    prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])}
-                    style={{ width:30, height:30, borderRadius:"50%", fontSize:12, fontWeight:800,
-                      cursor:"pointer", transition:"all 0.15s",
-                      border:`2px solid ${selEsg.includes(g) ? ESG_COLORS[g]||"#555" : T.border}`,
-                      background: selEsg.includes(g) ? ESG_COLORS[g]||"#555" : "#FFFFFF",
-                      color: selEsg.includes(g) ? "#fff" : T.textSub,
-                      boxShadow: selEsg.includes(g) ? `0 2px 8px ${ESG_COLORS[g]}55` : "none" }}>
-                    {g}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ width:1, alignSelf:"stretch", background:T.border, margin:"2px 0" }} />
+            {/* House Type */}
+            <MultiSelect
+              label="House Type"
+              options={["Detached house","Semi-detached house","Terraced house","Flat","Not Mentioned"]}
+              value={selHouseType}
+              onChange={setSelHouseType}
+              placeholder="All types"
+              maxDisplay={1}
+            />
 
             {/* Price range with slider */}
             <div style={{ display:"flex", flexDirection:"column", gap:6, minWidth:200 }}>
@@ -711,14 +692,14 @@ export default function SearchPage({ onSelectListing }) {
             </div>
 
             {/* Active filters count + reset */}
-            {(selUnit.length + selEsg.length > 0 || minPrice || maxPrice || minM2 || maxM2) && (
+            {(selUnit.length + selEsg.length + selHouseType.length > 0 || minPrice || maxPrice || minM2 || maxM2) && (
               <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:8, alignSelf:"center" }}>
                 <span style={{ background:T.navyLight, color:"#fff", borderRadius:20,
                   padding:"4px 12px", fontSize:11, fontWeight:700, whiteSpace:"nowrap" }}>
-                  {[selUnit.length, selEsg.length, minPrice||maxPrice?1:0, minM2||maxM2?1:0]
-                    .reduce((a,b)=>a+b,0)} filter{[selUnit.length, selEsg.length, minPrice||maxPrice?1:0, minM2||maxM2?1:0].reduce((a,b)=>a+b,0)!==1?"s":""} active
+                  {[selUnit.length, selEsg.length, selHouseType.length, minPrice||maxPrice?1:0, minM2||maxM2?1:0]
+                    .reduce((a,b)=>a+b,0)} filter{[selUnit.length, selEsg.length, selHouseType.length, minPrice||maxPrice?1:0, minM2||maxM2?1:0].reduce((a,b)=>a+b,0)!==1?"s":""} active
                 </span>
-                <button onClick={() => { setSelUnit([]); setSelEsg([]); setMinPrice(""); setMaxPrice(""); setMinM2(""); setMaxM2(""); }}
+                <button onClick={() => { setSelUnit([]); setSelEsg([]); setSelHouseType([]); setMinPrice(""); setMaxPrice(""); setMinM2(""); setMaxM2(""); }}
                   style={{ background:"none", border:`1.5px solid ${T.border}`, borderRadius:20,
                     color:T.textMuted, fontSize:11, cursor:"pointer", padding:"4px 12px",
                     fontWeight:600, whiteSpace:"nowrap" }}>
@@ -877,7 +858,7 @@ export default function SearchPage({ onSelectListing }) {
                             <Tooltip formatter={v => [`${v} developments`, "Count"]}
                               contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
                             <Bar dataKey="count" radius={[4,4,0,0]} isAnimationActive={false}>
-                              {priceDist.map((_,i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                              {priceDist.map((_,i) => <Cell key={i} fill={PRICE_COLOR} fillOpacity={0.35 + (i / Math.max(priceDist.length - 1, 1)) * 0.65} />)}
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
@@ -893,7 +874,7 @@ export default function SearchPage({ onSelectListing }) {
                             <Tooltip formatter={v => [`${v} developments`, "Count"]}
                               contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
                             <Bar dataKey="count" radius={[4,4,0,0]} isAnimationActive={false}>
-                              {m2Dist.map((_,i) => <Cell key={i} fill={M2_COLOR} opacity={0.5 + (i / m2Dist.length) * 0.5} />)}
+                              {m2Dist.map((_,i) => <Cell key={i} fill={M2_COLOR} fillOpacity={0.35 + (i / Math.max(m2Dist.length - 1, 1)) * 0.65} />)}
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>

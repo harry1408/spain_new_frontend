@@ -186,16 +186,17 @@ function PriceByUnitTypeChart({ data }) {
   );
 }
 
+
 // ── Price Distribution — toggle chart ────────────────────────────────────
 function PriceDistributionChart({ data, m2data, height=220 }) {
   const [showM2, setShowM2] = usePriceToggle();
   const safe = showM2
     ? (m2data||[]).map(d=>({ ...d, count: Number(d.count)||0 }))
     : (data||[]).map(d=>({ ...d, count: Number(d.count)||0 }));
-  const yFmt = v => v;
   const ttFmt = v => `${v} units`;
   const label = showM2 ? "Units (by €/m²)" : "Units (by price)";
   const maxVal = safe.length ? Math.max(...safe.map(d=>d.count||0)) : 1;
+  const baseColor = showM2 ? M2_COLOR : PRICE_COLOR;
   return (
     <ChartCard title="Price Distribution">
       <div style={{ display:"flex", justifyContent:"flex-end", marginTop:-28, marginBottom:8 }}>
@@ -205,12 +206,12 @@ function PriceDistributionChart({ data, m2data, height=220 }) {
         <BarChart data={safe} barSize={26}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
           <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
-          <YAxis tickFormatter={yFmt} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
+          <YAxis tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
             domain={[0, Math.ceil(maxVal * 1.15)]} />
           <Tooltip formatter={v=>[ttFmt(v), label]}
             contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
           <Bar dataKey="count" name={label} radius={[4,4,0,0]} isAnimationActive={false}>
-            {safe.map((_,i)=><Cell key={i} fill={showM2?M2_COLOR:`hsl(${200+i*15},60%,${42+i*3}%)`}/>)}
+            {safe.map((_,i)=><Cell key={i} fill={baseColor} fillOpacity={0.35 + (i / Math.max(safe.length-1,1)) * 0.65}/>)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -509,7 +510,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
           {[
             { label:"Total Apartments", field:"total_units", fmt:v=>v.toLocaleString() },
             { label:"Avg Price",        field:"avg_price",   fmt:fmt },
-            { label:"Avg €/m²",         field:"avg_price_m2",fmt:v=>`€${v}` },
+            { label:"Avg €/m²",         field:"avg_price_m2",fmt:v=>v != null ? `€${Math.round(v).toLocaleString("en")}` : "—" },
             { label:"Avg Size",         field:"avg_size",    fmt:v=>`${v}m²` },
             { label:"Developments",     field:"total_developments", fmt:v=>v },
           ].map(({ label, field, fmt:f }) => (
@@ -538,6 +539,8 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
 
             <PriceByUnitTypeChart data={charts.byType||[]} />
 
+            <PriceDistributionChart data={charts.price_dist||[]} m2data={charts.m2_dist||[]} height={220} />
+
             <ChartCard title="Delivery Timeline">
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={charts.dl||[]} barSize={22}>
@@ -550,7 +553,6 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
               </ResponsiveContainer>
             </ChartCard>
 
-            <PriceDistributionChart data={charts.price_dist||[]} m2data={charts.m2_dist||[]} />
 
             <ChartCard title="Top Municipalities — click to explore">
               <ResponsiveContainer width="100%" height={220}>
@@ -572,7 +574,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                 <ResponsiveContainer width="45%" height={190}>
                   <PieChart>
                     <Pie data={(charts.esgR||[]).filter(d=>d.esg_grade!=="Unknown")} dataKey="count" nameKey="esg_grade" cx="50%" cy="50%" outerRadius={72} innerRadius={36}>
-                      {(charts.esgR||[]).map((e,i)=><Cell key={i} fill={ESG_COLORS[e.esg_grade]||"#999"}/>)}
+                      {(charts.esgR||[]).map((e,i)=><Cell key={i} fill={COLORS[i % COLORS.length]}/>)}
                     </Pie>
                     <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
                   </PieChart>
@@ -581,7 +583,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                   {(charts.esgR||[]).map((e,i)=>(
                     <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", borderBottom:`1px solid ${T.border}` }}>
                       <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                        <div style={{ width:8, height:8, borderRadius:2, background:ESG_COLORS[e.esg_grade]||"#999" }}/>
+                        <div style={{ width:8, height:8, borderRadius:2, background:COLORS[i % COLORS.length] }}/>
                         <span style={{ color:T.text }}>{e.esg_grade}</span>
                       </div>
                       <span style={{ color:T.navy, fontWeight:600 }}>{e.count}</span>

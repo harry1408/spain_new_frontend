@@ -159,7 +159,7 @@ function AVMSection({ apt, comparables, utColor }) {
                 </div>
                 <div style={{ color:"#8A96B4", fontSize:11, marginBottom:16 }}>
                   {selected.size} comparable{selected.size!==1?"s":""} ·
-                  median €{Math.round(median)}/m² × {apt.size}m²
+                  median €{Math.round(median).toLocaleString("en")}/m² × {apt.size}m²
                 </div>
 
                 {/* vs listed price */}
@@ -226,7 +226,7 @@ function AVMSection({ apt, comparables, utColor }) {
                     const isMedian = Math.abs(v-median) === Math.min(...buckets.map(x=>Math.abs(x-median)));
                     const h = Math.max(5, Math.round(((v-mn)/range)*30)+5);
                     return (
-                      <div key={i} title={`€${Math.round(v)}/m²`}
+                      <div key={i} title={`€${Math.round(v).toLocaleString("en")}/m²`}
                         style={{ flex:1, height:h, borderRadius:"2px 2px 0 0",
                           background: isMedian ? T.navyMid : "#C5CBE9",
                           transition:"height 0.3s" }} />
@@ -485,7 +485,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                           <div style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>{pt.period}</div>
                           <div style={{ color: i===aptTrend.length-1 ? T.navy : T.text,
                             fontWeight: i===aptTrend.length-1 ? 700 : 600, fontSize:14 }}>{fmtFull(pt.price)}</div>
-                          <div style={{ color:T.textSub, fontSize:10 }}>€{pt.price_per_m2}/m²</div>
+                          <div style={{ color:T.textSub, fontSize:10 }}>€{pt.price_per_m2 ? Math.round(pt.price_per_m2).toLocaleString("en") : "—"}/m²</div>
                         </div>
                       ))}
                     </div>
