@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { T, fmt, fmtFull, UNIT_COLORS, ESG_COLORS, Tag, COLORS, ChartCard, MapPinPopup } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
+import LoadingHouse from "../components/LoadingHouse.jsx";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Legend } from "recharts";
 
 const PRICE_COLOR = "#0B1239";
@@ -780,8 +781,8 @@ export default function SearchPage({ onSelectListing }) {
       )}
       {/* ── Results ── */}
       {loading && (
-        <div style={{ textAlign: "center", padding: 60, color: T.textSub, fontSize: 14 }}>
-          Searching…
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <LoadingHouse message="Searching…" />
         </div>
       )}
 
