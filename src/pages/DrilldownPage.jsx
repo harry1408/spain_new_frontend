@@ -344,6 +344,19 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
               style={{ background:"#FEF2F2", border:"1px solid rgba(220,38,38,0.3)", color:"#6B2A2A",
                 padding:"6px 12px", borderRadius:7, cursor:"pointer", fontSize:11 }}>✕ Clear filters</button>
           )}
+          {(selProvince.length > 0 || selMuni.length > 0) && (() => {
+            const params = new URLSearchParams();
+            selProvince.forEach(p => params.append("provinces", p));
+            sorted.forEach(m => params.append("municipalities", m.municipality));
+            return (
+              <button
+                onClick={() => window.open(`${API}/export/by-filter?${params.toString()}`, "_blank")}
+                style={{ background:T.navy, border:"none", color:"#fff",
+                  padding:"6px 14px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:700 }}>
+                ↓ Excel ({sorted.length} developments)
+              </button>
+            );
+          })()}
           <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
             <span style={{ color:T.textMuted, fontSize:11, fontWeight:600, textTransform:"uppercase", alignSelf:"center" }}>Sort</span>
             {[["units","Units"],["listings","Devel."],["avg_price","Avg Price"],["avg_price_m2","€/m²"]].map(([s,lbl])=>(
