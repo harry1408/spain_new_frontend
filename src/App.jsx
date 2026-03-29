@@ -26,7 +26,7 @@ export default function App() {
   const activeTab = (nav.page==="listing"||nav.page==="apartment") ? "drilldown" : nav.page;
 
   return (
-    <div style={{ minHeight:"100vh", background:"#F8F9FB", fontFamily:"'Inter',sans-serif", color:NAVY }}>
+    <div style={{ minHeight:"100vh", background:"#FFFFFF", fontFamily:"'Inter',sans-serif", color:NAVY }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
 
       {/* Nav — white */}
