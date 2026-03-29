@@ -3,12 +3,6 @@ import { T, fmt, fmtFull, UNIT_COLORS, Pill } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LoadingHouse from "../components/LoadingHouse.jsx";
 
-const HOUSE_TYPE_COLORS = {
-  "Detached house":      "#5B8A52",
-  "Semi-detached house": "#7A6FA0",
-  "Terraced house":      "#C07A3A",
-  "Flat":                "#3A7AC0",
-};
 
 function DeltaBadge({ change, pct }) {
   if (change === 0 || change == null) return <span style={{ color:"#8A96B4", fontSize:10 }}>—</span>;
@@ -305,7 +299,8 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
                   </td>
                   <td style={{ padding:"10px 14px", whiteSpace:"nowrap" }}>
                     {row.house_type && row.house_type !== "Not Mentioned"
-                      ? <span style={{ background: HOUSE_TYPE_COLORS[row.house_type] || "#888", color:"#fff",
+                      ? <span style={{ background:"rgba(100,100,140,0.10)", color:"#6B7A9F",
+                          border:"1px solid rgba(100,100,140,0.25)",
                           fontWeight:700, fontSize:11, padding:"2px 8px", borderRadius:4 }}>{row.house_type}</span>
                       : <span style={{ color:"#8A96B4" }}>—</span>}
                   </td>

@@ -124,10 +124,11 @@ function MultiSelect({ label, options, value, onChange, placeholder = "All", max
 
 
 // ── Result card ────────────────────────────────────────────────────────────
-function ResultCard({ l, onSelect, active, onHover }) {
+function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect }) {
   const [hov, setHov] = useState(false);
   const isHighlighted = active || hov;
-  const unitTypes = (l.unit_types || "").split(", ").filter(Boolean);
+  const unitTypes  = (l.unit_types  || "").split(", ").filter(Boolean);
+  const houseTypes = (l.house_types || "").split(", ").filter(Boolean);
   return (
     <div id={`scard-${l.listing_id}`}
       onMouseEnter={() => { setHov(true); onHover && onHover(l.listing_id); }}
@@ -141,20 +142,30 @@ function ResultCard({ l, onSelect, active, onHover }) {
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: T.text, marginBottom: 2,
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {l.property_name}
-          </div>
-          <div style={{ fontSize: 11, color: T.textSub }}>
-            {l.municipality} · {l.province}
-          </div>
-          {l.city_area && (
-            <div style={{ fontSize: 10, color: T.textMuted, marginTop: 2,
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260 }}>
-              📍 {l.city_area}
+        <div style={{ display:"flex", alignItems:"flex-start", gap:8, minWidth:0, flex:1 }}>
+          <span onClick={e => { e.stopPropagation(); onToggleSelect && onToggleSelect(l.listing_id); }}
+            style={{ flexShrink:0, marginTop:2, width:15, height:15, borderRadius:4, cursor:"pointer",
+              border:`2px solid ${selected ? T.navy : T.border}`,
+              background: selected ? T.navy : "#fff",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:9, color:"#fff", transition:"all 0.15s" }}>
+            {selected ? "✓" : ""}
+          </span>
+          <div style={{ minWidth:0, flex:1 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: T.text, marginBottom: 2,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {l.property_name}
             </div>
-          )}
+            <div style={{ fontSize: 11, color: T.textSub }}>
+              {l.municipality} · {l.province}
+            </div>
+            {l.city_area && (
+              <div style={{ fontSize: 10, color: T.textMuted, marginTop: 2,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260 }}>
+                📍 {l.city_area}
+              </div>
+            )}
+          </div>
         </div>
         {l.esg_grade && l.esg_grade !== "Unknown" && (
           <span style={{ background: ESG_COLORS[l.esg_grade] || "#8A96B4",
@@ -187,13 +198,18 @@ function ResultCard({ l, onSelect, active, onHover }) {
         </div>
       </div>
 
-      {/* Unit type tags */}
-      {unitTypes.length > 0 && (
+      {/* Unit type + house type tags */}
+      {(unitTypes.length > 0 || houseTypes.length > 0) && (
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {unitTypes.map(ut => (
             <span key={ut} style={{ background: UNIT_COLORS[ut] || "#8A96B4",
               color: "#fff", borderRadius: 4, padding: "2px 7px",
               fontSize: 10, fontWeight: 700 }}>{ut}</span>
+          ))}
+          {houseTypes.map(ht => (
+            <span key={ht} style={{ background:"rgba(100,100,140,0.10)", color:T.textSub,
+              border:`1px solid ${T.border}`, borderRadius:4, padding:"2px 7px",
+              fontSize:10, fontWeight:700 }}>{ht}</span>
           ))}
         </div>
       )}
@@ -225,6 +241,7 @@ export default function SearchPage({ onSelectListing }) {
   const [results,  setResults]  = useState(null);
   const [loading,  setLoading]  = useState(false);
   const [searched, setSearched] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
   const [activePin, setActivePin] = useState(null);
   const [trend, setTrend] = useState([]);
   const [serverUtStats, setServerUtStats] = useState([]);
@@ -521,6 +538,7 @@ export default function SearchPage({ onSelectListing }) {
     setMinPrice(""); setMaxPrice(""); setMinM2(""); setMaxM2("");
     setResults(null); setSearched(false);
     setActivePin(null); setTrend([]); setSearchCenter(null);
+    setSelectedIds(new Set());
     setServerUtStats([]);
     searchCenterRef.current = null;
     isAutoRadiusRef.current = false;
@@ -609,7 +627,8 @@ export default function SearchPage({ onSelectListing }) {
       {hasSelection && (
         <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:12,
           padding:"14px 20px", marginBottom:16, boxShadow:"0 1px 4px rgba(0,0,0,0.05)" }}>
-          <div style={{ display:"flex", alignItems:"flex-start", gap:24, flexWrap:"wrap" }}>
+          <div style={{ display:"flex", alignItems:"flex-start", gap:24, flexWrap:"wrap", justifyContent:"space-between" }}>
+          <div style={{ display:"flex", alignItems:"flex-start", gap:24, flexWrap:"wrap", flex:1 }}>
 
             {/* Unit Type */}
             <MultiSelect
@@ -737,7 +756,24 @@ export default function SearchPage({ onSelectListing }) {
                 </button>
               </div>
             )}
-          </div>
+          </div>{/* end inner filters flex */}
+
+          {/* Export button — far right */}
+          {selectedIds.size > 0 && (
+            <div style={{ display:"flex", flexDirection:"column", justifyContent:"center", alignSelf:"center", flexShrink:0 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase",
+                letterSpacing:"0.05em", marginBottom:4 }}>Export</div>
+              <button onClick={() => {
+                const ids = [...selectedIds].join(",");
+                window.open(`${API}/search/export?ids=${ids}`, "_blank");
+              }} style={{ background:T.navy, border:"none", borderRadius:9, padding:"10px 18px",
+                fontSize:13, fontWeight:700, color:"#fff", cursor:"pointer",
+                boxShadow:"0 2px 8px rgba(11,18,57,0.18)", whiteSpace:"nowrap" }}>
+                ↓ Excel ({selectedIds.size})
+              </button>
+            </div>
+          )}
+          </div>{/* end outer space-between flex */}
         </div>
       )}
       {/* ── Results ── */}
@@ -793,15 +829,33 @@ export default function SearchPage({ onSelectListing }) {
 
                 {/* ── LEFT: scrollable card list ── */}
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 10 }}>
-                    Developments <span style={{ color: T.textMuted, fontWeight: 400, fontSize: 12 }}>({displayResults.length})</span>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>
+                      Developments <span style={{ color: T.textMuted, fontWeight: 400, fontSize: 12 }}>({displayResults.length})</span>
+                    </div>
+                    <button onClick={() => {
+                      if (selectedIds.size === displayResults.length) {
+                        setSelectedIds(new Set());
+                      } else {
+                        setSelectedIds(new Set(displayResults.map(l => l.listing_id)));
+                      }
+                    }} style={{ background:"none", border:`1px solid ${T.border}`, borderRadius:6,
+                      padding:"3px 9px", fontSize:10, fontWeight:600, color:T.textSub, cursor:"pointer" }}>
+                      {selectedIds.size === displayResults.length ? "Deselect All" : "Select All"}
+                    </button>
                   </div>
-                  <div style={{ height: "calc(100vh - 240px)", overflowY: "auto", overflowX: "hidden",
+                  <div style={{ height: "calc(100vh - 260px)", overflowY: "auto", overflowX: "hidden",
                     display: "flex", flexDirection: "column", gap: 10,
                     paddingRight: 4, scrollbarWidth: "thin", scrollbarColor: `${T.border} transparent` }}>
                     {displayResults.map(l => (
                       <ResultCard key={l.listing_id} l={l}
                         active={l.listing_id === activePin}
+                        selected={selectedIds.has(l.listing_id)}
+                        onToggleSelect={id => setSelectedIds(prev => {
+                          const next = new Set(prev);
+                          next.has(id) ? next.delete(id) : next.add(id);
+                          return next;
+                        })}
                         onSelect={l => onSelectListing(l.listing_id, l.property_name, l.municipality)}
                         onHover={id => setActivePin(id)}
                       />

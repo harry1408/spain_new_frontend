@@ -27,12 +27,17 @@ function DelistedCard({ l, onClick }) {
         </div>
       </div>
       <AddressBreadcrumb cityArea={l.city_area} municipality={l.municipality} style={{ marginBottom:10 }} />
-      {l.unit_types && (
+      {(l.unit_types || l.house_types) && (
         <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:10 }}>
-          {l.unit_types.split(", ").filter(Boolean).map(ut => (
+          {(l.unit_types || "").split(", ").filter(Boolean).map(ut => (
             <span key={ut} style={{ fontSize:10, padding:"2px 7px", borderRadius:4,
               background:`${UNIT_COLORS[ut]||"#aaa"}20`, color:UNIT_COLORS[ut]||"#aaa",
               border:`1px solid ${UNIT_COLORS[ut]||"#aaa"}55`, fontWeight:700 }}>{ut}</span>
+          ))}
+          {(l.house_types || "").split(", ").filter(Boolean).map(ht => (
+            <span key={ht} style={{ fontSize:10, padding:"2px 7px", borderRadius:4,
+              background:"rgba(100,100,140,0.10)", color:T.textSub,
+              border:`1px solid ${T.border}`, fontWeight:700 }}>{ht}</span>
           ))}
         </div>
       )}
