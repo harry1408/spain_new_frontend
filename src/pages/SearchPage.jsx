@@ -8,7 +8,7 @@ const PRICE_COLOR = "#0B1239";
 const M2_COLOR    = "#4A5A8A";
 
 // ── Multiselect dropdown ───────────────────────────────────────────────────
-function MultiSelect({ label, options, value, onChange, placeholder = "All", maxDisplay = 2, disabled = false }) {
+function MultiSelect({ label, options, value, onChange, placeholder = "All", maxDisplay = 2, disabled = false, available = null }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const ref = useRef(null);
@@ -80,26 +80,31 @@ function MultiSelect({ label, options, value, onChange, placeholder = "All", max
           <div style={{ overflowY: "auto", flex: 1 }}>
             {filtered.length === 0
               ? <div style={{ padding: "12px 14px", color: T.textMuted, fontSize: 12 }}>No results</div>
-              : filtered.map(opt => (
-                <div key={opt} onClick={() => toggle(opt)}
-                  style={{ padding: "8px 14px", cursor: "pointer", fontSize: 12,
-                    display: "flex", alignItems: "center", gap: 8,
-                    background: value.includes(opt) ? T.navyLight : "transparent",
-                    color: value.includes(opt) ? "#fff" : T.text,
-                    fontWeight: value.includes(opt) ? 600 : 400,
-                    transition: "background 0.1s" }}
-                  onMouseEnter={e => { if (!value.includes(opt)) e.currentTarget.style.background = "#FFFFFF"; }}
-                  onMouseLeave={e => { if (!value.includes(opt)) e.currentTarget.style.background = "transparent"; }}>
-                  <span style={{ width: 14, height: 14, borderRadius: 4, flexShrink: 0,
-                    border: `2px solid ${value.includes(opt) ? T.navy : T.border}`,
-                    background: value.includes(opt) ? T.navy : "#fff",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 9, color: "#fff" }}>
-                    {value.includes(opt) ? "✓" : ""}
-                  </span>
-                  {opt}
-                </div>
-              ))
+              : filtered.map(opt => {
+                const isSelected = value.includes(opt);
+                const isUnavailable = available !== null && !available.has(opt) && !isSelected;
+                return (
+                  <div key={opt} onClick={() => !isUnavailable && toggle(opt)}
+                    style={{ padding: "8px 14px", cursor: isUnavailable ? "default" : "pointer", fontSize: 12,
+                      display: "flex", alignItems: "center", gap: 8,
+                      background: isSelected ? T.navyLight : "transparent",
+                      color: isSelected ? "#fff" : isUnavailable ? "#C5CBE9" : T.text,
+                      fontWeight: isSelected ? 600 : 400,
+                      transition: "background 0.1s",
+                      opacity: isUnavailable ? 0.5 : 1 }}
+                    onMouseEnter={e => { if (!isSelected && !isUnavailable) e.currentTarget.style.background = "#FFFFFF"; }}
+                    onMouseLeave={e => { if (!isSelected && !isUnavailable) e.currentTarget.style.background = "transparent"; }}>
+                    <span style={{ width: 14, height: 14, borderRadius: 4, flexShrink: 0,
+                      border: `2px solid ${isSelected ? T.navy : isUnavailable ? "#D8DCE8" : T.border}`,
+                      background: isSelected ? T.navy : "#fff",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 9, color: "#fff" }}>
+                      {isSelected ? "✓" : ""}
+                    </span>
+                    {opt}
+                  </div>
+                );
+              })
             }
           </div>
           {value.length > 0 && (
@@ -391,6 +396,28 @@ export default function SearchPage({ onSelectListing }) {
   const ALL_UTS = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
   const ALL_ESG = ["A","B","C","D","E","F","G"];
 
+  // Available options derived from unfiltered results
+  const availableUTs = useMemo(() => {
+    if (!results) return null;
+    const s = new Set();
+    results.forEach(l => (l.unit_types || "").split(", ").filter(Boolean).forEach(t => s.add(t)));
+    return s;
+  }, [results]);
+
+  const availableEsgs = useMemo(() => {
+    if (!results) return null;
+    const s = new Set();
+    results.forEach(l => { if (l.esg_grade && l.esg_grade !== "Unknown" && l.esg_grade !== "nan") s.add(l.esg_grade); });
+    return s;
+  }, [results]);
+
+  const availableHouseTypes = useMemo(() => {
+    if (!results) return null;
+    const s = new Set();
+    results.forEach(l => (l.house_types || "").split(", ").filter(Boolean).forEach(t => s.add(t)));
+    return s;
+  }, [results]);
+
   // Load all municipalities on mount
   useEffect(() => {
     fetch(`${API}/search/options`)
@@ -592,6 +619,7 @@ export default function SearchPage({ onSelectListing }) {
               onChange={setSelUnit}
               placeholder="All types"
               maxDisplay={2}
+              available={availableUTs}
             />
 
             {/* ESG Grade */}
@@ -602,6 +630,7 @@ export default function SearchPage({ onSelectListing }) {
               onChange={setSelEsg}
               placeholder="All grades"
               maxDisplay={3}
+              available={availableEsgs}
             />
 
             {/* House Type */}
@@ -612,6 +641,7 @@ export default function SearchPage({ onSelectListing }) {
               onChange={setSelHouseType}
               placeholder="All types"
               maxDisplay={1}
+              available={availableHouseTypes}
             />
 
             {/* Price range with slider */}
