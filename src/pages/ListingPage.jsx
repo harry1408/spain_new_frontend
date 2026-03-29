@@ -312,6 +312,11 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
             {" · "}<span style={{ color:T.navy, fontWeight:600 }}>{data.municipality}</span>
             {" · "}<span>{data.delivery_date?.replace("Delivery : ","")}</span>
             {" · "}<span style={{ color:T.green, fontWeight:600 }}>{data.total_units} apartments</span>
+            {data.stated_total_units && (
+              <span style={{ marginLeft:4, color:T.textMuted, fontSize:11 }}>
+                ({data.stated_total_units} per description)
+              </span>
+            )}
           </div>
           {(meta?.city_area || meta?.street) && (() => {
             const parts = [];
@@ -521,6 +526,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
       <div style={{ marginBottom:4 }}>
         <PriceMatrixTab
           listingId={listingId}
+          statedTotalUnits={data.stated_total_units}
           onRowClick={apt => onGoApartment && onGoApartment(apt, listingId, data.property_name, municipality)}
         />
       </div>

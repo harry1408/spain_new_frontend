@@ -56,7 +56,7 @@ function Pm2Cell({ value, prevValue, isLatest }) {
   );
 }
 
-export default function PriceMatrixTab({ listingId, onRowClick }) {
+export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick }) {
   const [matrix, setMatrix]   = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -154,6 +154,7 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
           { label:"Price Changed", value:stats.changed,                              color: stats.changed>0?"#eb652c":"#3a4555" },
           { label:"Increased ▲",  value:stats.increased,                            color:"#E74C3C" },
           { label:"Decreased ▼",  value:stats.decreased,                            color:"#1A4A2A" },
+          ...(statedTotalUnits ? [{ label:"Per Description", value:`${statedTotalUnits} units`, color:"#6B7A9F" }] : []),
         ].map(s => (
           <div key={s.label} style={{ background:"#fff", border:"1px solid #E4E0D8", borderRadius:12, padding:"12px 18px", minWidth:110 }}>
             <div style={{ color:"#8A96B4", fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>{s.label}</div>
