@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { T, fmt, fmtFull, UNIT_COLORS, ESG_COLORS, Tag, COLORS, ChartCard } from "../components/shared.jsx";
+import { T, fmt, fmtFull, UNIT_COLORS, ESG_COLORS, Tag, COLORS, ChartCard, MapPinPopup } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Legend } from "recharts";
@@ -124,7 +124,7 @@ function MultiSelect({ label, options, value, onChange, placeholder = "All", max
 
 
 // ── Result card ────────────────────────────────────────────────────────────
-function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect }) {
+function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect, mapType }) {
   const [hov, setHov] = useState(false);
   const isHighlighted = active || hov;
   const unitTypes  = (l.unit_types  || "").split(", ").filter(Boolean);
@@ -156,8 +156,9 @@ function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect }) 
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {l.property_name}
             </div>
-            <div style={{ fontSize: 11, color: T.textSub }}>
+            <div style={{ fontSize: 11, color: T.textSub, display:"flex", alignItems:"center", gap:5 }}>
               {l.municipality} · {l.province}
+              <MapPinPopup lat={l.lat} lng={l.lng} name={l.property_name} mapType={mapType} />
             </div>
             {l.city_area && (
               <div style={{ fontSize: 10, color: T.textMuted, marginTop: 2,
@@ -228,6 +229,7 @@ export default function SearchPage({ onSelectListing }) {
   const [selMuni,  setSelMuni]  = useState([]);
   const [selStreet, setSelStreet] = useState([]);
   const [radiusKm, setRadiusKm] = useState(null);
+  const [mapMode, setMapMode]   = useState("leaflet"); // "leaflet" | "google"
 
   // Secondary filters — enabled once primary selection made
   const [selUnit, setSelUnit]       = useState([]);
@@ -849,6 +851,7 @@ export default function SearchPage({ onSelectListing }) {
                     paddingRight: 4, scrollbarWidth: "thin", scrollbarColor: `${T.border} transparent` }}>
                     {displayResults.map(l => (
                       <ResultCard key={l.listing_id} l={l}
+                        mapType={mapMode}
                         active={l.listing_id === activePin}
                         selected={selectedIds.has(l.listing_id)}
                         onToggleSelect={id => setSelectedIds(prev => {
@@ -869,31 +872,78 @@ export default function SearchPage({ onSelectListing }) {
                   {/* Top row: Map (left) + Unit Type Summary (right) */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
 
-                    {/* Map with radius slider */}
+                    {/* Map with radius slider + mode toggle */}
                     <div>
+                      {/* Controls bar */}
                       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8,
                         background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:8, padding:"6px 12px" }}>
-                        <span style={{ fontSize:10, color:T.textMuted, whiteSpace:"nowrap" }}>📍 Radius:</span>
-                        <input type="range" min="0.1" max="30" step="0.1"
-                          value={radiusKm ?? 0.1}
-                          onChange={e => setRadiusKm(+e.target.value)}
-                          style={{ flex:1, accentColor:"#0B1239", cursor:"pointer" }} />
-                        <span style={{ fontSize:11, fontWeight:700, color:T.navy, minWidth:40, textAlign:"right" }}>
-                          {radiusKm ? (radiusKm < 1 ? `${Math.round(radiusKm*1000)}m` : `${radiusKm}km`) : "Auto"}
-                        </span>
-                        {radiusKm && <button onClick={() => setRadiusKm(null)}
-                          style={{ background:"none", border:"none", color:T.textMuted, fontSize:11, cursor:"pointer", padding:0 }}
-                          title="Reset to auto">↺</button>}
+
+                        {mapMode === "leaflet" && <>
+                          <span style={{ fontSize:10, color:T.textMuted, whiteSpace:"nowrap" }}>📍 Radius:</span>
+                          <input type="range" min="0.1" max="30" step="0.1"
+                            value={radiusKm ?? 0.1}
+                            onChange={e => setRadiusKm(+e.target.value)}
+                            style={{ flex:1, accentColor:"#0B1239", cursor:"pointer" }} />
+                          <span style={{ fontSize:11, fontWeight:700, color:T.navy, minWidth:40, textAlign:"right" }}>
+                            {radiusKm ? (radiusKm < 1 ? `${Math.round(radiusKm*1000)}m` : `${radiusKm}km`) : "Auto"}
+                          </span>
+                          {radiusKm && <button onClick={() => setRadiusKm(null)}
+                            style={{ background:"none", border:"none", color:T.textMuted, fontSize:11, cursor:"pointer", padding:0 }}
+                            title="Reset to auto">↺</button>}
+                        </>}
+
+                        {mapMode === "google" && (
+                          <span style={{ fontSize:10, color:T.textMuted, flex:1 }}>Google Maps — single pin only</span>
+                        )}
+
+                        {/* Map mode toggle */}
+                        <div style={{ display:"inline-flex", borderRadius:6, border:`1px solid ${T.border}`,
+                          overflow:"hidden", flexShrink:0, marginLeft:"auto" }}>
+                          {[["leaflet","🗺 Map"],["google","G Maps"]].map(([mode, lbl]) => (
+                            <button key={mode} onClick={() => setMapMode(mode)}
+                              style={{ padding:"3px 10px", fontSize:10, fontWeight:700, border:"none",
+                                cursor:"pointer", transition:"all 0.15s",
+                                background: mapMode === mode ? T.navy : "transparent",
+                                color:      mapMode === mode ? "#fff"  : T.textMuted }}>
+                              {lbl}
+                            </button>
+                          ))}
+                        </div>
                       </div>
+
+                      {/* Google Maps warning */}
+                      {mapMode === "google" && (
+                        <div style={{ display:"flex", alignItems:"flex-start", gap:7, marginBottom:6,
+                          background:"#FEF9E7", border:"1px solid #F5CBA7", borderRadius:7,
+                          padding:"7px 11px", fontSize:11, color:"#7D6608" }}>
+                          <span style={{ fontSize:14, flexShrink:0 }}>⚠️</span>
+                          <span>Google Maps can only show <strong>one pin</strong> at a time. Hover any listing card's 📍 to see its exact location, or use the Map view to see all results together.</span>
+                        </div>
+                      )}
+
+                      {/* Map container */}
                       <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
                         boxShadow:"0 2px 8px rgba(0,0,0,0.07)", height:280 }}>
-                        <LeafletMap markers={mapMarkers} height="280px" zoom={12}
-                          radiusKm={radiusKm} radiusCenter={searchCenter}
-                          onMarkerClick={id => {
-                            setActivePin(p => p === id ? null : id);
-                            const el = document.getElementById(`scard-${id}`);
-                            if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
-                          }} />
+                        {mapMode === "leaflet" ? (
+                          <LeafletMap markers={mapMarkers} height="280px" zoom={12}
+                            radiusKm={radiusKm} radiusCenter={searchCenter}
+                            onMarkerClick={id => {
+                              setActivePin(p => p === id ? null : id);
+                              const el = document.getElementById(`scard-${id}`);
+                              if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
+                            }} />
+                        ) : (() => {
+                          const hoveredListing = activePin ? results.find(r => r.listing_id === activePin) : null;
+                          const center = hoveredListing?.lat
+                            ? { lat: hoveredListing.lat, lng: hoveredListing.lng }
+                            : searchCenter || (mapMarkers[0] ? { lat: mapMarkers[0].lat, lng: mapMarkers[0].lng } : null);
+                          const gmUrl = center
+                            ? `https://maps.google.com/maps?q=${center.lat},${center.lng}&hl=en&z=16&output=embed`
+                            : null;
+                          return gmUrl
+                            ? <iframe key={gmUrl} src={gmUrl} width="100%" height="280" style={{ border:"none", display:"block" }} title="Google Maps" loading="lazy" />
+                            : <div style={{ height:280, display:"flex", alignItems:"center", justifyContent:"center", color:T.textMuted, fontSize:12 }}>No location available</div>;
+                        })()}
                       </div>
                     </div>
 

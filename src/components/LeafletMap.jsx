@@ -28,6 +28,13 @@ function makeIcon(color, size, isActive) {
   });
 }
 
+export const TILE_STYLES = {
+  voyager: { url:"https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",    attr:"© CARTO",         label:"Standard" },
+  street:  { url:"https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr:"© Esri", label:"Street" },
+  light:   { url:"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",              attr:"© CARTO",         label:"Light"    },
+  satellite:{ url:"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",   attr:"© Esri",  label:"Satellite"},
+};
+
 export default function LeafletMap({
   markers      = [],
   onMarkerClick,
@@ -36,17 +43,22 @@ export default function LeafletMap({
   height       = "340px",
   radiusKm     = null,
   radiusCenter = null,
+  tileStyle    = "voyager",
 }) {
   const elRef        = useRef(null);
   const mapRef       = useRef(null);
   const layerGroup   = useRef(null);
+  const tileLayerRef = useRef(null);
   const circleLayer  = useRef(null);
-  const radiusKmRef  = useRef(radiusKm);    // always current value
-  const radiusCtrRef = useRef(radiusCenter); // always current value
+  const radiusKmRef   = useRef(radiusKm);     // always current value
+  const radiusCtrRef  = useRef(radiusCenter); // always current value
+  const tileStyleRef   = useRef(tileStyle);    // always current value
+  const tileInitedRef  = useRef(false);        // skip first swap (init handles it)
 
   // Keep refs in sync
   radiusKmRef.current  = radiusKm;
   radiusCtrRef.current = radiusCenter;
+  tileStyleRef.current = tileStyle;
 
   // ── One-time init ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -59,8 +71,9 @@ export default function LeafletMap({
       const map = L.map(elRef.current, {
         zoomControl: true, scrollWheelZoom: false, attributionControl: false,
       }).setView(initCenter, zoom);
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", { maxZoom: 19 }).addTo(map);
-      L.control.attribution({ prefix: false }).addAttribution('© <a href="https://carto.com">CARTO</a>').addTo(map);
+      const style = TILE_STYLES[tileStyleRef.current] || TILE_STYLES.voyager;
+      tileLayerRef.current = L.tileLayer(style.url, { maxZoom: 19 }).addTo(map);
+      L.control.attribution({ prefix: false }).addAttribution(style.attr).addTo(map);
       layerGroup.current  = L.layerGroup().addTo(map);
       circleLayer.current = L.layerGroup().addTo(map);
       mapRef.current      = map;
@@ -138,6 +151,22 @@ export default function LeafletMap({
     };
     draw();
   }, [markers]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Swap tile layer when tileStyle prop changes ───────────────────────────
+  useEffect(() => {
+    if (!tileInitedRef.current) { tileInitedRef.current = true; return; } // init handles first tile
+    let attempts = 0;
+    const swap = () => {
+      if (!mapRef.current) { if (++attempts < 20) setTimeout(swap, 80); return; }
+      const style = TILE_STYLES[tileStyle] || TILE_STYLES.voyager;
+      if (tileLayerRef.current) {
+        mapRef.current.removeLayer(tileLayerRef.current);
+      }
+      tileLayerRef.current = L.tileLayer(style.url, { maxZoom: 19 }).addTo(mapRef.current);
+      tileLayerRef.current.bringToBack();
+    };
+    swap();
+  }, [tileStyle]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Radius circle + zoom ──────────────────────────────────────────────────
   useEffect(() => {

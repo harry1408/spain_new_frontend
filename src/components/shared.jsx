@@ -155,6 +155,55 @@ export function Pill({ on, label }) {
   );
 }
 
+/**
+ * A 📍 pin icon that reveals a small OSM map popup on hover.
+ * Usage: <MapPinPopup lat={l.lat} lng={l.lng} name={l.property_name} />
+ * Place inside a `position:relative` container.
+ */
+import { useState as _useState } from "react";
+export function MapPinPopup({ lat, lng, name, popupSide = "right", mapType = "osm" }) {
+  const [show, setShow] = _useState(false);
+  if (!lat || !lng) return null;
+  const d = 0.008;
+  const osmUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lng-d},${lat-d},${lng+d},${lat+d}&layer=mapnik&marker=${lat},${lng}`;
+  const gmEmbedUrl = `https://maps.google.com/maps?q=${lat},${lng}&hl=en&z=15&output=embed`;
+  const iframeUrl  = mapType === "google" ? gmEmbedUrl : osmUrl;
+  const gmUrl  = `https://www.google.com/maps?q=${lat},${lng}`;
+  const popupStyle = popupSide === "right"
+    ? { left:"calc(100% + 8px)", top:0 }
+    : { bottom:"calc(100% + 8px)", left:0 };
+  return (
+    <span style={{ position:"relative", display:"inline-flex", alignItems:"center" }}
+      onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+      <span style={{ fontSize:13, cursor:"pointer", lineHeight:1, userSelect:"none" }}>📍</span>
+      {show && (
+        <div style={{ position:"absolute", zIndex:2000, width:280,
+          background:"#fff", borderRadius:10, overflow:"hidden",
+          boxShadow:"0 8px 32px rgba(0,0,0,0.22)", border:"1px solid #E2E0DB",
+          ...popupStyle }}>
+          <div style={{ padding:"7px 12px", borderBottom:"1px solid #E2E0DB",
+            display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
+            <span style={{ fontWeight:700, fontSize:12, color:"#0B1239",
+              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{name}</span>
+            <span style={{ fontSize:10, color:"#8A96B4", whiteSpace:"nowrap" }}>×</span>
+          </div>
+          <iframe src={iframeUrl} width="280" height="180"
+            style={{ border:"none", display:"block" }} title="map" loading="lazy"/>
+          <div style={{ padding:"6px 12px", borderTop:"1px solid #E2E0DB",
+            display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <a href={gmUrl} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize:11, color:"#1a73e8", fontWeight:600,
+                textDecoration:"none", display:"flex", alignItems:"center", gap:4 }}>
+              Open in Google Maps →
+            </a>
+            <span style={{ fontSize:10, color:"#8A96B4" }}>{Number(lat).toFixed(4)}, {Number(lng).toFixed(4)}</span>
+          </div>
+        </div>
+      )}
+    </span>
+  );
+}
+
 export function AddressBreadcrumb({ cityArea, municipality, style = {} }) {
   if (!cityArea && !municipality) return null;
   let street = null, muni = municipality, comarca = null, province = "Valencia";

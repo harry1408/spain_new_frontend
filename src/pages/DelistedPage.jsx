@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { T, StatCard, ChartCard, Tag, Pill, fmt, fmtFull, COLORS, UNIT_COLORS, ESG_COLORS, AddressBreadcrumb, PRICE_COLOR, M2_COLOR } from "../components/shared.jsx";
+import { T, StatCard, ChartCard, Tag, Pill, fmt, fmtFull, COLORS, UNIT_COLORS, ESG_COLORS, AddressBreadcrumb, MapPinPopup, PRICE_COLOR, M2_COLOR } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 import LoadingHouse from "../components/LoadingHouse.jsx";
@@ -26,7 +26,10 @@ function DelistedCard({ l, onClick }) {
           {l.esg_grade && l.esg_grade !== "nan" && <Tag label={`ESG ${l.esg_grade}`} color={esgColor}/>}
         </div>
       </div>
-      <AddressBreadcrumb cityArea={l.city_area} municipality={l.municipality} style={{ marginBottom:10 }} />
+      <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:10 }}>
+        <AddressBreadcrumb cityArea={l.city_area} municipality={l.municipality} style={{ marginBottom:0 }} />
+        <MapPinPopup lat={l.lat} lng={l.lng} name={l.property_name} popupSide="bottom" />
+      </div>
       {(l.unit_types || l.house_types) && (
         <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:10 }}>
           {(l.unit_types || "").split(", ").filter(Boolean).map(ut => (

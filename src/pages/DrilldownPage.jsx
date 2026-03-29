@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Cell,
          LineChart,Line,Legend } from "recharts";
-import { T,StatCard,ChartCard,Tag,Pill,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS,AddressBreadcrumb ,PRICE_COLOR,M2_COLOR} from "../components/shared.jsx";
+import { T,StatCard,ChartCard,Tag,Pill,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS,AddressBreadcrumb,MapPinPopup,PRICE_COLOR,M2_COLOR} from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 import LoadingHouse from "../components/LoadingHouse.jsx";
@@ -64,7 +64,10 @@ function ListingCard({ l, active, onSelect, onHover }) {
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
         <div>
           <div style={{ fontWeight:700, fontSize:14, color:active ? "#fff" : T.text }}>{l.property_name}</div>
-          <div style={{ color:active ? "rgba(255,255,255,0.75)" : T.textSub, fontSize:11, marginTop:2 }}>{l.developer}</div>
+          <div style={{ color:active ? "rgba(255,255,255,0.75)" : T.textSub, fontSize:11, marginTop:2, display:"flex", alignItems:"center", gap:5 }}>
+            {l.developer}
+            <MapPinPopup lat={l.lat} lng={l.lng} name={l.property_name} />
+          </div>
         </div>
         {l.esg_grade && l.esg_grade !== "nan" && (
           active
