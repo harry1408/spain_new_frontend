@@ -214,7 +214,7 @@ export default function LeafletMap({
         borderRadius: 12, overflow: "hidden",
         border: "1px solid #E4E0D8",
         boxShadow: "0 2px 10px rgba(0,0,0,0.07)",
-        height, background: "#eeeae3",
+        height, background: "#ffffff",
       }}>
         <div ref={elRef} style={{ width: "100%", height: "100%" }} />
       </div>

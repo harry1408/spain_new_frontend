@@ -337,7 +337,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
   );
 
   return (
-    <div style={{ minHeight:"100vh", background:"#F2F4F6" }}>
+    <div style={{ minHeight:"100vh", background:"#FFFFFF" }}>
       <div style={{ maxWidth:1700, margin:"0 auto" }}>
 
         {/* ── Header ────────────────────────────────────────────────── */}

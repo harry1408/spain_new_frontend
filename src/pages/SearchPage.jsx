@@ -548,7 +548,7 @@ export default function SearchPage({ onSelectListing }) {
   };
 
   return (
-    <div style={{ padding: "20px 20px", maxWidth: 1700, margin: "0 auto", background:"#F2F4F6", minHeight:"100vh" }}>
+    <div style={{ padding: "20px 20px", maxWidth: 1700, margin: "0 auto", background:"#FFFFFF", minHeight:"100vh" }}>
 
       {/* ── Primary search row ── */}
       <div style={{ marginBottom: 16 }}>
