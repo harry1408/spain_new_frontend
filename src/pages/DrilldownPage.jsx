@@ -4,6 +4,7 @@ import { BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Cell
 import { T,StatCard,ChartCard,Tag,Pill,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS,AddressBreadcrumb ,PRICE_COLOR,M2_COLOR} from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
+import LoadingHouse from "../components/LoadingHouse.jsx";
 
 // ── tiny helpers ────────────────────────────────────────────────────────
 function Metric({ label, value, color, active }) {
@@ -357,7 +358,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   }
 
   // ── Municipality detail view ──────────────────────────────────────────
-  if (loading) return <div style={{ padding:60, textAlign:"center", color:T.textSub }}>Loading {municipality}…</div>;
+  if (loading) return <div style={{ padding:60, textAlign:"center" }}><LoadingHouse message={`Loading ${municipality || ""}…`} /></div>;
   if (!muniData?.stats) return <div style={{ padding:60, textAlign:"center", color:T.textSub }}>No data.</div>;
 
   const { stats, listings, unit_type_mix, price_dist, m2_dist, trend } = muniData;

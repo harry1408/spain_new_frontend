@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { T, StatCard, ChartCard, Tag, Pill, fmt, fmtFull, COLORS, UNIT_COLORS, ESG_COLORS, AddressBreadcrumb, PRICE_COLOR, M2_COLOR } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
+import LoadingHouse from "../components/LoadingHouse.jsx";
 
 // ── Delisted listing card ─────────────────────────────────────────────────
 function DelistedCard({ l, onClick }) {
@@ -68,7 +69,7 @@ function DelistedApartments({ listingId, listingName, onBack }) {
       .catch(() => setLoading(false));
   }, [listingId]);
 
-  if (loading) return <div style={{ padding:40, textAlign:"center", color:T.textSub }}>Loading…</div>;
+  if (loading) return <div style={{ padding:40, textAlign:"center" }}><LoadingHouse message="Loading…" /></div>;
   if (!data) return null;
 
   const apts = data.apartments || [];

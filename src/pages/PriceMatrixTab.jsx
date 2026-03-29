@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { T, fmt, fmtFull, UNIT_COLORS, Pill } from "../components/shared.jsx";
 import { API } from "../App.jsx";
+import LoadingHouse from "../components/LoadingHouse.jsx";
 
 const HOUSE_TYPE_COLORS = {
   "Detached house":      "#5B8A52",
@@ -133,7 +134,7 @@ export default function PriceMatrixTab({ listingId, onRowClick }) {
     </th>
   );
 
-  if (loading) return <div style={{ padding:60, textAlign:"center", color:"#6B7A9F" }}>Loading price matrix…</div>;
+  if (loading) return <div style={{ padding:60, textAlign:"center" }}><LoadingHouse message="Loading price matrix…" /></div>;
   if (!matrix || !periods.length) return <div style={{ padding:60, textAlign:"center", color:"#6B7A9F" }}>No data.</div>;
 
   const latestPeriod    = periods[periods.length - 1];

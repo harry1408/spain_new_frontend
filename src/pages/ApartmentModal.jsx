@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 import { T, Pill, fmt, fmtFull, UNIT_COLORS, COLORS, ESG_COLORS, Tag } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
+import LoadingHouse from "../components/LoadingHouse.jsx";
 
 export default function ApartmentModal({ apt, listingId, listingName, onClose }) {
   const [aptTrend,      setAptTrend]      = useState([]);
@@ -150,7 +151,7 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
 
         <div style={{ padding:"28px 28px 36px" }}>
           {loading ? (
-            <div style={{ padding:60, textAlign:"center", color:T.textSub }}>Loading analysis…</div>
+            <div style={{ padding:60, textAlign:"center" }}><LoadingHouse message="Loading analysis…" /></div>
           ) : (
             <>
               {/* ── Section 1: Price History ─────────────────────────── */}

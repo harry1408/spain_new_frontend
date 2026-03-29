@@ -5,6 +5,7 @@ import { T, Pill, fmt, fmtFull, UNIT_COLORS, COLORS, ESG_COLORS, Tag } from "../
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 import GoogleStaticMap, { MapThumbnail } from "../components/GoogleStaticMap.jsx";
+import LoadingHouse from "../components/LoadingHouse.jsx";
 
 // ── AVM Section ───────────────────────────────────────────────────────────
 function AVMSection({ apt, comparables, utColor }) {
@@ -400,7 +401,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
 
         <div style={{ padding:"28px 28px 36px" }}>
           {loading ? (
-            <div style={{ padding:60, textAlign:"center", color:T.textSub }}>Loading analysis…</div>
+            <div style={{ padding:60, textAlign:"center" }}><LoadingHouse message="Loading analysis…" /></div>
           ) : (
             <>
               {/* ── Floor Plans ──────────────────────────────────────── */}

@@ -6,6 +6,7 @@ import { API } from "../App.jsx";
 import PriceMatrixTab from "./PriceMatrixTab.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 import GoogleStaticMap from "../components/GoogleStaticMap.jsx";
+import LoadingHouse from "../components/LoadingHouse.jsx";
 import React from "react";
 
 // ── Price toggle hook + button ────────────────────────────────────────────
@@ -276,7 +277,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
     active: true, color: T.navy,
   }] : [], [meta, listingId, data, municipality]);
 
-  if (loading) return <div style={{ padding:60, textAlign:"center", color:T.textSub }}>Loading…</div>;
+  if (loading) return <div style={{ padding:60, textAlign:"center" }}><LoadingHouse message="Loading listing…" /></div>;
   if (!data?.listing_id) return <div style={{ padding:60, textAlign:"center", color:T.textSub }}>Listing not found.</div>;
 
   const esgColor = ESG_COLORS[data.esg_grade] || "#999";
