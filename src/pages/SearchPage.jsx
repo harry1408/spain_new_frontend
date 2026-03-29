@@ -630,6 +630,17 @@ export default function SearchPage({ onSelectListing }) {
           <div style={{ display:"flex", alignItems:"flex-start", gap:24, flexWrap:"wrap", justifyContent:"space-between" }}>
           <div style={{ display:"flex", alignItems:"flex-start", gap:24, flexWrap:"wrap", flex:1 }}>
 
+            {/* House Type */}
+            <MultiSelect
+              label="House Type"
+              options={["Detached house","Semi-detached house","Terraced house","Apartments","Not Mentioned"]}
+              value={selHouseType}
+              onChange={setSelHouseType}
+              placeholder="All types"
+              maxDisplay={1}
+              available={availableHouseTypes}
+            />
+
             {/* Unit Type */}
             <MultiSelect
               label="Unit Type"
@@ -650,17 +661,6 @@ export default function SearchPage({ onSelectListing }) {
               placeholder="All grades"
               maxDisplay={3}
               available={availableEsgs}
-            />
-
-            {/* House Type */}
-            <MultiSelect
-              label="House Type"
-              options={["Detached house","Semi-detached house","Terraced house","Flat","Not Mentioned"]}
-              value={selHouseType}
-              onChange={setSelHouseType}
-              placeholder="All types"
-              maxDisplay={1}
-              available={availableHouseTypes}
             />
 
             {/* Price range with slider */}
