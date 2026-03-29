@@ -246,6 +246,7 @@ export default function SearchPage({ onSelectListing }) {
   const [searched, setSearched] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [activePin, setActivePin] = useState(null);
+  const lastHoveredPin = useRef(null); // persists last hovered id for Google Maps
   const [trend, setTrend] = useState([]);
   const [serverUtStats, setServerUtStats] = useState([]);
 
@@ -861,7 +862,7 @@ export default function SearchPage({ onSelectListing }) {
                           return next;
                         })}
                         onSelect={l => onSelectListing(l.listing_id, l.property_name, l.municipality)}
-                        onHover={id => setActivePin(id)}
+                        onHover={id => { setActivePin(id); if (id) lastHoveredPin.current = id; }}
                       />
                     ))}
                   </div>
@@ -934,7 +935,8 @@ export default function SearchPage({ onSelectListing }) {
                               if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
                             }} />
                         ) : (() => {
-                          const hoveredListing = activePin ? results.find(r => r.listing_id === activePin) : null;
+                          const pinId = activePin ?? lastHoveredPin.current;
+                          const hoveredListing = pinId ? results.find(r => r.listing_id === pinId) : null;
                           const center = hoveredListing?.lat
                             ? { lat: hoveredListing.lat, lng: hoveredListing.lng }
                             : searchCenter || (mapMarkers[0] ? { lat: mapMarkers[0].lat, lng: mapMarkers[0].lng } : null);
