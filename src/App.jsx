@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import SummaryPage    from "./pages/SummaryPage.jsx";
 import DrilldownPage  from "./pages/DrilldownPage.jsx";
 import ListingPage    from "./pages/ListingPage.jsx";
@@ -14,7 +14,11 @@ const BEIGE = "#F2F4F6";
 
 export default function App() {
   const [nav, setNav] = useState({ page:"search" });
-  const goTo = (page, extra={}) => setNav({ page, ...extra });
+  const prevPageRef = useRef(null);
+  const goTo = (page, extra={}) => {
+    prevPageRef.current = nav.page;
+    setNav({ page, ...extra });
+  };
 
   const NAV_TABS = [
     ["search",   "Search"],
@@ -84,8 +88,11 @@ export default function App() {
       {/* Pages */}
       {nav.page==="search" && <SearchPage onSelectListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})}/>}
       {nav.page==="summary" && <SummaryPage onDrilldown={m => goTo("drilldown",{municipality:m})} onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni,highlight:id})}/>}
-      {nav.page==="drilldown" && <DrilldownPage municipality={nav.municipality} onSelectMunicipality={m => goTo("drilldown",{municipality:m})} onSelectListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})}/>}
-      {nav.page==="listing" && <ListingPage listingId={nav.listingId} municipality={nav.municipality} highlight={nav.highlight} onBack={() => goTo("drilldown",{municipality:nav.municipality})} onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onGoApartment={(apt,lid,lname,muni) => goTo("apartment",{apt,listingId:lid,listingName:lname,municipality:muni,aptLabel:`${apt.unit_type} · ${apt.floor||"—"}`})}/>}
+      {nav.page==="drilldown" && <DrilldownPage municipality={nav.municipality} onSelectMunicipality={m => goTo("drilldown",{municipality:m})} onSelectListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onBackToSearch={prevPageRef.current==="search" ? () => goTo("search") : null}/>}
+      {nav.page==="listing" && <ListingPage listingId={nav.listingId} municipality={nav.municipality} highlight={nav.highlight}
+        backLabel={prevPageRef.current==="search" ? "Search" : nav.municipality}
+        onBack={prevPageRef.current==="search" ? () => goTo("search") : () => goTo("drilldown",{municipality:nav.municipality})}
+        onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onGoApartment={(apt,lid,lname,muni) => goTo("apartment",{apt,listingId:lid,listingName:lname,municipality:muni,aptLabel:`${apt.unit_type} · ${apt.floor||"—"}`})}/>}
       {nav.page==="apartment" && <ApartmentPage apt={nav.apt} listingId={nav.listingId} listingName={nav.listingName} municipality={nav.municipality} onBack={() => goTo("listing",{listingId:nav.listingId,listingName:nav.listingName,municipality:nav.municipality})}/>}
       {nav.page==="delisted" && <DelistedPage onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})}/>}
     </div>
