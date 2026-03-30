@@ -223,27 +223,30 @@ function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect, ma
   );
 }
 
+// ── Persist search state across tab switches ───────────────────────────────
+let _ss = null; // module-level saved state
+
 // ── Main SearchPage ────────────────────────────────────────────────────────
 export default function SearchPage({ onSelectListing }) {
   const [opts, setOpts]         = useState({ municipalities: [], locations: [] });
-  const [streetCoords, setStreetCoords] = useState({});
-  const [selMuni,  setSelMuni]  = useState([]);
-  const [selStreet, setSelStreet] = useState([]);
-  const [radiusKm, setRadiusKm] = useState(null);
-  const [mapMode, setMapMode]   = useState("leaflet"); // "leaflet" | "google"
+  const [streetCoords, setStreetCoords] = useState(_ss?.streetCoords ?? {});
+  const [selMuni,  setSelMuni]  = useState(_ss?.selMuni  ?? []);
+  const [selStreet, setSelStreet] = useState(_ss?.selStreet ?? []);
+  const [radiusKm, setRadiusKm] = useState(_ss?.radiusKm ?? null);
+  const [mapMode, setMapMode]   = useState(_ss?.mapMode ?? "leaflet");
 
-  // Secondary filters — enabled once primary selection made
-  const [selUnit, setSelUnit]       = useState([]);
-  const [selEsg,  setSelEsg]        = useState([]);
-  const [selHouseType, setSelHouseType] = useState([]);
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
-  const [minM2,   setMinM2]    = useState("");
-  const [maxM2,   setMaxM2]    = useState("");
+  // Secondary filters
+  const [selUnit, setSelUnit]       = useState(_ss?.selUnit      ?? []);
+  const [selEsg,  setSelEsg]        = useState(_ss?.selEsg       ?? []);
+  const [selHouseType, setSelHouseType] = useState(_ss?.selHouseType ?? []);
+  const [minPrice, setMinPrice] = useState(_ss?.minPrice ?? "");
+  const [maxPrice, setMaxPrice] = useState(_ss?.maxPrice ?? "");
+  const [minM2,   setMinM2]    = useState(_ss?.minM2    ?? "");
+  const [maxM2,   setMaxM2]    = useState(_ss?.maxM2    ?? "");
 
-  const [results,  setResults]  = useState(null);
+  const [results,  setResults]  = useState(_ss?.results  ?? null);
   const [loading,  setLoading]  = useState(false);
-  const [searched, setSearched] = useState(false);
+  const [searched, setSearched] = useState(_ss?.searched ?? false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [activePin, setActivePin] = useState(null);
   const lastHoveredPin = useRef(null); // persists last hovered id for Google Maps
@@ -252,10 +255,16 @@ export default function SearchPage({ onSelectListing }) {
 
 
   // Fixed center for radius searches — set once from first search results
-  const searchCenterRef = React.useRef(null);
+  const searchCenterRef = React.useRef(_ss?.searchCenter ?? null);
   const selMuniRef = React.useRef(selMuni);
   selMuniRef.current = selMuni;
-  const [searchCenter, setSearchCenter] = React.useState(null);
+  const [searchCenter, setSearchCenter] = React.useState(_ss?.searchCenter ?? null);
+
+  // Save state to module-level variable whenever key values change
+  useEffect(() => {
+    _ss = { selMuni, selStreet, radiusKm, mapMode, selUnit, selEsg, selHouseType,
+            minPrice, maxPrice, minM2, maxM2, results, searched, searchCenter, streetCoords };
+  });  // runs every render — cheap object assign
   const isAutoRadiusRef = React.useRef(false); // flag to skip re-fetch on auto-set
 
   const _buildQs = React.useCallback((withRadius) => {
@@ -567,16 +576,14 @@ export default function SearchPage({ onSelectListing }) {
             options={opts.locations}
             value={selStreet}
             onChange={selMuni.length > 0 ? (v => setSelStreet(v.length > 1 ? [v[v.length-1]] : v)) : () => {}}
-            placeholder={selMuni.length > 0 ? "Select area or street…" : "Select municipality first…"}
+            placeholder="Select area or street…"
             maxDisplay={1}
-            disabled={selMuni.length === 0}
           />
           {/* Km Radius dropdown */}
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: T.textMuted,
               textTransform: "uppercase", marginBottom: 4, letterSpacing: "0.05em" }}>Km Radius</div>
             <select
-              disabled={selMuni.length === 0}
               value={radiusKm ?? ""}
               onChange={e => setRadiusKm(e.target.value === "" ? null : Number(e.target.value))}
               style={{ height: 42, padding: "0 12px", borderRadius: 10,
@@ -637,12 +644,11 @@ export default function SearchPage({ onSelectListing }) {
             {/* House Type */}
             <MultiSelect
               label="House Type"
-              options={["Detached house","Semi-detached house","Terraced house","Apartments","Not Mentioned"]}
+              options={["Detached house","Semi-detached house","Terraced house","Apartments"]}
               value={selHouseType}
               onChange={setSelHouseType}
               placeholder="All types"
               maxDisplay={1}
-              available={availableHouseTypes}
             />
 
             {/* Unit Type */}
@@ -653,7 +659,6 @@ export default function SearchPage({ onSelectListing }) {
               onChange={setSelUnit}
               placeholder="All types"
               maxDisplay={2}
-              available={availableUTs}
             />
 
             {/* ESG Grade */}
@@ -664,7 +669,6 @@ export default function SearchPage({ onSelectListing }) {
               onChange={setSelEsg}
               placeholder="All grades"
               maxDisplay={3}
-              available={availableEsgs}
             />
 
             {/* Price range with slider */}

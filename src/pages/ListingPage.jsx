@@ -229,7 +229,7 @@ function DescriptionBlock({ text, forceExpand = false }) {
   );
 }
 
-export default function ListingPage({ listingId, municipality, onBack, onGoListing, onGoApartment, highlight }) {
+export default function ListingPage({ listingId, municipality, onBack, onGoListing, onGoApartment, highlight, backLabel }) {
   const [data,        setData]        = useState(null);
   const [loading,     setLoading]     = useState(true);
   const [meta,        setMeta]        = useState(null);
@@ -358,7 +358,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
           style={{ background:"#fff", border:`1px solid ${T.border}`, color:T.textSub,
             padding:"8px 16px", borderRadius:9, cursor:"pointer", fontSize:12,
             fontWeight:600, boxShadow:T.shadow }}>
-          ← Back to {data.municipality}
+          ← Back to {backLabel || data.municipality}
         </button>
       </div>
 

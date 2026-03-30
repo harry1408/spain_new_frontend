@@ -76,6 +76,7 @@ export default function LeafletMap({
       L.control.attribution({ prefix: false }).addAttribution(style.attr).addTo(map);
       layerGroup.current  = L.layerGroup().addTo(map);
       circleLayer.current = L.layerGroup().addTo(map);
+      L.control.scale({ position:"bottomleft", imperial:false }).addTo(map);
       mapRef.current      = map;
       map.invalidateSize();
     }, 60);

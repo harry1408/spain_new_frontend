@@ -255,7 +255,7 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200, nav
   );
 }
 
-export default function DrilldownPage({ municipality, onSelectMunicipality, onSelectListing }) {
+export default function DrilldownPage({ municipality, onSelectMunicipality, onSelectListing, onBackToSearch }) {
   const [muniList,    setMuniList]    = useState([]);
   const [filters,     setFilters]     = useState({ provinces:[], province_munis:{} });
   const [selProvince, setSelProvince] = useState([]);
@@ -313,14 +313,25 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
 
     return (
       <div style={{ padding:"20px 20px", maxWidth:1700, margin:"0 auto" }}>
-        <div style={{ marginBottom:22 }}>
-          <h2 style={{ margin:0, fontFamily:"'Inter',sans-serif", fontSize:28, color:T.text, fontWeight:400 }}>
-            Select a <span style={{ color:T.navy }}>Municipality</span>
-          </h2>
-          <p style={{ color:T.textSub, fontSize:13, margin:"6px 0 0" }}>
-            {sorted.length} {sorted.length!==1?"municipalities":"municipality"} shown
-            {selMuni.length>0 && <span style={{ color:T.navy }}> · {selMuni.length} selected</span>}
-          </p>
+        <div style={{ marginBottom:22, display:"flex", alignItems:"flex-start", justifyContent:"space-between" }}>
+          <div>
+            <h2 style={{ margin:0, fontFamily:"'Inter',sans-serif", fontSize:28, color:T.text, fontWeight:400 }}>
+              Select a <span style={{ color:T.navy }}>Municipality</span>
+            </h2>
+            <p style={{ color:T.textSub, fontSize:13, margin:"6px 0 0" }}>
+              {sorted.length} {sorted.length!==1?"municipalities":"municipality"} shown
+              {selMuni.length>0 && <span style={{ color:T.navy }}> · {selMuni.length} selected</span>}
+            </p>
+          </div>
+          {onBackToSearch && (
+            <button onClick={onBackToSearch}
+              style={{ display:"flex", alignItems:"center", gap:6, background:"#fff",
+                border:`1px solid ${T.border}`, borderRadius:9, padding:"8px 16px",
+                fontSize:12, fontWeight:700, color:T.navy, cursor:"pointer",
+                boxShadow:"0 1px 4px rgba(0,0,0,0.07)" }}>
+              ← Back to Search
+            </button>
+          )}
         </div>
 
         {/* Filters row */}
