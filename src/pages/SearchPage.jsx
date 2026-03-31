@@ -39,7 +39,7 @@ function MultiSelect({ label, options, value, onChange, placeholder = "All", max
       <div onClick={() => !disabled && setOpen(o => !o)} style={{
         background: disabled ? "#FFFFFF" : "#fff",
         border: `1px solid ${value.length && !disabled ? T.borderAccent : T.border}`,
-        borderRadius: 10, padding: "10px 14px", cursor: disabled ? "not-allowed" : "pointer", minWidth: 200,
+        borderRadius: 10, padding: "10px 12px", cursor: disabled ? "not-allowed" : "pointer", minWidth: 130,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         boxShadow: "0 1px 4px rgba(0,0,0,0.06)", fontSize: 13,
         color: disabled ? T.textMuted : value.length ? T.text : T.textMuted,
@@ -251,7 +251,8 @@ export default function SearchPage({ onSelectListing }) {
   const [activePin, setActivePin] = useState(null);
   const lastHoveredPin = useRef(null); // persists last hovered id for Google Maps
   const [trend, setTrend] = useState([]);
-  const [serverUtStats, setServerUtStats] = useState([]);
+  const [serverUtStats, setServerUtStats] = useState(_ss?.serverUtStats ?? []);
+  const [serverHtStats, setServerHtStats] = useState(_ss?.serverHtStats ?? []);
 
 
   // Fixed center for radius searches — set once from first search results
@@ -263,9 +264,15 @@ export default function SearchPage({ onSelectListing }) {
   // Save state to module-level variable whenever key values change
   useEffect(() => {
     _ss = { selMuni, selStreet, radiusKm, mapMode, selUnit, selEsg, selHouseType,
-            minPrice, maxPrice, minM2, maxM2, results, searched, searchCenter, streetCoords };
+            minPrice, maxPrice, minM2, maxM2, results, searched, searchCenter, streetCoords,
+            serverUtStats, serverHtStats };
   });  // runs every render — cheap object assign
   const isAutoRadiusRef = React.useRef(false); // flag to skip re-fetch on auto-set
+  // Track the last selMuni/selStreet identity that triggered the auto-search effect.
+  // On mount (including StrictMode double-invoke), the ref is initialized to the
+  // same array reference as the state, so the effect skips. It only fires when
+  // the user actually changes the selection (new array reference).
+  const _prevSelRef = React.useRef({ muni: selMuni, street: selStreet });
 
   const _buildQs = React.useCallback((withRadius) => {
     const qs = new URLSearchParams();
@@ -308,6 +315,7 @@ export default function SearchPage({ onSelectListing }) {
         const listings = d.listings || [];
         setResults(listings);
         setServerUtStats(d.unit_type_stats || []);
+        setServerHtStats(d.house_type_stats || []);
         setLoading(false);
         // Fetch trend using ref so we always have current selMuni
         const munis = selMuniRef.current;
@@ -319,13 +327,11 @@ export default function SearchPage({ onSelectListing }) {
             .then(d => setTrend(Array.isArray(d) ? d : []))
             .catch(() => {});
         }
-        // On first fetch (no radius yet), store center and auto-set radius to encompass all results
+        // On first fetch (no radius yet), store center and auto-set 2km radius
         if (!currentRadius && !searchCenterRef.current) {
           const withCoords = listings.filter(l => l.lat && l.lng);
-          // Use area center from backend (geocoded street or municipality centroid) if available
           const areaCenter = d.area_center;
           if (areaCenter && !withCoords.length) {
-            // Geocoded street with no results in range — still show the street on map
             searchCenterRef.current = areaCenter;
             setSearchCenter(areaCenter);
             setRadiusKm(2);
@@ -334,19 +340,7 @@ export default function SearchPage({ onSelectListing }) {
             const lng = areaCenter ? areaCenter.lng : withCoords.reduce((a,b) => a+b.lng, 0) / withCoords.length;
             searchCenterRef.current = { lat, lng };
             setSearchCenter({ lat, lng });
-            // Compute radius to encompass all listings + 20% buffer
-            const toRad = d => d * Math.PI / 180;
-            const haversineKm = (la1, lo1, la2, lo2) => {
-              const dLat = toRad(la2-la1), dLng = toRad(lo2-lo1);
-              const a = Math.sin(dLat/2)**2 + Math.cos(toRad(la1)) * Math.cos(toRad(la2)) * Math.sin(dLng/2)**2;
-              return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            };
-            const maxDist = withCoords.length > 1
-              ? Math.max(...withCoords.map(l => haversineKm(lat, lng, l.lat, l.lng)))
-              : 1;
-            const autoRadius = Math.max(0.5, Math.ceil(maxDist * 1.2 * 10) / 10);
-            isAutoRadiusRef.current = true;
-            setRadiusKm(autoRadius);
+            setRadiusKm(2);
           }
         }
         // When radius active, add newly found municipalities to Area/Street filter options
@@ -511,6 +505,10 @@ export default function SearchPage({ onSelectListing }) {
 
   // Auto-search when municipality/street selection changes
   useEffect(() => {
+    // Skip if the selection hasn't actually changed (e.g. mount/StrictMode double-invoke
+    // with restored state — both selMuni and selStreet are the same array references).
+    if (selMuni === _prevSelRef.current.muni && selStreet === _prevSelRef.current.street) return;
+    _prevSelRef.current = { muni: selMuni, street: selStreet };
     if (!selMuni.length) return;
     const timer = setTimeout(() => {
       // Preserve geocoded street center if one is selected; otherwise reset
@@ -525,7 +523,7 @@ export default function SearchPage({ onSelectListing }) {
         setSearchCenter(null);
       }
       isAutoRadiusRef.current = false;
-      setRadiusKm(null);
+      setRadiusKm(geoCenter ? 2 : null);
       setActivePin(null);
       setResults(null);
       setSearched(false);
@@ -638,8 +636,8 @@ export default function SearchPage({ onSelectListing }) {
       {hasSelection && (
         <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:12,
           padding:"14px 20px", marginBottom:16, boxShadow:"0 1px 4px rgba(0,0,0,0.05)" }}>
-          <div style={{ display:"flex", alignItems:"flex-start", gap:24, flexWrap:"wrap", justifyContent:"space-between" }}>
-          <div style={{ display:"flex", alignItems:"flex-start", gap:24, flexWrap:"wrap", flex:1 }}>
+          <div style={{ display:"flex", alignItems:"flex-start", gap:12, flexWrap:"nowrap", justifyContent:"space-between" }}>
+          <div style={{ display:"flex", alignItems:"flex-start", gap:12, flexWrap:"nowrap", flex:1, minWidth:0 }}>
 
             {/* House Type */}
             <MultiSelect
@@ -672,7 +670,7 @@ export default function SearchPage({ onSelectListing }) {
             />
 
             {/* Price range with slider */}
-            <div style={{ display:"flex", flexDirection:"column", gap:6, minWidth:200 }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:6, minWidth:160 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <span style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Price Range</span>
                 <span style={{ fontSize:10, fontWeight:700, color:PRICE_COLOR }}>
@@ -712,7 +710,7 @@ export default function SearchPage({ onSelectListing }) {
             <div style={{ width:1, alignSelf:"stretch", background:T.border, margin:"2px 0" }} />
 
             {/* €/m² range */}
-            <div style={{ display:"flex", flexDirection:"column", gap:6, minWidth:180 }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:6, minWidth:150 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <span style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>€/m²</span>
                 <span style={{ fontSize:10, fontWeight:700, color:M2_COLOR }}>
@@ -857,7 +855,7 @@ export default function SearchPage({ onSelectListing }) {
                     paddingRight: 4, scrollbarWidth: "thin", scrollbarColor: `${T.border} transparent` }}>
                     {displayResults.map(l => (
                       <ResultCard key={l.listing_id} l={l}
-                        mapType={mapMode}
+                        mapType="google"
                         active={l.listing_id === activePin}
                         selected={selectedIds.has(l.listing_id)}
                         onToggleSelect={id => setSelectedIds(prev => {
@@ -872,73 +870,52 @@ export default function SearchPage({ onSelectListing }) {
                   </div>
                 </div>
 
-                {/* ── RIGHT: Map + Charts ── */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {/* ── RIGHT: Maps + Charts ── */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0,
+                  height: "calc(100vh - 200px)", overflowY: "auto",
+                  scrollbarWidth: "thin", scrollbarColor: `${T.border} transparent` }}>
 
-                  {/* Top row: Map (left) + Unit Type Summary (right) */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  {/* Row 1: Leaflet Map | Google Map */}
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
 
-                    {/* Map with radius slider + mode toggle */}
-                    <div>
-                      {/* Controls bar */}
+                    {/* Leaflet map */}
+                    <div style={{ minWidth:0 }}>
                       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8,
                         background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:8, padding:"6px 12px" }}>
-
-                        {mapMode === "leaflet" && <>
-                          <span style={{ fontSize:10, color:T.textMuted, whiteSpace:"nowrap" }}>📍 Radius:</span>
-                          <input type="range" min="0.1" max="30" step="0.1"
-                            value={radiusKm ?? 0.1}
-                            onChange={e => setRadiusKm(+e.target.value)}
-                            style={{ flex:1, accentColor:"#0B1239", cursor:"pointer" }} />
-                          <span style={{ fontSize:11, fontWeight:700, color:T.navy, minWidth:40, textAlign:"right" }}>
-                            {radiusKm ? (radiusKm < 1 ? `${Math.round(radiusKm*1000)}m` : `${radiusKm}km`) : "Auto"}
-                          </span>
-                          {radiusKm && <button onClick={() => setRadiusKm(null)}
-                            style={{ background:"none", border:"none", color:T.textMuted, fontSize:11, cursor:"pointer", padding:0 }}
-                            title="Reset to auto">↺</button>}
-                        </>}
-
-                        {mapMode === "google" && (
-                          <span style={{ fontSize:10, color:T.textMuted, flex:1 }}>Google Maps — single pin only</span>
-                        )}
-
-                        {/* Map mode toggle */}
-                        <div style={{ display:"inline-flex", borderRadius:6, border:`1px solid ${T.border}`,
-                          overflow:"hidden", flexShrink:0, marginLeft:"auto" }}>
-                          {[["leaflet","🗺 Map"],["google","G Maps"]].map(([mode, lbl]) => (
-                            <button key={mode} onClick={() => setMapMode(mode)}
-                              style={{ padding:"3px 10px", fontSize:10, fontWeight:700, border:"none",
-                                cursor:"pointer", transition:"all 0.15s",
-                                background: mapMode === mode ? T.navy : "transparent",
-                                color:      mapMode === mode ? "#fff"  : T.textMuted }}>
-                              {lbl}
-                            </button>
-                          ))}
-                        </div>
+                        <span style={{ fontSize:10, color:T.textMuted, whiteSpace:"nowrap" }}>📍 Radius:</span>
+                        <input type="range" min="0.1" max="30" step="0.1"
+                          value={radiusKm ?? 0.1}
+                          onChange={e => setRadiusKm(+e.target.value)}
+                          style={{ flex:1, accentColor:"#0B1239", cursor:"pointer" }} />
+                        <span style={{ fontSize:11, fontWeight:700, color:T.navy, minWidth:40, textAlign:"right" }}>
+                          {radiusKm ? (radiusKm < 1 ? `${Math.round(radiusKm*1000)}m` : `${radiusKm}km`) : "Auto"}
+                        </span>
+                        {radiusKm && <button onClick={() => setRadiusKm(null)}
+                          style={{ background:"none", border:"none", color:T.textMuted, fontSize:11, cursor:"pointer", padding:0 }}
+                          title="Reset to auto">↺</button>}
                       </div>
-
-                      {/* Google Maps warning */}
-                      {mapMode === "google" && (
-                        <div style={{ display:"flex", alignItems:"flex-start", gap:7, marginBottom:6,
-                          background:"#FEF9E7", border:"1px solid #F5CBA7", borderRadius:7,
-                          padding:"7px 11px", fontSize:11, color:"#7D6608" }}>
-                          <span style={{ fontSize:14, flexShrink:0 }}>⚠️</span>
-                          <span>Google Maps can only show <strong>one pin</strong> at a time. Hover any listing card's 📍 to see its exact location, or use the Map view to see all results together.</span>
-                        </div>
-                      )}
-
-                      {/* Map container */}
                       <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
-                        boxShadow:"0 2px 8px rgba(0,0,0,0.07)", height:280 }}>
-                        {mapMode === "leaflet" ? (
-                          <LeafletMap markers={mapMarkers} height="280px" zoom={12}
-                            radiusKm={radiusKm} radiusCenter={searchCenter}
-                            onMarkerClick={id => {
-                              setActivePin(p => p === id ? null : id);
-                              const el = document.getElementById(`scard-${id}`);
-                              if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
-                            }} />
-                        ) : (() => {
+                        boxShadow:"0 2px 8px rgba(0,0,0,0.07)", height:240 }}>
+                        <LeafletMap markers={mapMarkers} height="240px" zoom={12}
+                          radiusKm={radiusKm} radiusCenter={searchCenter}
+                          onMarkerClick={id => {
+                            setActivePin(p => p === id ? null : id);
+                            const el = document.getElementById(`scard-${id}`);
+                            if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
+                          }} />
+                      </div>
+                    </div>
+
+                    {/* Google Maps */}
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8,
+                        background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:8, padding:"6px 12px" }}>
+                        <span style={{ fontSize:10, color:T.textMuted, flex:1 }}>📌 Hover a listing to pin it</span>
+                        <span style={{ fontSize:10, fontWeight:700, color:T.textMuted }}>G Maps</span>
+                      </div>
+                      <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
+                        boxShadow:"0 2px 8px rgba(0,0,0,0.07)", height:240 }}>
+                        {(() => {
                           const pinId = activePin ?? lastHoveredPin.current;
                           const hoveredListing = pinId ? results.find(r => r.listing_id === pinId) : null;
                           const center = hoveredListing?.lat
@@ -948,19 +925,23 @@ export default function SearchPage({ onSelectListing }) {
                             ? `https://maps.google.com/maps?q=${center.lat},${center.lng}&hl=en&z=16&output=embed`
                             : null;
                           return gmUrl
-                            ? <iframe key={gmUrl} src={gmUrl} width="100%" height="280" style={{ border:"none", display:"block" }} title="Google Maps" loading="lazy" />
-                            : <div style={{ height:280, display:"flex", alignItems:"center", justifyContent:"center", color:T.textMuted, fontSize:12 }}>No location available</div>;
+                            ? <iframe key={gmUrl} src={gmUrl} width="100%" height="240" style={{ border:"none", display:"block" }} title="Google Maps" loading="lazy" />
+                            : <div style={{ height:240, display:"flex", alignItems:"center", justifyContent:"center", color:T.textMuted, fontSize:12 }}>No location available</div>;
                         })()}
                       </div>
                     </div>
+                  </div>
 
-                    {/* Unit Type Summary table */}
+                  {/* Row 2: Unit Type Summary | House Type Summary */}
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+
+                    {/* Unit Type Summary */}
                     <ChartCard title="Unit Type Summary">
-                      <div style={{ overflowX:"auto", overflowY:"auto", maxHeight:300 }}>
+                      <div style={{ overflowX:"auto", overflowY:"auto", maxHeight:240 }}>
                         <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                           <thead style={{ position:"sticky", top:0, zIndex:1 }}>
                             <tr style={{ borderBottom:`2px solid ${T.border}`, background:T.bgStripe }}>
-                              {["Type","Units","Min","Avg","Max","€/m²"].map(h => (
+                              {["Type","Units","Avg m²","Min","Avg","Max","€/m²"].map(h => (
                                 <th key={h} style={{ padding:"7px 8px", textAlign:h==="Type"?"left":"right",
                                   color:T.textMuted, fontSize:10, textTransform:"uppercase",
                                   letterSpacing:"0.07em", fontWeight:600, background:T.bgStripe }}>{h}</th>
@@ -975,10 +956,46 @@ export default function SearchPage({ onSelectListing }) {
                                     fontWeight:700, fontSize:11, padding:"2px 7px", borderRadius:4 }}>{row.unit_type}</span>
                                 </td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{(row.min_price) ? fmt(row.min_price) : "—"}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{(row.avg_price) ? fmt(row.avg_price) : "—"}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{(row.max_price) ? fmt(row.max_price) : "—"}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2 ?? row.avg_price_m2 ? `€${Math.round(row.avg_pm2 ?? row.avg_price_m2).toLocaleString("en")}` : "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size ?? "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price ? fmt(row.min_price) : "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price ? fmt(row.avg_price) : "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price ? fmt(row.max_price) : "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{(row.avg_pm2 ?? row.avg_price_m2) ? `€${Math.round(row.avg_pm2 ?? row.avg_price_m2).toLocaleString("en")}` : "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </ChartCard>
+
+                    {/* House Type Summary */}
+                    <ChartCard title="House Type Summary">
+                      <div style={{ overflowX:"auto", overflowY:"auto", maxHeight:240 }}>
+                        <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                          <thead style={{ position:"sticky", top:0, zIndex:1 }}>
+                            <tr style={{ borderBottom:`2px solid ${T.border}`, background:T.bgStripe }}>
+                              {["Type","Units","Avg m²","Min","Avg","Max","€/m²"].map(h => (
+                                <th key={h} style={{ padding:"7px 8px", textAlign:h==="Type"?"left":"right",
+                                  color:T.textMuted, fontSize:10, textTransform:"uppercase",
+                                  letterSpacing:"0.07em", fontWeight:600, background:T.bgStripe }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {serverHtStats.map((row, i) => (
+                              <tr key={row.house_type} style={{ borderBottom:`1px solid ${T.border}`, background:i%2===0?T.bgStripe:"#fff" }}>
+                                <td style={{ padding:"7px 8px", whiteSpace:"nowrap" }}>
+                                  <span style={{ background:"rgba(100,100,140,0.10)", color:"#6B7A9F",
+                                    border:"1px solid rgba(100,100,140,0.25)", fontWeight:700,
+                                    fontSize:11, padding:"2px 8px", borderRadius:4,
+                                    display:"block", whiteSpace:"nowrap" }}>{row.house_type}</span>
+                                </td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size ?? "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price ? fmt(row.min_price) : "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price ? fmt(row.avg_price) : "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price ? fmt(row.max_price) : "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2 ? `€${Math.round(row.avg_pm2).toLocaleString("en")}` : "—"}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -987,7 +1004,7 @@ export default function SearchPage({ onSelectListing }) {
                     </ChartCard>
                   </div>
 
-                  {/* Bottom row: Price Distribution + €/m² Distribution */}
+                  {/* Row 3: Price Distribution | €/m² Distribution */}
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
                     {priceDist.length > 0 && (
                       <ChartCard title="Price Distribution">

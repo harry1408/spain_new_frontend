@@ -303,9 +303,10 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
             <ResponsiveContainer width="100%" height={280}>
               <ScatterChart margin={{ top:5, right:10, bottom:24, left:5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
-                <XAxis dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
+                <XAxis type="number" dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
+                  domain={['auto','auto']}
                   label={{ value:"Size (m²)", position:"insideBottom", fill:T.textSub, fontSize:10, dy:16 }}/>
-                <YAxis dataKey="price" name="Price" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`}
+                <YAxis type="number" dataKey="price" name="Price" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`}
                   tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}/>
                 <Tooltip cursor={{ strokeDasharray:"3 3" }}
                   content={({ active, payload }) => {
@@ -598,9 +599,10 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
               <ResponsiveContainer width="100%" height={220}>
                 <ScatterChart margin={{ top:5, right:20, bottom:20, left:5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-                  <XAxis dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}
+                  <XAxis type="number" dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}
+                    domain={['auto','auto']}
                     label={{ value:"Size (m²)", position:"insideBottom", fill:T.textSub, fontSize:11, dy:16 }} />
-                  <YAxis dataKey="price" name="Price" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
+                  <YAxis type="number" dataKey="price" name="Price" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
                   <Tooltip cursor={{ strokeDasharray:"3 3" }}
                     contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }}
                     content={({ active, payload }) => {

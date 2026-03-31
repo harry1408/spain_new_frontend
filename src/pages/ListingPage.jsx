@@ -371,14 +371,37 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
               .replace(/\n{3,}/g, "\n\n")
               .trim()
           : "";
+        const hasPhotos = photos.length > 0 || photoLoading;
+        const hasFP = floorPlans.length > 0;
+        const cols = hasPhotos
+          ? (hasFP ? "1fr 160px 520px" : "1fr 520px")
+          : "1fr";
         return (
-          <div style={{ display:"grid", gridTemplateColumns: photos.length || photoLoading ? "1fr 520px" : "1fr",
+          <div style={{ display:"grid", gridTemplateColumns: cols,
             gap:16, marginBottom:11, alignItems:"stretch" }}>
-            {cleaned && <DescriptionBlock text={cleaned} forceExpand={photos.length > 0} />}
-            {!cleaned && (photos.length || photoLoading) && <div/>}
+            {cleaned && <DescriptionBlock text={cleaned} forceExpand={hasPhotos} />}
+            {!cleaned && hasPhotos && <div/>}
+
+            {/* Floor Plans — vertical slider in middle */}
+            {hasPhotos && hasFP && (
+              <div style={{ display:"flex", flexDirection:"column", gap:6, overflowY:"auto",
+                height:280, scrollbarWidth:"thin", scrollbarColor:`${T.border} transparent`,
+                borderRadius:10, padding:"2px 0" }}>
+                {floorPlans.map((url, i) => (
+                  <div key={i} onClick={() => { setFpIdx(i); setFpLightbox(true); }}
+                    style={{ flexShrink:0, width:"100%", height:120, borderRadius:8, overflow:"hidden",
+                      border:`2px solid ${fpIdx===i ? T.borderAccent : T.border}`,
+                      cursor:"zoom-in", background:"#f8f9fb" }}>
+                    <img src={url} alt={`FP ${i+1}`}
+                      style={{ width:"100%", height:"100%", objectFit:"contain", display:"block" }}
+                      onError={e => { e.target.parentElement.style.display="none"; }} />
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Photo Slideshow */}
-            {(photos.length > 0 || photoLoading) && (
+            {hasPhotos && (
               <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
                 boxShadow:T.shadow, background:"#0B1239", position:"relative",
                 height:280 }}>
@@ -466,26 +489,6 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
         );
       })()}
 
-      {/* Floor Plans */}
-      {floorPlans.length > 0 && (
-        <div style={{ marginBottom:16 }}>
-          <div style={{ fontWeight:700, fontSize:13, color:T.text, marginBottom:8 }}>
-            Floor Plans <span style={{ color:T.textMuted, fontWeight:400, fontSize:11 }}>({floorPlans.length})</span>
-          </div>
-          <div style={{ display:"flex", gap:12, overflowX:"auto", paddingBottom:6 }}>
-            {floorPlans.map((url, i) => (
-              <div key={i} onClick={() => { setFpIdx(i); setFpLightbox(true); }}
-                style={{ flexShrink:0, width:180, height:140, borderRadius:10, overflow:"hidden",
-                  border:`2px solid ${fpIdx===i?T.borderAccent:T.border}`, cursor:"zoom-in",
-                  boxShadow:T.shadow, background:"#f8f9fb" }}>
-                <img src={url} alt={`Floor plan ${i+1}`}
-                  style={{ width:"100%", height:"100%", objectFit:"contain", display:"block" }}
-                  onError={e => { e.target.parentElement.style.display="none"; }} />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Floor Plan Lightbox */}
       {fpLightbox && floorPlans.length > 0 && (
