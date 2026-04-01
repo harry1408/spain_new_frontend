@@ -79,7 +79,7 @@ function ListingCard({ l, active, onSelect, onHover }) {
         )}
       </div>
       <AddressBreadcrumb cityArea={l.city_area} municipality={l.municipality} style={{ marginBottom:10 }} />
-      {(l.unit_types || l.house_types) && (
+      {(l.unit_types || l.house_types || l.is_tourist) && (
         <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:10 }}>
           {l.unit_types && l.unit_types.split(", ").filter(Boolean).map(ut => (
             <span key={ut} style={{ fontSize:10, padding:"2px 7px", borderRadius:4, fontWeight:700,
@@ -95,6 +95,13 @@ function ListingCard({ l, active, onSelect, onHover }) {
               border:     active ? "1px solid rgba(255,255,255,0.25)" : `1px solid ${T.border}`,
             }}>{ht}</span>
           ))}
+          {l.is_tourist && (
+            <span style={{ fontSize:10, padding:"2px 7px", borderRadius:4, fontWeight:700,
+              background: active ? "rgba(230,120,0,0.25)" : "#FFF3E0",
+              color:      active ? "#FFD580" : "#E07800",
+              border:     active ? "1px solid rgba(230,120,0,0.5)" : "1px solid #F5A623",
+            }}>Tourist Apt</span>
+          )}
         </div>
       )}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"7px 10px", marginBottom:10 }}>

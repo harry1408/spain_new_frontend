@@ -306,6 +306,12 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
             <h2 style={{ margin:0, fontFamily:"'Inter',sans-serif", fontSize:26,
               color:T.text, fontWeight:400 }}>{data.property_name}</h2>
             {data.esg_grade && <Tag label={`ESG ${data.esg_grade}`} color={esgColor}/>}
+            {data.is_tourist && (
+              <span style={{ fontSize:11, padding:"3px 9px", borderRadius:5, fontWeight:700,
+                background:"#FFF3E0", color:"#E07800", border:"1px solid #F5A623" }}>
+                Tourist Apt
+              </span>
+            )}
           </div>
           <div style={{ color:T.textSub, fontSize:12, marginBottom:4 }}>
             by <strong style={{ color:T.text }}>{data.developer}</strong>
