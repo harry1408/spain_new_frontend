@@ -261,7 +261,7 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
 
             {showMetric === "both" && (
               <tr style={{ background:T.bgStripe }}>
-                <th colSpan={7} style={{ padding:"3px 14px", borderBottom:`1px solid ${T.border}` }} />
+                <th colSpan={8} style={{ padding:"3px 14px", borderBottom:`1px solid ${T.border}` }} />
                 {displayPeriods.map((p, pi) => (
                   <React.Fragment key={p}>
                     <th style={{ padding:"4px 14px", textAlign:"right", color:T.textMuted, fontSize:9, textTransform:"uppercase", letterSpacing:"0.05em", borderBottom:`1px solid ${T.border}`, borderLeft:`1px solid ${T.border}` }}>Price</th>
@@ -290,7 +290,7 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
                   style={{ borderBottom:`1px solid ${T.border}`, background:rowBg,
                     cursor: onRowClick ? "pointer" : "default",
                     transition:"background 0.1s" }}
-                  onMouseEnter={e => { if(onRowClick) e.currentTarget.style.background="rgba(201,168,76,0.08)"; }}
+                  onMouseEnter={e => { if(onRowClick) e.currentTarget.style.background="rgba(235,101,44,0.09)"; }}
                   onMouseLeave={e => { e.currentTarget.style.background=rowBg; }}>
 
                   <td style={{ padding:"10px 14px", whiteSpace:"nowrap" }}>
@@ -364,7 +364,7 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
           {rows.length > 1 && (
             <tfoot>
               <tr style={{ borderTop:`2px solid ${T.border}`, background:T.bgStripe }}>
-                <td colSpan={7} style={{ padding:"9px 14px", color:T.textMuted, fontSize:11, fontWeight:600 }}>
+                <td colSpan={8} style={{ padding:"9px 14px", color:T.textMuted, fontSize:11, fontWeight:600 }}>
                   AVG — {rows.length} apartments
                 </td>
                 {displayPeriods.map((period) => {

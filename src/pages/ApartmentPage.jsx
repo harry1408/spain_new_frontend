@@ -259,6 +259,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
   const [radiusKm,      setRadiusKm]      = useState(null); // null = comarca mode
   const [loading,       setLoading]       = useState(true);
   const [floorPlans,    setFloorPlans]    = useState([]);
+  const [fpAptSpecific, setFpAptSpecific] = useState(false);
   const [fpIdx,         setFpIdx]         = useState(0);
   const [fpLightbox,    setFpLightbox]    = useState(false);
 
@@ -270,14 +271,14 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
     return (parseInt(y||"0")-2000)*100 + (MO[m]||0);
   };
 
-  // Fetch floor plans once per listing (not re-fetched on radius change)
+  // Fetch floor plans — try apt-specific first, fall back to listing-level
   useEffect(() => {
     setFloorPlans([]); setFpIdx(0);
-    fetch(`${API}/listing/photos/${listingId}`)
+    fetch(`${API}/listing/photos/${listingId}/${apt.sub_listing_id}`)
       .then(r => r.json())
-      .then(d => setFloorPlans(d.floor_plans || []))
+      .then(d => { setFloorPlans(d.floor_plans || []); setFpAptSpecific(d.apt_specific || false); })
       .catch(() => {});
-  }, [listingId]);
+  }, [listingId, apt.sub_listing_id]);
 
   useEffect(() => {
     setLoading(true);
@@ -407,8 +408,12 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
               {/* ── Floor Plans ──────────────────────────────────────── */}
               {floorPlans.length > 0 && (
                 <div style={{ marginBottom:28 }}>
-                  <div style={{ fontWeight:700, fontSize:14, color:T.text, marginBottom:10 }}>
+                  <div style={{ fontWeight:700, fontSize:14, color:T.text, marginBottom:10, display:"flex", alignItems:"center", gap:8 }}>
                     Floor Plans <span style={{ color:T.textMuted, fontWeight:400, fontSize:11 }}>({floorPlans.length})</span>
+                    {fpAptSpecific
+                      ? <span style={{ fontSize:10, padding:"2px 7px", borderRadius:4, fontWeight:700, background:"#E8F5E9", color:"#2E7D32", border:"1px solid #A5D6A7" }}>This unit</span>
+                      : <span style={{ fontSize:10, padding:"2px 7px", borderRadius:4, fontWeight:400, background:"#F2F4F6", color:T.textMuted, border:`1px solid ${T.border}` }}>Development</span>
+                    }
                   </div>
                   <div style={{ display:"flex", gap:12, overflowX:"auto", paddingBottom:6 }}>
                     {floorPlans.map((url, i) => (

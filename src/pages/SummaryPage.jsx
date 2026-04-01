@@ -571,27 +571,35 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
             </ChartCard>
 
             <ChartCard title="ESG Grade Breakdown">
-              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                <ResponsiveContainer width="45%" height={190}>
-                  <PieChart>
-                    <Pie data={(charts.esgR||[]).filter(d=>d.esg_grade!=="Unknown")} dataKey="count" nameKey="esg_grade" cx="50%" cy="50%" outerRadius={72} innerRadius={36}>
-                      {(charts.esgR||[]).map((e,i)=><Cell key={i} fill={COLORS[i % COLORS.length]}/>)}
-                    </Pie>
-                    <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div style={{ flex:1, fontSize:12 }}>
-                  {(charts.esgR||[]).map((e,i)=>(
-                    <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", borderBottom:`1px solid ${T.border}` }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                        <div style={{ width:8, height:8, borderRadius:2, background:COLORS[i % COLORS.length] }}/>
-                        <span style={{ color:T.text }}>{e.esg_grade}</span>
-                      </div>
-                      <span style={{ color:T.navy, fontWeight:600 }}>{e.count}</span>
+              {(() => {
+                // First grade (largest known) = darkest, then progressively lighter, Unknown = lightest grey
+                const ESG_PALETTE = { A:"#0B1239", B:"#2D3F8F", C:"#5566B8", D:"#8B99D4", E:"#BBC3E8", Unknown:"#D4D8EE" };
+                const esgData = charts.esgR || [];
+                const getColor = (grade) => ESG_PALETTE[grade] || "#9AA3C0";
+                return (
+                  <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                    <ResponsiveContainer width="45%" height={190}>
+                      <PieChart>
+                        <Pie data={esgData.filter(d=>d.esg_grade!=="Unknown")} dataKey="count" nameKey="esg_grade" cx="50%" cy="50%" outerRadius={72} innerRadius={36}>
+                          {esgData.filter(d=>d.esg_grade!=="Unknown").map((e,i)=><Cell key={i} fill={getColor(e.esg_grade)}/>)}
+                        </Pie>
+                        <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div style={{ flex:1, fontSize:12 }}>
+                      {esgData.map((e,i)=>(
+                        <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", borderBottom:`1px solid ${T.border}` }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                            <div style={{ width:8, height:8, borderRadius:2, background:getColor(e.esg_grade) }}/>
+                            <span style={{ color:T.text }}>{e.esg_grade}</span>
+                          </div>
+                          <span style={{ color:T.navy, fontWeight:600 }}>{e.count}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
+                );
+              })()}
             </ChartCard>
 
             {/* Size vs Price — click dot to open popup */}
