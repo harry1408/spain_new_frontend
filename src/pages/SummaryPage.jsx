@@ -512,7 +512,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
             { label:"Total Apartments", field:"total_units", fmt:v=>v.toLocaleString() },
             { label:"Avg Price",        field:"avg_price",   fmt:fmt },
             { label:"Avg €/m²",         field:"avg_price_m2",fmt:v=>v != null ? `€${Math.round(v).toLocaleString("en")}` : "—" },
-            { label:"Avg Size",         field:"avg_size",    fmt:v=>v != null ? `${Number(v).toFixed(1)}m²` : "—" },
+            { label:"Avg Size",         field:"avg_size",    fmt:v=>v != null ? `${Math.round(Number(v))}m²` : "—" },
             { label:"Developments",     field:"total_developments", fmt:v=>v },
           ].map(({ label, field, fmt:f }) => (
             <StatCard key={label} label={label} value={f(stats[field])}>
@@ -742,7 +742,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                       <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{fmt(row.avg_price)}</td>
                       <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.avg_price_m2 != null ? `€${Math.round(row.avg_price_m2).toLocaleString("en")}` : "—"}</td>
                       <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.total_units?.toLocaleString()}</td>
-                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.avg_size != null ? `${Number(row.avg_size).toFixed(1)}m²` : "—"}</td>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.avg_size != null ? `${Math.round(Number(row.avg_size))}m²` : "—"}</td>
                     </tr>
                   ))}
                 </tbody>

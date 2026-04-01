@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Cell,
          LineChart,Line,Legend } from "recharts";
 import { T,StatCard,ChartCard,Tag,Pill,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS,AddressBreadcrumb,MapPinPopup,PRICE_COLOR,M2_COLOR} from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 import LoadingHouse from "../components/LoadingHouse.jsx";
+
 
 // ── tiny helpers ────────────────────────────────────────────────────────
 function Metric({ label, value, color, active }) {
@@ -110,13 +111,29 @@ function ListingCard({ l, active, onSelect, onHover }) {
         <Metric label="€/m²"     value={l.avg_price_m2 != null ? `€${Math.round(l.avg_price_m2).toLocaleString("en")}` : "—"}  color={T.textSub} active={active} />
         <Metric label="From"     value={fmt(l.min_price)}      color={T.green}   active={active} />
         <Metric label="To"       value={fmt(l.max_price)}      color={T.red}     active={active} />
-        <Metric label="Avg Size" value={`${l.avg_size}m²`}                       active={active} />
+        <Metric label="Avg Size" value={`${Math.round(l.avg_size)}m²`}                       active={active} />
       </div>
       <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
         <Pill on={l.has_pool} label="Pool"/><Pill on={l.has_parking} label="Parking"/>
         <Pill on={l.has_terrace} label="Terrace"/><Pill on={l.has_lift} label="Lift"/>
       </div>
-      <div style={{ marginTop:10, color:active ? "rgba(255,255,255,0.8)" : T.textMuted, fontSize:11, fontWeight:600 }}>View apartments →</div>
+      {(l.stated_total_units || l.nearest_beach_km) && (
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginTop:4 }}>
+          {l.stated_total_units && (
+            <span style={{ fontSize:10, color: active ? "rgba(255,255,255,0.55)" : T.textMuted }}>
+              📋 <span style={{ fontWeight:600 }}>{l.stated_total_units}</span> apts per description
+            </span>
+          )}
+          {l.nearest_beach_km && (
+            <span style={{ fontSize:10, fontWeight:600,
+              color: active ? "rgba(120,210,255,0.9)" : "#0077B6" }}>
+              🏖 {l.nearest_beach_km} km
+              {l.nearest_beach_name && <span style={{ fontWeight:400, color: active ? "rgba(255,255,255,0.5)" : T.textMuted }}> · {l.nearest_beach_name}</span>}
+            </span>
+          )}
+        </div>
+      )}
+      <div style={{ marginTop:8, color:active ? "rgba(255,255,255,0.8)" : T.textMuted, fontSize:11, fontWeight:600 }}>View apartments →</div>
     </div>
   );
 }
@@ -164,6 +181,21 @@ function PriceDistChart({ data, m2data, height=160 }) {
       </ResponsiveContainer>
     </ChartCard>
   );
+}
+
+// ── histogram helper ─────────────────────────────────────────────────────
+function makeBins(values, numBins = 8, fmt1000 = true) {
+  const vals = values.filter(v => v != null && isFinite(v));
+  if (!vals.length) return [];
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+  if (mn === mx) return [{ bin: fmt1000 ? `€${Math.round(mn/1000)}K` : `€${Math.round(mn).toLocaleString()}`, count: vals.length }];
+  const step = (mx - mn) / numBins;
+  return Array.from({ length: numBins }, (_, i) => {
+    const lo = mn + i * step, hi = mn + (i + 1) * step;
+    const count = vals.filter(v => v >= lo && (i === numBins - 1 ? v <= hi : v < hi)).length;
+    const label = fmt1000 ? `€${Math.round(lo/1000)}K` : `€${Math.round(lo).toLocaleString()}`;
+    return { bin: label, count };
+  }).filter(b => b.count > 0);
 }
 
 // ── main component ───────────────────────────────────────────────────────
@@ -271,10 +303,18 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   const [muniData,    setMuniData]    = useState(null);
   const [mapListings, setMapListings] = useState([]);
   const [loading,     setLoading]     = useState(false);
-  const [activePin,   setActivePin]   = useState(null);
-  const [unitFilter,  setUnitFilter]  = useState([]);
+  const [activePin,      setActivePin]      = useState(null);
+  const [unitFilter,     setUnitFilter]     = useState([]);
   const M2_MIN = 0, M2_MAX = 8000;
-  const [m2Range,     setM2Range]     = useState([0, 8000]);
+  const [m2Range,        setM2Range]        = useState([0, 8000]);
+  // Secondary filters
+  const [fSelUnit,       setFSelUnit]       = useState([]);
+  const [fSelHouseType,  setFSelHouseType]  = useState([]);
+  const [fSelEsg,        setFSelEsg]        = useState([]);
+  const [fMinPrice,      setFMinPrice]      = useState("");
+  const [fMaxPrice,      setFMaxPrice]      = useState("");
+  const [fMinM2,         setFMinM2]         = useState("");
+  const [fMaxM2,         setFMaxM2]         = useState("");
 
   // All municipalities (for selector)
   useEffect(() => {
@@ -293,17 +333,79 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       .catch(() => setLoading(false));
   }, [municipality]);
 
-  // Map markers — must be before ANY early return (Rules of Hooks)
-  const mapMarkers = useMemo(() => mapListings
+  // ── All hooks MUST be before any early return ───────────────────────────
+  // mapMarkers = all markers (unfiltered) — used to build filteredMapMarkers after filteredListings is ready
+  const _allMapMarkers = useMemo(() => mapListings
     .filter(l => l.lat && l.lng && !(Math.abs(l.lat - 39.47) < 0.001 && Math.abs(l.lng + 0.38) < 0.001))
     .map(l => ({
       id:       l.listing_id,
       lat:      l.lat, lng: l.lng,
       label:    l.property_name,
       sublabel: `${fmt(l.avg_price)} · ${l.units} apts`,
-      active:   l.listing_id === activePin,
+      active:   false,
       color:    T.navyMid,
-    })), [mapListings, activePin]);
+    })), [mapListings]);
+
+  const _listings    = muniData?.listings    || [];
+  const _htStats     = muniData?.house_type_stats || [];
+  const allUnitTypes  = useMemo(() => ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"], []);
+  const allHouseTypes = useMemo(() => [...new Set(_htStats.map(r=>r.house_type).filter(Boolean))], [_htStats]);
+  const allEsgGrades  = useMemo(() => [...new Set(_listings.map(l=>l.esg_grade).filter(Boolean))].sort(), [_listings]);
+  const filteredListings = useMemo(() => _listings.filter(l => {
+    if (unitFilter.length && !unitFilter.some(ut => l.unit_types?.includes(ut))) return false;
+    if (fSelUnit.length && !fSelUnit.some(ut => l.unit_types?.includes(ut))) return false;
+    if (fSelHouseType.length && !fSelHouseType.some(ht => l.house_types?.includes(ht))) return false;
+    if (fSelEsg.length && !fSelEsg.includes(l.esg_grade)) return false;
+    if (fMinPrice && l.avg_price < Number(fMinPrice)*1000) return false;
+    if (fMaxPrice && l.avg_price > Number(fMaxPrice)*1000) return false;
+    if (fMinM2 && l.avg_price_m2 && l.avg_price_m2 < Number(fMinM2)) return false;
+    if (fMaxM2 && l.avg_price_m2 && l.avg_price_m2 > Number(fMaxM2)) return false;
+    return true;
+  }), [_listings, unitFilter, fSelUnit, fSelHouseType, fSelEsg, fMinPrice, fMaxPrice, fMinM2, fMaxM2]);
+
+  const filteredIds = useMemo(() => new Set(filteredListings.map(l => l.listing_id)), [filteredListings]);
+  const mapMarkers = useMemo(() =>
+    _allMapMarkers
+      .filter(m => filteredIds.has(m.id))
+      .map(m => ({ ...m, active: m.id === activePin })),
+  [_allMapMarkers, filteredIds, activePin]);
+
+  // ── Stats derived from filteredListings (drive whole right panel) ────────
+  const filteredStats = useMemo(() => {
+    if (!filteredListings.length) return null;
+    const prices = filteredListings.map(l => l.avg_price).filter(Boolean);
+    const m2s    = filteredListings.map(l => l.avg_price_m2).filter(Boolean);
+    return {
+      total_listings: filteredListings.length,
+      total_units:    filteredListings.reduce((s, l) => s + (l.units || 0), 0),
+      avg_price:      prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : null,
+      avg_price_m2:   m2s.length   ? m2s.reduce((a, b) => a + b, 0)   / m2s.length   : null,
+      price_range:    prices.length ? [Math.min(...prices), Math.max(...prices)] : [null, null],
+    };
+  }, [filteredListings]);
+
+  const filteredPriceDist = useMemo(() =>
+    makeBins(filteredListings.map(l => l.avg_price)), [filteredListings]);
+
+  const filteredM2Dist = useMemo(() =>
+    makeBins(filteredListings.map(l => l.avg_price_m2), 8, false), [filteredListings]);
+
+  const filteredUnitStats = useMemo(() => {
+    if (!muniData?.unit_type_mix) return [];
+    const presentTypes = new Set(
+      filteredListings.flatMap(l => (l.unit_types||"").split(", ").filter(Boolean))
+    );
+    const base = muniData.unit_type_stats || muniData.unit_type_mix || [];
+    return base.filter(r => presentTypes.has(r.unit_type));
+  }, [filteredListings, muniData]);
+
+  const filteredHouseStats = useMemo(() => {
+    if (!muniData?.house_type_stats) return [];
+    const presentTypes = new Set(
+      filteredListings.flatMap(l => (l.house_types||"").split(", ").filter(Boolean))
+    );
+    return muniData.house_type_stats.filter(r => presentTypes.has(r.house_type));
+  }, [filteredListings, muniData]);
 
   // ── Municipality selector view ────────────────────────────────────────
   if (!municipality) {
@@ -397,12 +499,10 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
 
   const { stats, listings, unit_type_mix, price_dist, m2_dist, trend } = muniData;
 
-  const filteredListings = listings.filter(l => {
-    if (unitFilter.length && !unitFilter.some(ut => l.unit_types?.includes(ut))) return false;
-    if (l.avg_price_m2 && (l.avg_price_m2 < m2Range[0] || l.avg_price_m2 > m2Range[1])) return false;
-    return true;
-  });
   const sortedListings = [...filteredListings].sort((a,b) => b.avg_price - a.avg_price);
+
+  const hasFilter = fSelUnit.length||fSelHouseType.length||fSelEsg.length||fMinPrice||fMaxPrice||fMinM2||fMaxM2;
+  const clearFilters = () => { setFSelUnit([]); setFSelHouseType([]); setFSelEsg([]); setFMinPrice(""); setFMaxPrice(""); setFMinM2(""); setFMaxM2(""); };
 
   const ALL_UTS = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
 
@@ -426,13 +526,50 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
         </button>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — driven by filteredStats when filters active */}
       <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
-        <StatCard label="Developments"     value={stats.total_listings} accent={T.text} />
-        <StatCard label="Total Apartments" value={stats.total_units?.toLocaleString()} />
-        <StatCard label="Avg Price"        value={fmt(stats.avg_price)} />
-        <StatCard label="Avg €/m²"         value={stats.avg_price_m2 != null ? `€${Math.round(stats.avg_price_m2).toLocaleString("en")}` : "—"} accent={T.navyMid} />
-        <StatCard label="Price Range"      value={`${fmt(stats.price_range?.[0])} – ${fmt(stats.price_range?.[1])}`} accent={T.textSub} />
+        {((_s => [
+          <StatCard key="dev"   label="Developments"     value={_s.total_listings} accent={T.text} />,
+          <StatCard key="apts"  label="Total Apartments" value={_s.total_units?.toLocaleString()} />,
+          <StatCard key="avg"   label="Avg Price"        value={fmt(_s.avg_price)} />,
+          <StatCard key="m2"    label="Avg €/m²"         value={_s.avg_price_m2 != null ? `€${Math.round(_s.avg_price_m2).toLocaleString("en")}` : "—"} accent={T.navyMid} />,
+          <StatCard key="range" label="Price Range"      value={`${fmt(_s.price_range?.[0])} – ${fmt(_s.price_range?.[1])}`} accent={T.textSub} />,
+        ]))(filteredStats || stats)}
+      </div>
+
+      {/* ── Filter Bar ── */}
+      <div style={{ display:"flex", gap:10, alignItems:"flex-end", marginBottom:16, flexWrap:"nowrap",
+        background:"#fff", border:`1px solid ${T.border}`, borderRadius:12, padding:"12px 16px",
+        boxShadow:T.shadow }}>
+        <TypeSearchMultiSelect label="Unit Type"   options={allUnitTypes}  value={fSelUnit}      onChange={setFSelUnit} width={150} />
+        <TypeSearchMultiSelect label="House Type"  options={allHouseTypes} value={fSelHouseType} onChange={setFSelHouseType} width={150} />
+        <TypeSearchMultiSelect label="ESG"         options={allEsgGrades}  value={fSelEsg}       onChange={setFSelEsg} width={100} />
+        <div>
+          <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase", marginBottom:4, letterSpacing:"0.05em" }}>Price (€K)</div>
+          <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+            <input value={fMinPrice} onChange={e=>setFMinPrice(e.target.value)} placeholder="Min"
+              style={{ width:70, border:`1px solid ${fMinPrice?T.borderAccent:T.border}`, borderRadius:8, padding:"9px 8px", fontSize:12, outline:"none", background:"#fff" }} />
+            <span style={{ color:T.textMuted, fontSize:11 }}>–</span>
+            <input value={fMaxPrice} onChange={e=>setFMaxPrice(e.target.value)} placeholder="Max"
+              style={{ width:70, border:`1px solid ${fMaxPrice?T.borderAccent:T.border}`, borderRadius:8, padding:"9px 8px", fontSize:12, outline:"none", background:"#fff" }} />
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase", marginBottom:4, letterSpacing:"0.05em" }}>€/m²</div>
+          <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+            <input value={fMinM2} onChange={e=>setFMinM2(e.target.value)} placeholder="Min"
+              style={{ width:70, border:`1px solid ${fMinM2?T.borderAccent:T.border}`, borderRadius:8, padding:"9px 8px", fontSize:12, outline:"none", background:"#fff" }} />
+            <span style={{ color:T.textMuted, fontSize:11 }}>–</span>
+            <input value={fMaxM2} onChange={e=>setFMaxM2(e.target.value)} placeholder="Max"
+              style={{ width:70, border:`1px solid ${fMaxM2?T.borderAccent:T.border}`, borderRadius:8, padding:"9px 8px", fontSize:12, outline:"none", background:"#fff" }} />
+          </div>
+        </div>
+        {hasFilter && (
+          <button onClick={clearFilters} style={{ background:"#FEF2F2", border:"1px solid rgba(192,57,43,0.4)",
+            color:"#6B2A2A", padding:"9px 12px", borderRadius:8, cursor:"pointer", fontSize:11, fontWeight:600, whiteSpace:"nowrap", alignSelf:"flex-end" }}>
+            ✕ Clear
+          </button>
+        )}
       </div>
 
       {/* ── TWO-COLUMN BODY ── */}
@@ -471,21 +608,40 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
           </div>
         </div>
 
-        {/* ── RIGHT: Map + Charts ── */}
-        <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+        {/* ── RIGHT: 3-row scrollable panel matching search page ── */}
+        <div style={{ display:"flex", flexDirection:"column", gap:14, minWidth:0,
+          height:"calc(100vh - 200px)", overflowY:"auto",
+          scrollbarWidth:"thin", scrollbarColor:`${T.border} transparent` }}>
 
-          {/* Top row: Map (left) + Unit Type Summary table (right) */}
+          {/* Row 1: Leaflet | Google Maps */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-            {/* Map — single pin on active/first listing */}
-            <div>
+            <div style={{ minWidth:0 }}>
+              <LeafletMap
+                markers={mapMarkers}
+                onMarkerClick={id => {
+                  const newId = id === activePin ? null : id;
+                  setActivePin(newId);
+                  if (newId) {
+                    setTimeout(() => {
+                      document.getElementById(`lcard-${newId}`)?.scrollIntoView({ behavior:"smooth", block:"nearest" });
+                    }, 50);
+                  }
+                }}
+                height="280px"
+              />
+            </div>
+            <div style={{ minWidth:0 }}>
               {(() => {
-                const pinTarget = mapMarkers.find(m => m.active) || mapMarkers[0];
-                if (!pinTarget) return null;
+                const pinTarget = mapMarkers.find(m => m.active)
+                  || mapMarkers.find(m => m.id === sortedListings[0]?.listing_id)
+                  || mapMarkers[0];
+                if (!pinTarget) return <div style={{ height:280, borderRadius:12, background:T.bgStripe, border:`1px solid ${T.border}` }}/>;
                 return (
                   <div style={{ position:"relative", width:"100%", height:280, borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}` }}>
                     <iframe
-                      title="map"
-                      src={`https://maps.google.com/maps?q=${pinTarget.lat},${pinTarget.lng}&z=14&output=embed`}
+                      key={`${pinTarget.lat},${pinTarget.lng}`}
+                      title="gmap"
+                      src={`https://maps.google.com/maps?q=${pinTarget.lat},${pinTarget.lng}&hl=en&z=15&output=embed`}
                       width="100%" height="100%"
                       style={{ border:0, display:"block" }}
                       allowFullScreen="" loading="lazy"
@@ -496,40 +652,44 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                       style={{ position:"absolute", bottom:6, right:6, background:"rgba(255,255,255,0.92)",
                         borderRadius:4, fontSize:10, fontWeight:600, color:"#2D3F8F",
                         padding:"2px 7px", textDecoration:"none", boxShadow:"0 1px 4px rgba(0,0,0,0.2)", zIndex:10 }}>
-                      Open in Google Maps ↗
+                      Open in Maps ↗
                     </a>
                   </div>
                 );
               })()}
             </div>
+          </div>
 
-            {/* Unit Type Summary table */}
+          {/* Row 2: Unit Type Summary | House Type Summary */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+            {/* Unit Type Summary */}
             <ChartCard title="Unit Type Summary">
-              <div style={{ overflowX:"auto", overflowY:"auto", maxHeight:260 }}>
+              <div style={{ overflowX:"auto", overflowY:"auto", maxHeight:240 }}>
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                   <thead style={{ position:"sticky", top:0, zIndex:1 }}>
                     <tr style={{ borderBottom:`2px solid ${T.border}`, background:T.bgStripe }}>
-                      {["Type","Count","Min","Avg","Max","m²","€/m²"].map(h=>(
-                        <th key={h} style={{ padding:"7px 10px", textAlign: h==="Type"?"left":"right",
+                      {["Type","Units","Avg m²","Min","Avg","Max","€/m²"].map(h=>(
+                        <th key={h} style={{ padding:"7px 8px", textAlign:h==="Type"?"left":"right",
                           color:T.textMuted, fontSize:10, textTransform:"uppercase",
                           letterSpacing:"0.07em", fontWeight:600, background:T.bgStripe }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {(muniData.unit_type_stats||unit_type_mix).map((row,i)=>{
+                    {filteredUnitStats.map((row,i)=>{
                       const uc = UNIT_COLORS[row.unit_type]||COLORS[i%COLORS.length];
                       return (
                         <tr key={row.unit_type} style={{ borderBottom:`1px solid ${T.border}`, background:i%2===0?T.bgStripe:"#fff" }}>
-                          <td style={{ padding:"7px 10px" }}>
-                            <span style={{ background:uc, color:"#fff", fontWeight:700, fontSize:11, padding:"2px 8px", borderRadius:4 }}>{row.unit_type}</span>
+                          <td style={{ padding:"7px 8px" }}>
+                            <span style={{ background:uc, color:"#fff", fontWeight:700, fontSize:11,
+                              padding:"2px 8px", borderRadius:4, display:"block", whiteSpace:"nowrap" }}>{row.unit_type}</span>
                           </td>
-                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
-                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.green, fontWeight:500, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
-                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
-                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price!=null?`€${Math.round(row.max_price).toLocaleString()}`:"—"}</td>
-                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size!=null?`${row.avg_size}m²`:"—"}</td>
-                          <td style={{ padding:"7px 10px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2).toLocaleString("en")}`:"—"}</td>
+                          <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
+                          <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size!=null?Math.round(row.avg_size):"—"}</td>
+                          <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
+                          <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
+                          <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price!=null?`€${Math.round(row.max_price).toLocaleString()}`:"—"}</td>
+                          <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2).toLocaleString("en")}`:"—"}</td>
                         </tr>
                       );
                     })}
@@ -537,27 +697,73 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                 </table>
               </div>
             </ChartCard>
+
+            {/* House Type Summary */}
+            <ChartCard title="House Type Summary">
+              <div style={{ overflowX:"auto", overflowY:"auto", maxHeight:240 }}>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                  <thead style={{ position:"sticky", top:0, zIndex:1 }}>
+                    <tr style={{ borderBottom:`2px solid ${T.border}`, background:T.bgStripe }}>
+                      {["Type","Units","Avg m²","Min","Avg","Max","€/m²"].map(h=>(
+                        <th key={h} style={{ padding:"7px 8px", textAlign:h==="Type"?"left":"right",
+                          color:T.textMuted, fontSize:10, textTransform:"uppercase",
+                          letterSpacing:"0.07em", fontWeight:600, background:T.bgStripe }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredHouseStats.map((row,i)=>(
+                      <tr key={row.house_type} style={{ borderBottom:`1px solid ${T.border}`, background:i%2===0?T.bgStripe:"#fff" }}>
+                        <td style={{ padding:"7px 8px", whiteSpace:"nowrap" }}>
+                          <span style={{ background:"rgba(100,100,140,0.10)", color:"#6B7A9F",
+                            border:"1px solid rgba(100,100,140,0.25)", fontWeight:700,
+                            fontSize:11, padding:"2px 8px", borderRadius:4,
+                            display:"block", whiteSpace:"nowrap" }}>{row.house_type}</span>
+                        </td>
+                        <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
+                        <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size!=null?Math.round(row.avg_size):"—"}</td>
+                        <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
+                        <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
+                        <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price!=null?`€${Math.round(row.max_price).toLocaleString()}`:"—"}</td>
+                        <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2).toLocaleString("en")}`:"—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </ChartCard>
           </div>
 
-          {/* Bottom row: Price Distribution + Avg Price Over Time */}
+          {/* Row 3: Price Distribution | €/m² Distribution */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-            <PriceDistChart data={price_dist} m2data={m2_dist} height={160} />
+            <ChartCard title="Price Distribution">
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={filteredPriceDist} barSize={22}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                  <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={v=>[`${v} developments`,"Count"]}
+                    contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
+                  <Bar dataKey="count" radius={[4,4,0,0]} isAnimationActive={false}>
+                    {filteredPriceDist.map((_,i)=><Cell key={i} fill="#0B1239" fillOpacity={0.35+(i/Math.max(filteredPriceDist.length-1,1))*0.65}/>)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
 
-            <ChartCard title="Avg Price Over Time">
-              {(trend||[]).length < 2
-                ? <NoDataNote msg="More snapshots needed" />
-                : <ResponsiveContainer width="100%" height={160}>
-                    <LineChart data={trend||[]}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-                      <XAxis dataKey="period" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
-                      <YAxis yAxisId="p" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
-                      <YAxis yAxisId="m" orientation="right" tickFormatter={v=>`€${v}`} tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
-                      <Legend wrapperStyle={{ fontSize:10 }} />
-                      <Line yAxisId="p" type="monotone" dataKey="avg_price" name="Avg Price" stroke={T.navy} strokeWidth={2.5} dot={{ r:4, fill:T.navy }} />
-                      <Line yAxisId="m" type="monotone" dataKey="avg_price_m2" name="€/m²" stroke={T.navyMid} strokeWidth={2} strokeDasharray="5 3" dot={{ r:3 }} />
-                    </LineChart>
-                  </ResponsiveContainer>}
+            <ChartCard title="€/m² Distribution">
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={filteredM2Dist} barSize={22}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                  <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={v=>[`${v} developments`,"Count"]}
+                    contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
+                  <Bar dataKey="count" radius={[4,4,0,0]} isAnimationActive={false}>
+                    {filteredM2Dist.map((_,i)=><Cell key={i} fill="#4A5A8A" fillOpacity={0.35+(i/Math.max(filteredM2Dist.length-1,1))*0.65}/>)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </ChartCard>
           </div>
 

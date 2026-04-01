@@ -323,6 +323,11 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
                 ({data.stated_total_units} per description)
               </span>
             )}
+            {data.nearest_beach_km && (
+              <span style={{ marginLeft:8, fontSize:12, fontWeight:600, color:"#0077B6" }}>
+                🏖 {data.nearest_beach_km} km to {data.nearest_beach_name || "beach"}
+              </span>
+            )}
           </div>
           {(meta?.city_area || meta?.street) && (() => {
             const parts = [];

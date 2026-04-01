@@ -216,11 +216,138 @@ function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect, ma
         </div>
       )}
 
+      {(l.stated_total_units || l.nearest_beach_km) && (
+        <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginTop:-2 }}>
+          {l.stated_total_units && (
+            <span style={{ fontSize: 10, color: T.textMuted }}>
+              📋 <span style={{ fontWeight: 600 }}>{l.stated_total_units}</span> apts per description
+            </span>
+          )}
+          {l.nearest_beach_km && (
+            <span style={{ fontSize: 10, color: "#0077B6", fontWeight: 600 }}>
+              🏖 {l.nearest_beach_km} km
+              {l.nearest_beach_name ? <span style={{ fontWeight:400, color:T.textMuted }}> · {l.nearest_beach_name}</span> : null}
+            </span>
+          )}
+        </div>
+      )}
+
       <div style={{ fontSize: 11, color: T.navy, fontWeight: 600, marginTop: -4 }}>
         View development →
       </div>
     </div>
   );
+}
+
+// ── Delisted card (red boundary, same layout as DelistedPage) ────────────────
+function DelistedSearchCard({ l, onSelect }) {
+  const [hov, setHov] = useState(false);
+  const esgColor = ESG_COLORS[l.esg_grade] || "#999";
+  const unitTypes  = (l.unit_types  || "").split(", ").filter(Boolean);
+  const houseTypes = (l.house_types || "").split(", ").filter(Boolean);
+  return (
+    <div onClick={() => onSelect(l)}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{ background: hov ? "#FEF2F2" : T.bgCard,
+        border: `2px solid ${hov ? "#6B2A2A" : "#FCA5A5"}`,
+        borderRadius: 12, padding: "14px 16px", cursor: "pointer",
+        transition: "all 0.15s", boxShadow: hov ? T.shadowMd : T.shadow,
+        display: "flex", flexDirection: "column", gap: 8 }}>
+
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: hov ? "#6B2A2A" : T.text, marginBottom: 2,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {l.property_name}
+          </div>
+          <div style={{ fontSize: 11, color: T.textSub }}>{l.municipality} · {l.province}</div>
+          {l.city_area && (
+            <div style={{ fontSize: 10, color: T.textMuted, marginTop: 2,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              📍 {l.city_area}
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+          <span style={{ background: "#FEF2F2", color: "#6B2A2A", border: "1px solid #FCA5A5",
+            borderRadius: 5, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>Delisted</span>
+          {l.esg_grade && l.esg_grade !== "nan" && l.esg_grade !== "Unknown" && (
+            <span style={{ background: ESG_COLORS[l.esg_grade] || "#8A96B4", color: "#fff",
+              borderRadius: 5, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>
+              ESG {l.esg_grade}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Units</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{l.units}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Last Avg</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: PRICE_COLOR }}>{fmt(l.avg_price)}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>€/m²</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: M2_COLOR }}>€{Math.round(l.avg_price_m2 || 0).toLocaleString()}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Range</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: T.textSub }}>{fmt(l.min_price)} – {fmt(l.max_price)}</div>
+        </div>
+      </div>
+
+      {/* Tags */}
+      {(unitTypes.length > 0 || houseTypes.length > 0) && (
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {unitTypes.map(ut => (
+            <span key={ut} style={{ background: UNIT_COLORS[ut] || "#8A96B4", color: "#fff",
+              borderRadius: 4, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>{ut}</span>
+          ))}
+          {houseTypes.map(ht => (
+            <span key={ht} style={{ background: "rgba(100,100,140,0.10)", color: T.textSub,
+              border: `1px solid ${T.border}`, borderRadius: 4, padding: "2px 7px",
+              fontSize: 10, fontWeight: 700 }}>{ht}</span>
+          ))}
+        </div>
+      )}
+
+      <div style={{ fontSize: 11, color: hov ? "#6B2A2A" : T.textMuted, fontWeight: 600, marginTop: -4 }}>
+        View apartments →
+      </div>
+    </div>
+  );
+}
+
+// ── Google Maps URL parser ───────────────────────────────────────────────────
+function parseGoogleMapsUrl(url) {
+  // !3d{lat}!4d{lng} — place detail URLs (may appear multiple times; LAST = the pinned place)
+  // e.g. /place/Platja+de+la+Devesa/@viewport/data=...!3d{place_lat}!4d{place_lng}
+  const place3d = [...url.matchAll(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/g)];
+  if (place3d.length > 0) {
+    const last = place3d[place3d.length - 1];
+    return { lat: parseFloat(last[1]), lng: parseFloat(last[2]) };
+  }
+  // @lat,lng,zoom — viewport center; only use if no !3d/!4d found (non-place links)
+  let m = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+  // ?q=lat,lng
+  m = url.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+  // ll=lat,lng
+  m = url.match(/[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+  return null;
+}
+
+function extractPlaceName(url) {
+  const m = url.match(/\/place\/([^/@]+)/);
+  if (!m) return null;
+  try { return decodeURIComponent(m[1].replace(/\+/g, " ")); } catch { return null; }
 }
 
 // ── Persist search state across tab switches ───────────────────────────────
@@ -244,7 +371,11 @@ export default function SearchPage({ onSelectListing }) {
   const [minM2,   setMinM2]    = useState(_ss?.minM2    ?? "");
   const [maxM2,   setMaxM2]    = useState(_ss?.maxM2    ?? "");
 
-  const [results,  setResults]  = useState(_ss?.results  ?? null);
+  const [results,         setResults]         = useState(_ss?.results  ?? null);
+  const [delistedResults, setDelistedResults] = useState([]);
+  const [gmapsLink,       setGmapsLink]       = useState("");
+  const [gmapsError,      setGmapsError]      = useState("");
+  const [gmapsLoading,    setGmapsLoading]    = useState(false);
   const [loading,  setLoading]  = useState(false);
   const [searched, setSearched] = useState(_ss?.searched ?? false);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -309,6 +440,19 @@ export default function SearchPage({ onSelectListing }) {
     const currentRadius = radiusKm;
     const currentMuni = selMuni.slice(); // capture current value to avoid stale closure
     const qs = _buildQs(currentRadius);
+
+    // Fetch delisted for same municipalities in parallel
+    const delistedQs = new URLSearchParams();
+    currentMuni.forEach(m => delistedQs.append("municipality", m));
+    if (currentMuni.length > 0) {
+      fetch(`${API}/delisted/listings?${delistedQs}`)
+        .then(r => r.json())
+        .then(d => setDelistedResults(d.listings || []))
+        .catch(() => {});
+    } else {
+      setDelistedResults([]);
+    }
+
     fetch(`${API}/search/listings?${qs}`)
       .then(r => r.json())
       .then(d => {
@@ -373,6 +517,17 @@ export default function SearchPage({ onSelectListing }) {
   }, [results, activePin]);
 
   const displayResults = results || [];
+
+  const filteredDelisted = useMemo(() => delistedResults.filter(l => {
+    if (selUnit.length      && !selUnit.some(ut => l.unit_types?.includes(ut)))      return false;
+    if (selHouseType.length && !selHouseType.some(ht => l.house_types?.includes(ht))) return false;
+    if (selEsg.length       && !selEsg.includes(l.esg_grade))                        return false;
+    if (minPrice && l.avg_price < Number(minPrice) * 1000) return false;
+    if (maxPrice && l.avg_price > Number(maxPrice) * 1000) return false;
+    if (minM2 && l.avg_price_m2 && l.avg_price_m2 < Number(minM2)) return false;
+    if (maxM2 && l.avg_price_m2 && l.avg_price_m2 > Number(maxM2)) return false;
+    return true;
+  }), [delistedResults, selUnit, selHouseType, selEsg, minPrice, maxPrice, minM2, maxM2]);
 
   // ── Charts computed from displayResults ─────────────────────────────────
   // Use server-computed unit_type_stats (unit-level accuracy) when available
@@ -543,6 +698,44 @@ export default function SearchPage({ onSelectListing }) {
     return () => clearTimeout(timer);
   }, [selUnit, selEsg, selHouseType, minPrice, maxPrice, minM2, maxM2]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const [gmapsPlace, setGmapsPlace] = useState("");
+
+  const applyGmapsLink = async () => {
+    const url = gmapsLink.trim();
+    if (!url) return;
+    setGmapsError(""); setGmapsLoading(true); setGmapsPlace("");
+
+    let workingUrl = url;
+
+    // Shortened URL — resolve via backend then re-parse
+    if (url.includes("goo.gl") || url.includes("maps.app")) {
+      try {
+        const res = await fetch(`${API}/resolve-url?url=${encodeURIComponent(url)}`);
+        const data = await res.json();
+        if (data.resolved) workingUrl = data.resolved;
+      } catch (_) {}
+    }
+
+    const coords = parseGoogleMapsUrl(workingUrl);
+    const placeName = extractPlaceName(workingUrl);
+
+    setGmapsLoading(false);
+    if (!coords) {
+      setGmapsError("Could not extract coordinates. Try using Share → Copy link on a pinned place.");
+      return;
+    }
+
+    setGmapsPlace(placeName || `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`);
+    searchCenterRef.current = coords;
+    setSearchCenter(coords);
+    setSelMuni([]); setSelStreet([]);
+    setRadiusKm(2);
+    setResults(null); setSearched(false);
+    setActivePin(null);
+    isAutoRadiusRef.current = false;
+    setTimeout(() => setSearched(true), 0);
+  };
+
   const clearAll = () => {
     setSelMuni([]); setSelStreet([]); setRadiusKm(null);
     setSelUnit([]); setSelEsg([]); setSelHouseType([]);
@@ -630,6 +823,50 @@ export default function SearchPage({ onSelectListing }) {
             </button>
           )}
         </div>
+      </div>
+
+      {/* ── Google Maps link search ── */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8,
+            background: "#fff", border: `1px solid ${gmapsError ? "#FCA5A5" : T.border}`,
+            borderRadius: 10, padding: "0 12px", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+            <span style={{ fontSize: 16, flexShrink: 0 }}>📍</span>
+            <input
+              value={gmapsLink}
+              onChange={e => { setGmapsLink(e.target.value); setGmapsError(""); }}
+              onKeyDown={e => e.key === "Enter" && applyGmapsLink()}
+              placeholder="Paste a Google Maps link to search nearby listings…"
+              style={{ flex: 1, border: "none", outline: "none", fontSize: 12,
+                color: T.text, background: "transparent", padding: "10px 0" }}
+            />
+            {gmapsLink && (
+              <button onClick={() => { setGmapsLink(""); setGmapsError(""); }}
+                style={{ background: "none", border: "none", color: T.textMuted,
+                  fontSize: 14, cursor: "pointer", padding: "0 2px", lineHeight: 1 }}>✕</button>
+            )}
+          </div>
+          <button
+            onClick={applyGmapsLink}
+            disabled={!gmapsLink.trim() || gmapsLoading}
+            style={{ padding: "10px 18px", height: 42, background: gmapsLink.trim() ? "#0077B6" : "#C5CBE9",
+              border: "none", borderRadius: 10, color: "#fff", fontSize: 12, fontWeight: 700,
+              cursor: gmapsLink.trim() ? "pointer" : "not-allowed", whiteSpace: "nowrap",
+              opacity: gmapsLoading ? 0.7 : 1, transition: "all 0.15s" }}>
+            {gmapsLoading ? "Resolving…" : "Search Area"}
+          </button>
+        </div>
+        {gmapsPlace && !gmapsError && (
+          <div style={{ marginTop: 6, fontSize: 11, color: "#0077B6", fontWeight: 600 }}>
+            📍 Searching 2 km around: <span style={{ fontWeight: 700 }}>{gmapsPlace}</span>
+          </div>
+        )}
+        {gmapsError && (
+          <div style={{ marginTop: 6, fontSize: 11, color: "#6B2A2A", background: "#FEF2F2",
+            border: "1px solid #FCA5A5", borderRadius: 7, padding: "5px 10px" }}>
+            ⚠ {gmapsError}
+          </div>
+        )}
       </div>
 
       {/* ── Secondary filters ── */}
@@ -838,6 +1075,12 @@ export default function SearchPage({ onSelectListing }) {
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>
                       Developments <span style={{ color: T.textMuted, fontWeight: 400, fontSize: 12 }}>({displayResults.length})</span>
+                      {filteredDelisted.length > 0 && (
+                        <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: "#6B2A2A",
+                          background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: 4, padding: "1px 6px" }}>
+                          +{filteredDelisted.length} delisted
+                        </span>
+                      )}
                     </div>
                     <button onClick={() => {
                       if (selectedIds.size === displayResults.length) {
@@ -867,6 +1110,25 @@ export default function SearchPage({ onSelectListing }) {
                         onHover={id => { setActivePin(id); if (id) lastHoveredPin.current = id; }}
                       />
                     ))}
+
+                    {filteredDelisted.length > 0 && (
+                      <>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 0 2px" }}>
+                          <div style={{ flex: 1, height: 1, background: "#FCA5A5" }} />
+                          <span style={{ fontSize: 10, fontWeight: 700, color: "#6B2A2A",
+                            background: "#FEF2F2", border: "1px solid #FCA5A5",
+                            borderRadius: 5, padding: "2px 8px", whiteSpace: "nowrap" }}>
+                            {filteredDelisted.length} Delisted
+                          </span>
+                          <div style={{ flex: 1, height: 1, background: "#FCA5A5" }} />
+                        </div>
+                        {filteredDelisted.map(l => (
+                          <DelistedSearchCard key={`d-${l.listing_id}`} l={l}
+                            onSelect={l => onSelectListing(l.listing_id, l.property_name, l.municipality)}
+                          />
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -956,7 +1218,7 @@ export default function SearchPage({ onSelectListing }) {
                                     fontWeight:700, fontSize:11, padding:"2px 7px", borderRadius:4 }}>{row.unit_type}</span>
                                 </td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size ?? "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size != null ? Math.round(row.avg_size) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price ? fmt(row.min_price) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price ? fmt(row.avg_price) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price ? fmt(row.max_price) : "—"}</td>
@@ -991,7 +1253,7 @@ export default function SearchPage({ onSelectListing }) {
                                     display:"block", whiteSpace:"nowrap" }}>{row.house_type}</span>
                                 </td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size ?? "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size != null ? Math.round(row.avg_size) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price ? fmt(row.min_price) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price ? fmt(row.avg_price) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price ? fmt(row.max_price) : "—"}</td>
