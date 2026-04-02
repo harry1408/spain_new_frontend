@@ -323,29 +323,26 @@ function DelistedSearchCard({ l, onSelect }) {
   );
 }
 
-// ── Google Maps URL parser ───────────────────────────────────────────────────
+// ── Google Maps URL → coordinates ────────────────────────────────────────────
 function parseGoogleMapsUrl(url) {
-  // !3d{lat}!4d{lng} — place detail URLs (may appear multiple times; LAST = the pinned place)
-  // e.g. /place/Platja+de+la+Devesa/@viewport/data=...!3d{place_lat}!4d{place_lng}
-  const place3d = [...url.matchAll(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/g)];
-  if (place3d.length > 0) {
-    const last = place3d[place3d.length - 1];
+  // Place detail URLs encode coords as !3d{lat}!4d{lng} — may appear multiple times.
+  // The LAST pair is the actual pinned place (earlier pairs are city/region context).
+  const pairs = [...url.matchAll(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/g)];
+  if (pairs.length) {
+    const last = pairs[pairs.length - 1];
     return { lat: parseFloat(last[1]), lng: parseFloat(last[2]) };
   }
-  // @lat,lng,zoom — viewport center; only use if no !3d/!4d found (non-place links)
-  let m = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  // ?q=lat,lng  (direct coordinate links)
+  let m = url.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
   if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
-  // ?q=lat,lng
-  m = url.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
-  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
-  // ll=lat,lng
-  m = url.match(/[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/);
+  // @lat,lng — viewport center, last resort for non-place links
+  m = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
   if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
   return null;
 }
 
-function extractPlaceName(url) {
-  const m = url.match(/\/place\/([^/@]+)/);
+function extractGmapsPlaceName(url) {
+  const m = url.match(/\/place\/([^/@?]+)/);
   if (!m) return null;
   try { return decodeURIComponent(m[1].replace(/\+/g, " ")); } catch { return null; }
 }
@@ -373,9 +370,9 @@ export default function SearchPage({ onSelectListing }) {
 
   const [results,         setResults]         = useState(_ss?.results  ?? null);
   const [delistedResults, setDelistedResults] = useState([]);
-  const [gmapsLink,       setGmapsLink]       = useState("");
-  const [gmapsError,      setGmapsError]      = useState("");
-  const [gmapsLoading,    setGmapsLoading]    = useState(false);
+  const [gmapsLink,  setGmapsLink]  = useState("");
+  const [gmapsLabel, setGmapsLabel] = useState("");
+  const [gmapsError, setGmapsError] = useState("");
   const [loading,  setLoading]  = useState(false);
   const [searched, setSearched] = useState(_ss?.searched ?? false);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -569,7 +566,7 @@ export default function SearchPage({ onSelectListing }) {
     })).filter(b => b.count > 0);
   }, [displayResults]);
 
-  const hasSelection = selMuni.length > 0;
+  const hasSelection = selMuni.length > 0 || gmapsLabel !== "";
   const canSearch = selMuni.length > 0;
   const [showTip, setShowTip] = useState(false);
   const ALL_UTS = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
@@ -689,7 +686,7 @@ export default function SearchPage({ onSelectListing }) {
 
   // Auto-apply secondary filters without resetting center/radius
   useEffect(() => {
-    if (!selMuni.length) return;
+    if (!selMuni.length && !gmapsLabel) return;
     const timer = setTimeout(() => {
       setResults(null);
       setSearched(false);
@@ -698,40 +695,21 @@ export default function SearchPage({ onSelectListing }) {
     return () => clearTimeout(timer);
   }, [selUnit, selEsg, selHouseType, minPrice, maxPrice, minM2, maxM2]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [gmapsPlace, setGmapsPlace] = useState("");
-
-  const applyGmapsLink = async () => {
+  const applyGmapsLink = () => {
     const url = gmapsLink.trim();
     if (!url) return;
-    setGmapsError(""); setGmapsLoading(true); setGmapsPlace("");
-
-    let workingUrl = url;
-
-    // Shortened URL — resolve via backend then re-parse
-    if (url.includes("goo.gl") || url.includes("maps.app")) {
-      try {
-        const res = await fetch(`${API}/resolve-url?url=${encodeURIComponent(url)}`);
-        const data = await res.json();
-        if (data.resolved) workingUrl = data.resolved;
-      } catch (_) {}
-    }
-
-    const coords = parseGoogleMapsUrl(workingUrl);
-    const placeName = extractPlaceName(workingUrl);
-
-    setGmapsLoading(false);
+    setGmapsError("");
+    const coords = parseGoogleMapsUrl(url);
     if (!coords) {
-      setGmapsError("Could not extract coordinates. Try using Share → Copy link on a pinned place.");
+      setGmapsError("Could not extract coordinates. Use Share → Copy link on a pinned place.");
       return;
     }
-
-    setGmapsPlace(placeName || `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`);
+    const label = extractGmapsPlaceName(url) || `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`;
+    setGmapsLabel(label);
     searchCenterRef.current = coords;
     setSearchCenter(coords);
-    setSelMuni([]); setSelStreet([]);
     setRadiusKm(2);
-    setResults(null); setSearched(false);
-    setActivePin(null);
+    setResults(null); setSearched(false); setActivePin(null);
     isAutoRadiusRef.current = false;
     setTimeout(() => setSearched(true), 0);
   };
@@ -831,39 +809,37 @@ export default function SearchPage({ onSelectListing }) {
           <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8,
             background: "#fff", border: `1px solid ${gmapsError ? "#FCA5A5" : T.border}`,
             borderRadius: 10, padding: "0 12px", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-            <span style={{ fontSize: 16, flexShrink: 0 }}>📍</span>
+            <span style={{ fontSize: 15, flexShrink: 0 }}>🔗</span>
             <input
               value={gmapsLink}
-              onChange={e => { setGmapsLink(e.target.value); setGmapsError(""); }}
+              onChange={e => { setGmapsLink(e.target.value); setGmapsError(""); setGmapsLabel(""); }}
               onKeyDown={e => e.key === "Enter" && applyGmapsLink()}
-              placeholder="Paste a Google Maps link to search nearby listings…"
+              placeholder="Paste a Google Maps link to find listings nearby…"
               style={{ flex: 1, border: "none", outline: "none", fontSize: 12,
                 color: T.text, background: "transparent", padding: "10px 0" }}
             />
             {gmapsLink && (
-              <button onClick={() => { setGmapsLink(""); setGmapsError(""); }}
+              <button onClick={() => { setGmapsLink(""); setGmapsError(""); setGmapsLabel(""); }}
                 style={{ background: "none", border: "none", color: T.textMuted,
-                  fontSize: 14, cursor: "pointer", padding: "0 2px", lineHeight: 1 }}>✕</button>
+                  fontSize: 14, cursor: "pointer", padding: "0 2px" }}>✕</button>
             )}
           </div>
-          <button
-            onClick={applyGmapsLink}
-            disabled={!gmapsLink.trim() || gmapsLoading}
-            style={{ padding: "10px 18px", height: 42, background: gmapsLink.trim() ? "#0077B6" : "#C5CBE9",
+          <button onClick={applyGmapsLink} disabled={!gmapsLink.trim()}
+            style={{ padding: "10px 18px", height: 42,
+              background: gmapsLink.trim() ? "#0077B6" : "#C5CBE9",
               border: "none", borderRadius: 10, color: "#fff", fontSize: 12, fontWeight: 700,
-              cursor: gmapsLink.trim() ? "pointer" : "not-allowed", whiteSpace: "nowrap",
-              opacity: gmapsLoading ? 0.7 : 1, transition: "all 0.15s" }}>
-            {gmapsLoading ? "Resolving…" : "Search Area"}
+              cursor: gmapsLink.trim() ? "pointer" : "not-allowed", whiteSpace: "nowrap" }}>
+            Search Area
           </button>
         </div>
-        {gmapsPlace && !gmapsError && (
-          <div style={{ marginTop: 6, fontSize: 11, color: "#0077B6", fontWeight: 600 }}>
-            📍 Searching 2 km around: <span style={{ fontWeight: 700 }}>{gmapsPlace}</span>
+        {gmapsLabel && !gmapsError && (
+          <div style={{ marginTop: 5, fontSize: 11, color: "#0077B6", fontWeight: 600 }}>
+            📍 Searching 2 km around: <strong>{gmapsLabel}</strong>
           </div>
         )}
         {gmapsError && (
-          <div style={{ marginTop: 6, fontSize: 11, color: "#6B2A2A", background: "#FEF2F2",
-            border: "1px solid #FCA5A5", borderRadius: 7, padding: "5px 10px" }}>
+          <div style={{ marginTop: 5, fontSize: 11, color: "#6B2A2A",
+            background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: 7, padding: "5px 10px" }}>
             ⚠ {gmapsError}
           </div>
         )}
