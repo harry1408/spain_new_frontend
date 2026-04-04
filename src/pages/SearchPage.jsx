@@ -239,6 +239,14 @@ function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect, ma
   );
 }
 
+// ── Haversine distance (km) ───────────────────────────────────────────────────
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371, toRad = d => d * Math.PI / 180;
+  const dlat = toRad(lat2 - lat1), dlng = toRad(lng2 - lng1);
+  const a = Math.sin(dlat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dlng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 // ── Delisted card (red boundary, same layout as DelistedPage) ────────────────
 function DelistedSearchCard({ l, onSelect }) {
   const [hov, setHov] = useState(false);
@@ -369,7 +377,7 @@ export default function SearchPage({ onSelectListing }) {
   const [maxM2,   setMaxM2]    = useState(_ss?.maxM2    ?? "");
 
   const [results,         setResults]         = useState(_ss?.results  ?? null);
-  const [delistedResults, setDelistedResults] = useState([]);
+  const [delistedResults,   setDelistedResults]   = useState([]);
   const [gmapsLink,  setGmapsLink]  = useState("");
   const [gmapsLabel, setGmapsLabel] = useState("");
   const [gmapsError, setGmapsError] = useState("");
@@ -438,17 +446,13 @@ export default function SearchPage({ onSelectListing }) {
     const currentMuni = selMuni.slice(); // capture current value to avoid stale closure
     const qs = _buildQs(currentRadius);
 
-    // Fetch delisted for same municipalities in parallel
+    // Fetch delisted in parallel — use municipality filter when available
     const delistedQs = new URLSearchParams();
     currentMuni.forEach(m => delistedQs.append("municipality", m));
-    if (currentMuni.length > 0) {
-      fetch(`${API}/delisted/listings?${delistedQs}`)
-        .then(r => r.json())
-        .then(d => setDelistedResults(d.listings || []))
-        .catch(() => {});
-    } else {
-      setDelistedResults([]);
-    }
+    fetch(`${API}/delisted/listings?${delistedQs}`)
+      .then(r => r.json())
+      .then(d => setDelistedResults(d.listings || []))
+      .catch(() => setDelistedResults([]));
 
     fetch(`${API}/search/listings?${qs}`)
       .then(r => r.json())
@@ -523,8 +527,12 @@ export default function SearchPage({ onSelectListing }) {
     if (maxPrice && l.avg_price > Number(maxPrice) * 1000) return false;
     if (minM2 && l.avg_price_m2 && l.avg_price_m2 < Number(minM2)) return false;
     if (maxM2 && l.avg_price_m2 && l.avg_price_m2 > Number(maxM2)) return false;
+    // When gmaps radius search is active, filter delisted by radius too
+    if (searchCenter && radiusKm && l.lat && l.lng) {
+      if (haversineKm(searchCenter.lat, searchCenter.lng, l.lat, l.lng) > radiusKm) return false;
+    }
     return true;
-  }), [delistedResults, selUnit, selHouseType, selEsg, minPrice, maxPrice, minM2, maxM2]);
+  }), [delistedResults, selUnit, selHouseType, selEsg, minPrice, maxPrice, minM2, maxM2, searchCenter, radiusKm]);
 
   // ── Charts computed from displayResults ─────────────────────────────────
   // Use server-computed unit_type_stats (unit-level accuracy) when available
@@ -695,10 +703,25 @@ export default function SearchPage({ onSelectListing }) {
     return () => clearTimeout(timer);
   }, [selUnit, selEsg, selHouseType, minPrice, maxPrice, minM2, maxM2]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const applyGmapsLink = () => {
-    const url = gmapsLink.trim();
+  const applyGmapsLink = async () => {
+    let url = gmapsLink.trim();
     if (!url) return;
     setGmapsError("");
+
+    // Resolve short links (goo.gl/maps/..., maps.app.goo.gl/...) via backend
+    const isShortLink = /goo\.gl\/maps|maps\.app\.goo\.gl/i.test(url);
+    if (isShortLink) {
+      try {
+        const res = await fetch(`${API}/resolve-url?url=${encodeURIComponent(url)}`);
+        const data = await res.json();
+        if (data.url) url = data.url;
+        else { setGmapsError("Could not resolve short link."); return; }
+      } catch {
+        setGmapsError("Could not resolve short link.");
+        return;
+      }
+    }
+
     const coords = parseGoogleMapsUrl(url);
     if (!coords) {
       setGmapsError("Could not extract coordinates. Use Share → Copy link on a pinned place.");
@@ -1048,7 +1071,7 @@ export default function SearchPage({ onSelectListing }) {
 
                 {/* ── LEFT: scrollable card list ── */}
                 <div>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10, gap:8, flexWrap:"wrap" }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>
                       Developments <span style={{ color: T.textMuted, fontWeight: 400, fontSize: 12 }}>({displayResults.length})</span>
                       {filteredDelisted.length > 0 && (
@@ -1088,23 +1111,21 @@ export default function SearchPage({ onSelectListing }) {
                     ))}
 
                     {filteredDelisted.length > 0 && (
-                      <>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 0 2px" }}>
-                          <div style={{ flex: 1, height: 1, background: "#FCA5A5" }} />
-                          <span style={{ fontSize: 10, fontWeight: 700, color: "#6B2A2A",
-                            background: "#FEF2F2", border: "1px solid #FCA5A5",
-                            borderRadius: 5, padding: "2px 8px", whiteSpace: "nowrap" }}>
-                            {filteredDelisted.length} Delisted
-                          </span>
-                          <div style={{ flex: 1, height: 1, background: "#FCA5A5" }} />
-                        </div>
-                        {filteredDelisted.map(l => (
-                          <DelistedSearchCard key={`d-${l.listing_id}`} l={l}
-                            onSelect={l => onSelectListing(l.listing_id, l.property_name, l.municipality)}
-                          />
-                        ))}
-                      </>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 0 2px" }}>
+                        <div style={{ flex: 1, height: 1, background: "#FCA5A5" }} />
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#6B2A2A",
+                          background: "#FEF2F2", border: "1px solid #FCA5A5",
+                          borderRadius: 5, padding: "2px 8px", whiteSpace: "nowrap" }}>
+                          {filteredDelisted.length} Delisted
+                        </span>
+                        <div style={{ flex: 1, height: 1, background: "#FCA5A5" }} />
+                      </div>
                     )}
+                    {filteredDelisted.map(l => (
+                      <DelistedSearchCard key={`d-${l.listing_id}`} l={l}
+                        onSelect={l => onSelectListing(l.listing_id, l.property_name, l.municipality)}
+                      />
+                    ))}
                   </div>
                 </div>
 
