@@ -89,6 +89,17 @@ export const fmtFull = v => v == null ? "—" : `€${Number(v).toLocaleString("
 
 import React from "react";
 
+// Inject chart animation keyframe once
+if (typeof document !== "undefined" && !document.getElementById("_chart-anim-style")) {
+  const s = document.createElement("style");
+  s.id = "_chart-anim-style";
+  s.textContent = `@keyframes chartFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }`;
+  document.head.appendChild(s);
+}
+
 export function StatCard({ label, value, sub, accent, children }) {
   return (
     <div style={{
@@ -109,7 +120,7 @@ export function StatCard({ label, value, sub, accent, children }) {
   );
 }
 
-export function ChartCard({ title, children, span }) {
+export function ChartCard({ title, children, span, animKey }) {
   return (
     <div style={{
       background: "#FFFFFF",
@@ -121,7 +132,9 @@ export function ChartCard({ title, children, span }) {
     }}>
       <div style={{ color: "#0B1239", fontWeight: 700, fontSize: 15,
         marginBottom: 18, letterSpacing: "-0.02em" }}>{title}</div>
-      {children}
+      <div key={animKey} style={{ animation: animKey ? "chartFadeIn 0.35s cubic-bezier(0.22,1,0.36,1)" : "none" }}>
+        {children}
+      </div>
     </div>
   );
 }

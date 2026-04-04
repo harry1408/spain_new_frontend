@@ -279,7 +279,7 @@ function DelistedSearchCard({ l, onSelect }) {
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
           <span style={{ background: "#FEF2F2", color: "#6B2A2A", border: "1px solid #FCA5A5",
-            borderRadius: 5, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>Delisted</span>
+            borderRadius: 5, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>Sold Out</span>
           {l.esg_grade && l.esg_grade !== "nan" && l.esg_grade !== "Unknown" && (
             <span style={{ background: ESG_COLORS[l.esg_grade] || "#8A96B4", color: "#fff",
               borderRadius: 5, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>
@@ -1077,7 +1077,7 @@ export default function SearchPage({ onSelectListing }) {
                       {filteredDelisted.length > 0 && (
                         <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: "#6B2A2A",
                           background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: 4, padding: "1px 6px" }}>
-                          +{filteredDelisted.length} delisted
+                          +{filteredDelisted.length} sold out
                         </span>
                       )}
                     </div>
@@ -1116,7 +1116,7 @@ export default function SearchPage({ onSelectListing }) {
                         <span style={{ fontSize: 10, fontWeight: 700, color: "#6B2A2A",
                           background: "#FEF2F2", border: "1px solid #FCA5A5",
                           borderRadius: 5, padding: "2px 8px", whiteSpace: "nowrap" }}>
-                          {filteredDelisted.length} Delisted
+                          {filteredDelisted.length} Sold Out
                         </span>
                         <div style={{ flex: 1, height: 1, background: "#FCA5A5" }} />
                       </div>

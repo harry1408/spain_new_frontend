@@ -6,29 +6,6 @@ import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 
 // ── Price / €/m² toggle hook ─────────────────────────────────────────────
-function usePriceToggle() {
-  const [showM2, setShowM2] = React.useState(false);
-  return [showM2, setShowM2];
-}
-
-// ── Toggle pill button ────────────────────────────────────────────────────
-function ToggleBtn({ showM2, onToggle }) {
-  return (
-    <div onClick={onToggle}
-      style={{ display:"inline-flex", alignItems:"center", gap:0, borderRadius:20,
-        border:`1px solid ${T.border}`, overflow:"hidden", cursor:"pointer",
-        fontSize:10, fontWeight:700, userSelect:"none", flexShrink:0 }}>
-      <span style={{ padding:"3px 10px",
-        background: !showM2 ? PRICE_COLOR : "transparent",
-        color: !showM2 ? "#fff" : T.textMuted,
-        transition:"all 0.2s" }}>Price</span>
-      <span style={{ padding:"3px 10px",
-        background: showM2 ? M2_COLOR : "transparent",
-        color: showM2 ? "#fff" : T.textMuted,
-        transition:"all 0.2s" }}>€/m²</span>
-    </div>
-  );
-}
 
 function TypeSearchMultiSelect({ label, options, value, onChange, width=200 }) {
   const [open, setOpen] = useState(false);
@@ -119,8 +96,15 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200 }) {
 
 function MultiSelect({ label, options, value, onChange }) {
   const [open, setOpen] = useState(false);
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
   return (
-    <div style={{ position:"relative" }}>
+    <div ref={ref} style={{ position:"relative" }}>
       <button onClick={() => setOpen(o=>!o)} style={{ background:"#fff", border:`1px solid ${T.border}`, color: value.length?T.navy:T.textSub, padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:12, whiteSpace:"nowrap" }}>
         {label}{value.length?` (${value.length})`:""} ▾
       </button>
@@ -141,7 +125,7 @@ function MultiSelect({ label, options, value, onChange }) {
   );
 }
 
-function Delta({ cur, prev, field, format }) {
+function Delta({ cur, prev, field, format, prevPeriod }) {
   if (!prev || !prev[field]) return null;
   const diff = cur[field] - prev[field];
   const pct = ((diff / prev[field]) * 100).toFixed(1);
@@ -150,76 +134,141 @@ function Delta({ cur, prev, field, format }) {
   return (
     <div style={{ fontSize:10, marginTop:2, color: zero?T.textMuted: up?T.navy:T.green }}>
       {zero ? "↔ No change" : `${up?"▲":"▼"} ${format ? format(Math.abs(diff)) : Number(Math.abs(diff)).toLocaleString("en",{maximumFractionDigits:2})} (${Math.abs(pct)}%)`}
-      <span style={{ color:"#8A96B4", marginLeft:4 }}>vs prev</span>
+      <span style={{ color:"#8A96B4", marginLeft:4 }}>vs {prevPeriod || "prev"}</span>
     </div>
   );
 }
 
-// ── Price by Unit Type — toggle chart ────────────────────────────────────
-function PriceByUnitTypeChart({ data }) {
-  const [showM2, setShowM2] = usePriceToggle();
-  const dataKey = showM2 ? "avg_price_m2" : "avg_price";
-  const yFmt = showM2 ? v=>`€${Number(v/1000).toFixed(1)}K` : v=>`€${Number(v/1000).toFixed(0)}K`;
-  const ttFmt = showM2 ? v=>`€${Math.round(Number(v)).toLocaleString()}/m²` : v=>fmtFull(v);
-  // Normalise data so avg_price_m2 is always a number
+// ── Price by Unit Type — two separate charts ─────────────────────────────
+function PriceByUnitTypeChart({ data, animKey }) {
   const safe = (data||[]).map(d=>({ ...d, avg_price_m2: Number(d.avg_price_m2)||0 }));
-  const maxVal = safe.length ? Math.max(...safe.map(d=>d[dataKey]||0)) : 1;
+  const maxM2    = safe.length ? Math.max(...safe.map(d=>d.avg_price_m2||0)) : 1;
+  const maxPrice = safe.length ? Math.max(...safe.map(d=>d.avg_price||0)) : 1;
   return (
-    <ChartCard title="Price by Unit Type">
-      <div style={{ display:"flex", justifyContent:"flex-end", marginTop:-28, marginBottom:8 }}>
-        <ToggleBtn showM2={showM2} onToggle={()=>setShowM2(v=>!v)}/>
-      </div>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={safe} barSize={30}>
-          <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-          <XAxis dataKey="unit_type" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
-          <YAxis tickFormatter={yFmt} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}
-            domain={[0, Math.ceil(maxVal * 1.15)]} />
-          <Tooltip formatter={v=>[ttFmt(v), showM2?"Avg €/m²":"Avg Price"]}
-            contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
-          <Bar dataKey={dataKey} name={showM2?"Avg €/m²":"Avg Price"} radius={[5,5,0,0]} isAnimationActive={false}>
-            {safe.map((e,i)=><Cell key={i} fill={showM2?M2_COLOR:(UNIT_COLORS[e.unit_type]||COLORS[i])}/>)}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </ChartCard>
+    <>
+      <ChartCard title="€/m² by Unit Type" animKey={animKey}>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={safe} barSize={30}>
+            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+            <XAxis dataKey="unit_type" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={v=>`€${Math.round(v).toLocaleString()}`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}
+              domain={[0, Math.ceil(maxM2 * 1.15)]} />
+            <Tooltip formatter={v=>[`€${Math.round(Number(v)).toLocaleString()}/m²`, "Avg €/m²"]}
+              contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+            <Bar dataKey="avg_price_m2" name="Avg €/m²" radius={[5,5,0,0]} isAnimationActive={false}>
+              {safe.map((_,i)=><Cell key={i} fill={M2_COLOR}/>)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
+      <ChartCard title="Price by Unit Type" animKey={animKey}>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={safe} barSize={30}>
+            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+            <XAxis dataKey="unit_type" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={v=>`€${Math.round(v/1000).toLocaleString()}K`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}
+              domain={[0, Math.ceil(maxPrice * 1.15)]} />
+            <Tooltip formatter={v=>[fmtFull(v), "Avg Price"]}
+              contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+            <Bar dataKey="avg_price" name="Avg Price" radius={[5,5,0,0]} isAnimationActive={false}>
+              {safe.map((e,i)=><Cell key={i} fill={UNIT_COLORS[e.unit_type]||COLORS[i]}/>)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
+    </>
   );
 }
 
 
-// ── Price Distribution — toggle chart ────────────────────────────────────
-function PriceDistributionChart({ data, m2data, height=220 }) {
-  const [showM2, setShowM2] = usePriceToggle();
-  const safe = showM2
-    ? (m2data||[]).map(d=>({ ...d, count: Number(d.count)||0 }))
-    : (data||[]).map(d=>({ ...d, count: Number(d.count)||0 }));
-  const ttFmt = v => `${v} units`;
-  const label = showM2 ? "Units (by €/m²)" : "Units (by price)";
-  const maxVal = safe.length ? Math.max(...safe.map(d=>d.count||0)) : 1;
-  const baseColor = showM2 ? M2_COLOR : PRICE_COLOR;
+// ── Price Distribution — two separate charts ─────────────────────────────
+function PriceDistributionChart({ data, m2data, height=220, animKey }) {
+  const safePrice = (data||[]).map(d=>({ ...d, count: Number(d.count)||0 }));
+  const safeM2    = (m2data||[]).map(d=>({ ...d, count: Number(d.count)||0 }));
+  const maxPrice  = safePrice.length ? Math.max(...safePrice.map(d=>d.count||0)) : 1;
+  const maxM2     = safeM2.length    ? Math.max(...safeM2.map(d=>d.count||0))    : 1;
   return (
-    <ChartCard title="Price Distribution">
-      <div style={{ display:"flex", justifyContent:"flex-end", marginTop:-28, marginBottom:8 }}>
-        <ToggleBtn showM2={showM2} onToggle={()=>setShowM2(v=>!v)}/>
-      </div>
-      <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={safe} barSize={26}>
-          <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-          <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
-            domain={[0, Math.ceil(maxVal * 1.15)]} />
-          <Tooltip formatter={v=>[ttFmt(v), label]}
-            contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
-          <Bar dataKey="count" name={label} radius={[4,4,0,0]} isAnimationActive={false}>
-            {safe.map((_,i)=><Cell key={i} fill={baseColor} fillOpacity={0.35 + (i / Math.max(safe.length-1,1)) * 0.65}/>)}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </ChartCard>
+    <>
+      <ChartCard title="€/m² Distribution" animKey={animKey}>
+        <ResponsiveContainer width="100%" height={height}>
+          <BarChart data={safeM2} barSize={26}>
+            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+            <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={v=>Number(v).toLocaleString()} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
+              domain={[0, Math.ceil(maxM2 * 1.15)]} />
+            <Tooltip formatter={v=>[`${Number(v).toLocaleString()} units`, "Units (by €/m²)"]}
+              contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+            <Bar dataKey="count" name="Units (by €/m²)" radius={[4,4,0,0]} isAnimationActive={false}>
+              {safeM2.map((_,i)=><Cell key={i} fill={M2_COLOR} fillOpacity={0.35 + (i / Math.max(safeM2.length-1,1)) * 0.65}/>)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
+      <ChartCard title="Price Distribution" animKey={animKey}>
+        <ResponsiveContainer width="100%" height={height}>
+          <BarChart data={safePrice} barSize={26}>
+            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+            <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={v=>Number(v).toLocaleString()} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
+              domain={[0, Math.ceil(maxPrice * 1.15)]} />
+            <Tooltip formatter={v=>[`${Number(v).toLocaleString()} units`, "Units (by price)"]}
+              contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+            <Bar dataKey="count" name="Units (by price)" radius={[4,4,0,0]} isAnimationActive={false}>
+              {safePrice.map((_,i)=><Cell key={i} fill={PRICE_COLOR} fillOpacity={0.35 + (i / Math.max(safePrice.length-1,1)) * 0.65}/>)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
+    </>
   );
 }
 
 // ── Scatter Popup Modal ───────────────────────────────────────────────────
+function UnitByHouseTypeChart({ data, animKey }) {
+  const [activeUT, setActiveUT] = React.useState(null);
+  const houseTypes = [...new Set(data.map(d=>d.house_type).filter(Boolean))].sort();
+  const unitTypes  = [...new Set(data.map(d=>d.unit_type).filter(Boolean))].sort();
+  const barData = houseTypes.map(ht => {
+    const row = { house_type: ht };
+    unitTypes.forEach(ut => {
+      const found = data.find(d=>d.house_type===ht && d.unit_type===ut);
+      row[ut] = found ? found.count : 0;
+    });
+    return row;
+  });
+  const utColors = unitTypes.map(ut => UNIT_COLORS[ut] || COLORS[unitTypes.indexOf(ut) % COLORS.length]);
+  return (
+    <ChartCard title="Unit Type by House Type — click segment to highlight" animKey={animKey}>
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={barData} barSize={32}
+          onClick={d => {
+            if (!d?.activePayload) return;
+            const ut = d.activePayload[0]?.dataKey;
+            setActiveUT(prev => prev === ut ? null : ut);
+          }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+          <XAxis dataKey="house_type" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+          <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }}
+            formatter={(v, name) => [`${Number(v).toLocaleString()} units`, name]} />
+          <Legend wrapperStyle={{ fontSize:10, paddingTop:6 }} />
+          {unitTypes.map((ut, i) => (
+            <Bar key={ut} dataKey={ut} stackId="a" fill={utColors[i]}
+              opacity={activeUT && activeUT !== ut ? 0.2 : 1}
+              radius={i === unitTypes.length-1 ? [4,4,0,0] : [0,0,0,0]} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+      {activeUT && (
+        <div style={{ fontSize:10, color:T.textMuted, marginTop:4 }}>
+          Highlighted: <strong style={{ color:UNIT_COLORS[activeUT]||T.navy }}>{activeUT}</strong>
+          <button onClick={()=>setActiveUT(null)} style={{ marginLeft:8, background:"none", border:"none", color:T.textMuted, cursor:"pointer", fontSize:10 }}>✕ clear</button>
+        </div>
+      )}
+    </ChartCard>
+  );
+}
+
 function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
   const [selectedIds, setSelectedIds] = React.useState(new Set([dot.sub_listing_id]));
   const [unitFilter, setUnitFilter] = React.useState([]);
@@ -297,16 +346,57 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
         {/* Body: chart left, map right */}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", flex:1, overflow:"hidden", minHeight:0 }}>
 
-          {/* Left: scatter chart + selected list */}
+          {/* Left: scatter charts + selected list */}
           <div style={{ padding:"18px 20px", borderRight:`1px solid ${T.border}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
             <div style={{ fontSize:11, color:T.textMuted, marginBottom:8 }}>Click dots to select · selected show on map</div>
-            <ResponsiveContainer width="100%" height={280}>
+
+            {/* Chart 1: Size vs €/m² */}
+            <div style={{ fontSize:11, fontWeight:600, color:T.textSub, marginBottom:4 }}>Size vs €/m²</div>
+            <ResponsiveContainer width="100%" height={200}>
               <ScatterChart margin={{ top:5, right:10, bottom:24, left:5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
                 <XAxis type="number" dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
-                  domain={['auto','auto']}
+                  domain={[0, 500]} ticks={Array.from({length:26}, (_,i)=>i*20)}
                   label={{ value:"Size (m²)", position:"insideBottom", fill:T.textSub, fontSize:10, dy:16 }}/>
-                <YAxis type="number" dataKey="price" name="Price" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`}
+                <YAxis type="number" dataKey="price_per_m2" name="€/m²" tickFormatter={v=>`€${Math.round(v).toLocaleString()}`}
+                  tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}/>
+                <Tooltip cursor={{ strokeDasharray:"3 3" }}
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const d = payload[0]?.payload;
+                    return (
+                      <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, padding:"9px 12px", fontSize:11, boxShadow:T.shadowMd }}>
+                        <div style={{ fontWeight:700, color:UNIT_COLORS[d.unit_type]||T.navy }}>{d.unit_type} — {d.property_name}</div>
+                        <div>{d.price_per_m2 ? `€${Math.round(d.price_per_m2).toLocaleString()}/m²` : "—"} · {d.size}m²</div>
+                        <div style={{ color:T.textMuted }}>{d.municipality}</div>
+                        <div style={{ color:T.navyMid, marginTop:3 }}>Click to {selectedIds.has(d.sub_listing_id)?"deselect":"select"}</div>
+                      </div>
+                    );
+                  }}/>
+                <Scatter data={visibleDots.filter(d=>d.price_per_m2)} onClick={pt => toggleId(pt.sub_listing_id)}
+                  shape={props => {
+                    const d = props.payload;
+                    const isSel = selectedIds.has(d.sub_listing_id);
+                    const color = UNIT_COLORS[d.unit_type] || T.navy;
+                    return (
+                      <circle cx={props.cx} cy={props.cy}
+                        r={isSel ? 9 : 5} fill={color} fillOpacity={isSel ? 1 : 0.5}
+                        stroke={isSel ? "#fff" : color} strokeWidth={isSel ? 2.5 : 0}
+                        style={{ cursor:"pointer", filter: isSel ? `drop-shadow(0 0 4px ${color})` : "none" }}/>
+                    );
+                  }}/>
+              </ScatterChart>
+            </ResponsiveContainer>
+
+            {/* Chart 2: Size vs Price */}
+            <div style={{ fontSize:11, fontWeight:600, color:T.textSub, marginBottom:4, marginTop:8 }}>Size vs Price</div>
+            <ResponsiveContainer width="100%" height={200}>
+              <ScatterChart margin={{ top:5, right:10, bottom:24, left:5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
+                <XAxis type="number" dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
+                  domain={[0, 500]} ticks={Array.from({length:26}, (_,i)=>i*20)}
+                  label={{ value:"Size (m²)", position:"insideBottom", fill:T.textSub, fontSize:10, dy:16 }}/>
+                <YAxis type="number" dataKey="price" name="Price" tickFormatter={v=>`€${Math.round(v/1000).toLocaleString()}K`}
                   tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}/>
                 <Tooltip cursor={{ strokeDasharray:"3 3" }}
                   content={({ active, payload }) => {
@@ -328,11 +418,8 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
                     const color = UNIT_COLORS[d.unit_type] || T.navy;
                     return (
                       <circle cx={props.cx} cy={props.cy}
-                        r={isSel ? 9 : 5}
-                        fill={isSel ? color : color}
-                        fillOpacity={isSel ? 1 : 0.5}
-                        stroke={isSel ? "#fff" : color}
-                        strokeWidth={isSel ? 2.5 : 0}
+                        r={isSel ? 9 : 5} fill={color} fillOpacity={isSel ? 1 : 0.5}
+                        stroke={isSel ? "#fff" : color} strokeWidth={isSel ? 2.5 : 0}
                         style={{ cursor:"pointer", filter: isSel ? `drop-shadow(0 0 4px ${color})` : "none" }}/>
                     );
                   }}/>
@@ -392,10 +479,11 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
 }
 
 export default function SummaryPage({ onDrilldown, onGoListing }) {
-  const [filters, setFilters] = useState({ municipalities:[], provinces:[], province_munis:{}, unit_types:[], delivery_years:[], esg_grades:[], periods:[], latest_period:"", prev_period:null });
-  const [sel, setSel] = useState({ province:[], municipality:[], unit_type:[], year:[], esg:[] });
+  const [filters, setFilters] = useState({ municipalities:[], provinces:[], province_munis:{}, unit_types:[], house_types:[], delivery_years:[], esg_grades:[], periods:[], latest_period:"", prev_period:null });
+  const [sel, setSel] = useState({ province:[], municipality:[], unit_type:[], house_type:[], year:[], esg:[] });
   const [stats, setStats]   = useState(null);
   const [charts, setCharts] = useState({});
+  const [chartVer, setChartVer] = useState(0);
   const [trend, setTrend]   = useState({});
   const [loading, setLoading] = useState(false);
   const [tab, setTab]       = useState("snapshot");
@@ -412,6 +500,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
     sel.province.forEach(v=>p.append("province",v));
     sel.municipality.forEach(v=>p.append("municipality",v));
     sel.unit_type.forEach(v=>p.append("unit_type",v));
+    sel.house_type.forEach(v=>p.append("house_type",v));
     sel.year.forEach(v=>p.append("year",v));
     sel.esg.forEach(v=>p.append("esg",v));
     return p.toString();
@@ -421,7 +510,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
     setLoading(true);
     const qs = q();
     try {
-      const [st, byType, dl, distData, muni, esgR, scatter] = await Promise.all([
+      const [st, byType, dl, distData, muni, esgR, scatter, unitByHouse] = await Promise.all([
         fetch(`${API}/stats?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/price-by-unit-type?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/delivery-timeline?${qs}`).then(r=>r.json()),
@@ -429,9 +518,11 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
         fetch(`${API}/charts/municipality-overview?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/esg-breakdown?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/size-vs-price?${qs}`).then(r=>r.json()),
+        fetch(`${API}/charts/unit-by-house-type?${qs}`).then(r=>r.json()),
       ]);
       setStats(st);
-      setCharts({ byType, dl, price_dist: distData.price_dist, m2_dist: distData.m2_dist, muni, esgR, scatter });
+      setCharts({ byType, dl, price_dist: distData.price_dist, m2_dist: distData.m2_dist, muni, esgR, scatter, unitByHouse });
+      setChartVer(v => v + 1);
     } catch(e) { console.error(e); }
     setLoading(false);
   }, [q]);
@@ -494,10 +585,11 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
           value={sel.municipality} width={200}
           onChange={v=>setSel(s=>({...s,municipality:v}))} />
         <MultiSelect label="Unit Type"    options={filters.unit_types}     value={sel.unit_type}    onChange={v=>setSel(s=>({...s,unit_type:v}))} />
+        <MultiSelect label="House Type"   options={filters.house_types||[]} value={sel.house_type}  onChange={v=>setSel(s=>({...s,house_type:v}))} />
         <MultiSelect label="Delivery Year" options={filters.delivery_years.map(String)} value={sel.year} onChange={v=>setSel(s=>({...s,year:v}))} />
         <MultiSelect label="ESG Grade"    options={filters.esg_grades}     value={sel.esg}          onChange={v=>setSel(s=>({...s,esg:v}))} />
-        {(sel.province.length||sel.municipality.length||sel.unit_type.length||sel.year.length||sel.esg.length) ? (
-          <button onClick={()=>setSel({province:[],municipality:[],unit_type:[],year:[],esg:[]})} style={{ background:"#FEF2F2", border:"1px solid rgba(192,57,43,0.4)", color:"#6B2A2A", padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:11 }}>✕ Clear all</button>
+        {(sel.province.length||sel.municipality.length||sel.unit_type.length||sel.house_type.length||sel.year.length||sel.esg.length) ? (
+          <button onClick={()=>setSel({province:[],municipality:[],unit_type:[],house_type:[],year:[],esg:[]})} style={{ background:"#FEF2F2", border:"1px solid rgba(192,57,43,0.4)", color:"#6B2A2A", padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:11 }}>✕ Clear all</button>
         ) : null}
         <div style={{ marginLeft:"auto", color:"#8A96B4", fontSize:12 }}>
           {filters.latest_period && <span style={{ color:"#0B1239" }}>Snapshot: {filters.latest_period}</span>}
@@ -516,7 +608,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
             { label:"Developments",     field:"total_developments", fmt:v=>v },
           ].map(({ label, field, fmt:f }) => (
             <StatCard key={label} label={label} value={f(stats[field])}>
-              <Delta cur={stats} prev={stats.prev} field={field} format={f} />
+              <Delta cur={stats} prev={stats.prev} field={field} format={f} prevPeriod={stats.prev_period} />
             </StatCard>
           ))}
         </div>
@@ -538,31 +630,31 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
         <div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:16 }}>
 
-            <PriceByUnitTypeChart data={charts.byType||[]} />
+            <PriceByUnitTypeChart data={charts.byType||[]} animKey={chartVer} />
 
-            <PriceDistributionChart data={charts.price_dist||[]} m2data={charts.m2_dist||[]} height={220} />
+            <PriceDistributionChart data={charts.price_dist||[]} m2data={charts.m2_dist||[]} height={220} animKey={chartVer} />
 
-            <ChartCard title="Delivery Timeline">
+            <ChartCard title="Delivery Timeline" animKey={chartVer}>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={charts.dl||[]} barSize={22}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
                   <XAxis dataKey="delivery_quarter" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                  <YAxis tickFormatter={v=>Number(v).toLocaleString()} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={v=>[Number(v).toLocaleString(), "Units"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
                   <Bar dataKey="count" name="Units" fill={T.navyMid} radius={[4,4,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
 
 
-            <ChartCard title="Top Municipalities — click to explore">
+            <ChartCard title="Top Municipalities — click to explore" animKey={chartVer}>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={(charts.muni||[]).slice(0,15)} layout="vertical" barSize={14}
                   onClick={d=>d&&d.activePayload&&onDrilldown&&onDrilldown(d.activePayload[0].payload.municipality)}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
-                  <XAxis type="number" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+                  <XAxis type="number" tickFormatter={v=>Number(v).toLocaleString()} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
                   <YAxis type="category" dataKey="municipality" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} width={120} />
-                  <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                  <Tooltip formatter={v=>[Number(v).toLocaleString(), "Units"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
                   <Bar dataKey="units" name="Units" radius={[0,5,5,0]} cursor="pointer">
                     {(charts.muni||[]).slice(0,15).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
                   </Bar>
@@ -570,49 +662,65 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
               </ResponsiveContainer>
             </ChartCard>
 
-            <ChartCard title="ESG Grade Breakdown">
-              {(() => {
-                // First grade (largest known) = darkest, then progressively lighter, Unknown = lightest grey
-                const ESG_PALETTE = { A:"#0B1239", B:"#2D3F8F", C:"#5566B8", D:"#8B99D4", E:"#BBC3E8", Unknown:"#D4D8EE" };
-                const esgData = charts.esgR || [];
-                const getColor = (grade) => ESG_PALETTE[grade] || "#9AA3C0";
-                return (
-                  <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                    <ResponsiveContainer width="45%" height={190}>
-                      <PieChart>
-                        <Pie data={esgData.filter(d=>d.esg_grade!=="Unknown")} dataKey="count" nameKey="esg_grade" cx="50%" cy="50%" outerRadius={72} innerRadius={36}>
-                          {esgData.filter(d=>d.esg_grade!=="Unknown").map((e,i)=><Cell key={i} fill={getColor(e.esg_grade)}/>)}
-                        </Pie>
-                        <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div style={{ flex:1, fontSize:12 }}>
-                      {esgData.map((e,i)=>(
-                        <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", borderBottom:`1px solid ${T.border}` }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                            <div style={{ width:8, height:8, borderRadius:2, background:getColor(e.esg_grade) }}/>
-                            <span style={{ color:T.text }}>{e.esg_grade}</span>
-                          </div>
-                          <span style={{ color:T.navy, fontWeight:600 }}>{e.count}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-            </ChartCard>
-
-            {/* Size vs Price — click dot to open popup */}
-            <ChartCard title="Size vs Price — click any dot for details">
+            {/* Size vs €/m² — click dot to open popup */}
+            <ChartCard title="Size vs €/m² — click any dot for details" animKey={chartVer}>
               <ResponsiveContainer width="100%" height={220}>
                 <ScatterChart margin={{ top:5, right:20, bottom:20, left:5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
                   <XAxis type="number" dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}
-                    domain={['auto','auto']}
+                    domain={[0, 500]} ticks={Array.from({length:26}, (_,i)=>i*20)}
                     label={{ value:"Size (m²)", position:"insideBottom", fill:T.textSub, fontSize:11, dy:16 }} />
-                  <YAxis type="number" dataKey="price" name="Price" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
+                  <YAxis type="number" dataKey="price_per_m2" name="€/m²" tickFormatter={v=>`€${Math.round(v).toLocaleString()}`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
                   <Tooltip cursor={{ strokeDasharray:"3 3" }}
-                    contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }}
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const d = payload[0]?.payload;
+                      return (
+                        <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:10, padding:"10px 14px", boxShadow:T.shadowMd, fontSize:12, pointerEvents:"none" }}>
+                          <div style={{ fontWeight:700, color:UNIT_COLORS[d.unit_type]||T.navy, marginBottom:4 }}>{d.unit_type} — {d.property_name}</div>
+                          <div style={{ color:T.text }}>€/m²: <strong style={{ color:T.navy }}>{d.price_per_m2 ? `€${Math.round(d.price_per_m2).toLocaleString("en")}` : "—"}</strong></div>
+                          <div style={{ color:T.text }}>Size: <strong>{d.size} m²</strong></div>
+                          <div style={{ color:T.textMuted, marginTop:4, fontSize:11 }}>{d.municipality} · {d.floor||"—"}</div>
+                          <div style={{ color:T.navyMid, fontSize:11, marginTop:3 }}>Click to open details ↗</div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Scatter
+                    data={(charts.scatter||[]).filter(d=>d.price_per_m2)}
+                    onClick={(pt) => setSelectedDot(pt)}
+                    shape={(props) => {
+                      const d = props.payload;
+                      const isSelected = selectedDot?.sub_listing_id === d.sub_listing_id;
+                      return (
+                        <circle cx={props.cx} cy={props.cy} r={isSelected ? 8 : 5}
+                          fill={UNIT_COLORS[d.unit_type]||T.navy} opacity={isSelected ? 1 : 0.85}
+                          stroke={isSelected ? "#fff" : "none"} strokeWidth={isSelected ? 2 : 0}
+                          style={{ cursor:"pointer" }}/>
+                      );
+                    }}
+                  />
+                </ScatterChart>
+              </ResponsiveContainer>
+              <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginTop:6 }}>
+                {Object.entries(UNIT_COLORS).map(([ut, color]) => (
+                  <div key={ut} style={{ display:"flex", alignItems:"center", gap:4, fontSize:11, color:T.textSub }}>
+                    <div style={{ width:9, height:9, borderRadius:"50%", background:color }}/>{ut}
+                  </div>
+                ))}
+              </div>
+            </ChartCard>
+
+            {/* Size vs Price — click dot to open popup */}
+            <ChartCard title="Size vs Price — click any dot for details" animKey={chartVer}>
+              <ResponsiveContainer width="100%" height={220}>
+                <ScatterChart margin={{ top:5, right:20, bottom:20, left:5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                  <XAxis type="number" dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}
+                    domain={[0, 500]} ticks={Array.from({length:26}, (_,i)=>i*20)}
+                    label={{ value:"Size (m²)", position:"insideBottom", fill:T.textSub, fontSize:11, dy:16 }} />
+                  <YAxis type="number" dataKey="price" name="Price" tickFormatter={v=>`€${Math.round(v/1000).toLocaleString()}K`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
+                  <Tooltip cursor={{ strokeDasharray:"3 3" }}
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null;
                       const d = payload[0]?.payload;
@@ -621,7 +729,6 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                           <div style={{ fontWeight:700, color:UNIT_COLORS[d.unit_type]||T.navy, marginBottom:4 }}>{d.unit_type} — {d.property_name}</div>
                           <div style={{ color:T.text }}>Price: <strong style={{ color:T.navy }}>{fmtFull(d.price)}</strong>{d.price_per_m2 ? <span style={{ color:T.textSub, fontSize:11 }}> · €{Math.round(d.price_per_m2).toLocaleString("en")}/m²</span> : ""}</div>
                           <div style={{ color:T.text }}>Size: <strong>{d.size} m²</strong></div>
-                          {d.price_per_m2 && <div style={{ color:T.textSub }}>€/m²: {Math.round(d.price_per_m2).toLocaleString("en")}</div>}
                           <div style={{ color:T.textMuted, marginTop:4, fontSize:11 }}>{d.municipality} · {d.floor||"—"}</div>
                           <div style={{ color:T.navyMid, fontSize:11, marginTop:3 }}>Click to open details ↗</div>
                         </div>
@@ -652,6 +759,40 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                 ))}
               </div>
             </ChartCard>
+
+            {/* ESG Grade Breakdown */}
+            <ChartCard title="ESG Grade Breakdown" animKey={chartVer}>
+              {(() => {
+                const ESG_PALETTE = { A:"#0B1239", B:"#2D3F8F", C:"#5566B8", D:"#8B99D4", E:"#BBC3E8", Unknown:"#D4D8EE" };
+                const esgData = charts.esgR || [];
+                const getColor = (grade) => ESG_PALETTE[grade] || "#9AA3C0";
+                return (
+                  <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                    <ResponsiveContainer width="45%" height={190}>
+                      <PieChart>
+                        <Pie data={esgData.filter(d=>d.esg_grade!=="Unknown")} dataKey="count" nameKey="esg_grade" cx="50%" cy="50%" outerRadius={72} innerRadius={36}>
+                          {esgData.filter(d=>d.esg_grade!=="Unknown").map((e,i)=><Cell key={i} fill={getColor(e.esg_grade)}/>)}
+                        </Pie>
+                        <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div style={{ flex:1, fontSize:12 }}>
+                      {esgData.map((e,i)=>(
+                        <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", borderBottom:`1px solid ${T.border}` }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                            <div style={{ width:8, height:8, borderRadius:2, background:getColor(e.esg_grade) }}/>
+                            <span style={{ color:T.text }}>{e.esg_grade}</span>
+                          </div>
+                          <span style={{ color:T.navy, fontWeight:600 }}>{e.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </ChartCard>
+
+            <UnitByHouseTypeChart data={charts.unitByHouse||[]} animKey={chartVer} />
           </div>
 
           {/* ── Scatter popup modal ─────────────────────────────────── */}
@@ -678,9 +819,9 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                   <LineChart data={trend.mkt||[]}>
                     <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
                     <XAxis dataKey="period" tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="price" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="m2" orientation="right" tickFormatter={v=>`€${v}`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <Tooltip formatter={(v,n)=>n==="Avg Price"?[fmtFull(v),n]:[`€${v}`,n]} contentStyle={{ background:"#fff", border:"1px solid #0B1239", borderRadius:8, fontSize:12 }} />
+                    <YAxis yAxisId="price" tickFormatter={v=>`€${Math.round(v/1000).toLocaleString()}K`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <YAxis yAxisId="m2" orientation="right" tickFormatter={v=>`€${Number(v).toLocaleString()}`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <Tooltip formatter={(v,n)=>n==="Avg Price"?[fmtFull(v),n]:[`€${Number(v).toLocaleString()}/m²`,n]} contentStyle={{ background:"#fff", border:"1px solid #0B1239", borderRadius:8, fontSize:12 }} />
                     <Legend wrapperStyle={{ fontSize:11, color:"#6B7A9F" }} />
                     <Line yAxisId="price" type="monotone" dataKey="avg_price" name="Avg Price" stroke={T.navy} strokeWidth={2.5} dot={{ r:5, fill:T.navy }} />
                     <Line yAxisId="m2" type="monotone" dataKey="avg_price_m2" name="Avg €/m²" stroke={M2_COLOR} strokeWidth={2.5} dot={{ r:5, fill:M2_COLOR }} strokeDasharray="5 3" />
@@ -714,7 +855,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                   <LineChart data={Object.values(utByPeriod)}>
                     <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
                     <XAxis dataKey="period" tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis tickFormatter={v=>`€${(v/1000).toFixed(0)}K`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={v=>`€${Math.round(v/1000).toLocaleString()}K`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
                     <Tooltip formatter={(v)=>[fmtFull(v)]} contentStyle={{ background:"#fff", border:"1px solid #0B1239", borderRadius:8, fontSize:12 }} />
                     <Legend wrapperStyle={{ fontSize:11 }} />
                     {ut_lines.map(ut=>(

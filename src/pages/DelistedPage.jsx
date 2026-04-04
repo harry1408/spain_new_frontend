@@ -22,7 +22,7 @@ function DelistedCard({ l, onClick }) {
         </div>
         <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
           <span style={{ background:"#FEF2F2", color:"#6B2A2A", border:"1px solid #FCA5A5",
-            borderRadius:5, padding:"2px 8px", fontSize:10, fontWeight:700 }}>Delisted</span>
+            borderRadius:5, padding:"2px 8px", fontSize:10, fontWeight:700 }}>Sold Out</span>
           {l.esg_grade && l.esg_grade !== "nan" && <Tag label={`ESG ${l.esg_grade}`} color={esgColor}/>}
         </div>
       </div>
@@ -92,7 +92,7 @@ function DelistedApartments({ listingId, listingName, onBack }) {
               {data.property_name}
             </h2>
             <span style={{ background:"#FEF2F2", color:"#6B2A2A", border:"1px solid #FCA5A5",
-              borderRadius:5, padding:"3px 10px", fontSize:11, fontWeight:700 }}>Delisted</span>
+              borderRadius:5, padding:"3px 10px", fontSize:11, fontWeight:700 }}>Sold Out</span>
           </div>
           <div style={{ color:T.textSub, fontSize:12, marginBottom:4 }}>
             {data.developer && <><strong style={{ color:T.text }}>{data.developer}</strong> · </>}
@@ -105,7 +105,7 @@ function DelistedApartments({ listingId, listingName, onBack }) {
           style={{ background:"#fff", border:`1px solid ${T.border}`, color:T.textSub,
             padding:"8px 16px", borderRadius:9, cursor:"pointer", fontSize:12, fontWeight:600,
             boxShadow:T.shadow }}>
-          ← All Delisted
+          ← All Sold Out
         </button>
       </div>
 
@@ -253,7 +253,7 @@ export default function DelistedPage({ onGoListing }) {
       <div style={{ marginBottom:20 }}>
         <h2 style={{ margin:"0 0 4px", fontFamily:"'Inter',sans-serif", fontSize:28,
           color:T.text, fontWeight:400 }}>
-          Delisted Properties
+          Sold Out Properties
         </h2>
         <div style={{ color:T.textSub, fontSize:12 }}>
           Developments present in <strong>{periods.prev}</strong> but not in <strong>{periods.latest}</strong>
@@ -263,7 +263,7 @@ export default function DelistedPage({ onGoListing }) {
       {/* KPI row */}
       {summary.count > 0 && (
         <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
-          <StatCard label="Delisted Developments" value={summary.count} accent="#6B2A2A" />
+          <StatCard label="Sold Out Developments" value={summary.count} accent="#6B2A2A" />
           <StatCard label="Total Apartments"       value={(summary.units||0).toLocaleString()} />
           <StatCard label="Avg Last Price"         value={fmt(summary.avg_price)} />
           <StatCard label="Avg Last €/m²"          value={summary.avg_price_m2 != null ? `€${Math.round(summary.avg_price_m2).toLocaleString("en")}` : "—"} accent={M2_COLOR} />
