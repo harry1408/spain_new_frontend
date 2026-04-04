@@ -24,7 +24,7 @@ export default function App() {
     ["search",   "Search"],
     ["summary",  "Market Summary"],
     ["drilldown","Analysis"],
-    ["delisted", "Delisted"],
+    ["delisted", "Sold Out"],
   ];
 
   const activeTab = (nav.page==="listing"||nav.page==="apartment") ? "drilldown" : nav.page;
