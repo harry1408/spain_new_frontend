@@ -296,9 +296,10 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200, nav
 
 export default function DrilldownPage({ municipality, onSelectMunicipality, onSelectListing, onBackToSearch }) {
   const [muniList,    setMuniList]    = useState([]);
-  const [filters,     setFilters]     = useState({ provinces:[], province_munis:{} });
+  const [filters,     setFilters]     = useState({ provinces:[], province_munis:{}, house_types:[] });
   const [selProvince, setSelProvince] = useState([]);
   const [selMuni,     setSelMuni]     = useState([]);
+  const [selHouseType,setSelHouseType]= useState([]);
   const [sortBy,      setSortBy]      = useState("units");
   const [muniData,    setMuniData]    = useState(null);
   const [mapListings, setMapListings] = useState([]);
@@ -316,11 +317,19 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   const [fMinM2,         setFMinM2]         = useState("");
   const [fMaxM2,         setFMaxM2]         = useState("");
 
-  // All municipalities (for selector)
+  // Filters (once)
   useEffect(() => {
-    fetch(`${API}/charts/municipality-overview`).then(r=>r.json()).then(setMuniList).catch(()=>{});
-    fetch(`${API}/filters`).then(r=>r.json()).then(f => setFilters({ provinces: f.provinces||[], province_munis: f.province_munis||{} })).catch(()=>{});
+    fetch(`${API}/filters`).then(r=>r.json()).then(f => setFilters({
+      provinces: f.provinces||[], province_munis: f.province_munis||{}, house_types: f.house_types||[]
+    })).catch(()=>{});
   }, []);
+
+  // Municipality overview — re-fetch when house type filter changes
+  useEffect(() => {
+    const qs = new URLSearchParams();
+    selHouseType.forEach(h => qs.append("house_type", h));
+    fetch(`${API}/charts/municipality-overview?${qs}`).then(r=>r.json()).then(setMuniList).catch(()=>{});
+  }, [selHouseType]);
 
   // Municipality detail
   useEffect(() => {
@@ -459,12 +468,19 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
             width={240}
             onChange={v => setSelMuni(v)}
           />
-          {(selProvince.length > 0 || selMuni.length > 0) && (
-            <button onClick={() => { setSelProvince([]); setSelMuni([]); }}
+          <TypeSearchMultiSelect
+            label="House Type"
+            options={filters.house_types}
+            value={selHouseType}
+            width={180}
+            onChange={v => setSelHouseType(v)}
+          />
+          {(selProvince.length > 0 || selMuni.length > 0 || selHouseType.length > 0) && (
+            <button onClick={() => { setSelProvince([]); setSelMuni([]); setSelHouseType([]); }}
               style={{ background:"#FEF2F2", border:"1px solid rgba(220,38,38,0.3)", color:"#6B2A2A",
                 padding:"6px 12px", borderRadius:7, cursor:"pointer", fontSize:11 }}>✕ Clear filters</button>
           )}
-          {(selProvince.length > 0 || selMuni.length > 0) && (() => {
+          {(selProvince.length > 0 || selMuni.length > 0 || selHouseType.length > 0) && (() => {
             const params = new URLSearchParams();
             selProvince.forEach(p => params.append("provinces", p));
             sorted.forEach(m => params.append("municipalities", m.municipality));
