@@ -882,6 +882,54 @@ export default function SearchPage({ onSelectListing }) {
         )}
       </div>
 
+      {/* ── Hero banner (pre-search) ── */}
+      {!searched && (() => {
+        if (!document.getElementById("search-hero-kf")) {
+          const s = document.createElement("style");
+          s.id = "search-hero-kf";
+          s.textContent = `
+            @keyframes heroFadeUp { from { opacity:0; transform:translateY(32px); } to { opacity:1; transform:translateY(0); } }
+            @keyframes heroWordIn { from { opacity:0; transform:translateY(16px) scale(0.96); } to { opacity:1; transform:translateY(0) scale(1); } }
+            @keyframes heroPulse  { 0%,100% { opacity:0.18; transform:scale(1); } 50% { opacity:0.32; transform:scale(1.06); } }
+            @keyframes heroLine   { from { width:0; } to { width:100%; } }
+          `;
+          document.head.appendChild(s);
+        }
+        const words = ["Benchmark", "your", "property"];
+        const delays = [0, 0.18, 0.36];
+        return (
+          <div style={{ textAlign:"center", padding:"64px 20px 48px", animation:"heroFadeUp 0.6s cubic-bezier(0.22,1,0.36,1) both" }}>
+            <div style={{ position:"relative", display:"inline-block", marginBottom:12 }}>
+              <div style={{ position:"absolute", inset:"-40px -80px", borderRadius:"50%",
+                background:"radial-gradient(ellipse, rgba(11,18,57,0.07) 0%, transparent 70%)",
+                animation:"heroPulse 3s ease-in-out infinite", pointerEvents:"none" }}/>
+              <div style={{ display:"flex", gap:16, justifyContent:"center", alignItems:"baseline", flexWrap:"wrap" }}>
+                {words.map((word, i) => (
+                  <span key={word} style={{
+                    fontFamily:"'DM Serif Display',serif",
+                    fontSize: i === 0 ? 52 : 48,
+                    fontWeight:400,
+                    color: i === 2 ? T.navyMid : T.navy,
+                    fontStyle: i === 1 ? "italic" : "normal",
+                    animation:`heroWordIn 0.55s cubic-bezier(0.22,1,0.36,1) ${delays[i]}s both`,
+                    display:"inline-block",
+                    lineHeight:1.1,
+                  }}>{word}</span>
+                ))}
+              </div>
+              <div style={{ position:"relative", height:3, marginTop:10, borderRadius:2, overflow:"hidden", background:T.navyTint }}>
+                <div style={{ position:"absolute", left:0, top:0, height:"100%", background:T.navyMid,
+                  borderRadius:2, animation:"heroLine 0.7s cubic-bezier(0.22,1,0.36,1) 0.5s both" }}/>
+              </div>
+            </div>
+            <div style={{ fontSize:14, color:T.textSub, marginTop:18, fontWeight:400,
+              animation:"heroFadeUp 0.6s cubic-bezier(0.22,1,0.36,1) 0.55s both" }}>
+              Search new developments across Spain and compare price, size &amp; ESG performance
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── Secondary filters ── */}
       {hasSelection && (
         <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:12,
@@ -1334,14 +1382,10 @@ export default function SearchPage({ onSelectListing }) {
       )}
 
       {!searched && (
-        <div style={{ textAlign: "center", padding: "60px 20px", color: T.textMuted }}>
-          <div style={{ fontSize: 40, marginBottom: 14 }}>🏗️</div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: T.textSub }}>
-            {selMuni.length > 0 ? "Now select an area or street to search" : "Select a municipality to begin"}
-          </div>
-          <div style={{ fontSize: 12, marginTop: 8 }}>
-            {selMuni.length > 0 ? "Choose an area, street, or locality from the second dropdown" : "Then choose a street or area to find developments"}
-          </div>
+        <div style={{ textAlign:"center", padding:"32px 20px", color:T.textMuted, fontSize:13 }}>
+          {selMuni.length > 0
+            ? "Select an area or street to search, or enter a Google Maps link above"
+            : "Select a municipality to begin"}
         </div>
       )}
     </div>
