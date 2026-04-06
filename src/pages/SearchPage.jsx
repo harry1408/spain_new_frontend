@@ -380,6 +380,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   const [results,         setResults]         = useState(_ss?.results  ?? null);
   const [delistedResults,   setDelistedResults]   = useState([]);
   const [showSoldOutOnly,   setShowSoldOutOnly]   = useState(false);
+  const [listingStatus,     setListingStatus]     = useState("all"); // "all" | "active" | "sold_out"
   const [gmapsLink,  setGmapsLink]  = useState("");
   const [gmapsLabel, setGmapsLabel] = useState("");
   const [gmapsError, setGmapsError] = useState("");
@@ -524,30 +525,34 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   }), [delistedResults, selUnit, selHouseType, selEsg, minPrice, maxPrice, minM2, maxM2, searchCenter, radiusKm]);
 
   const mapMarkers = useMemo(() => {
-    const active = (results || [])
-      .filter(l => l.lat && l.lng)
-      .map(l => ({
-        id:       l.listing_id,
-        lat:      l.lat,
-        lng:      l.lng,
-        label:    l.property_name,
-        sublabel: `${fmt(l.avg_price)} · ${l.units} apts`,
-        active:   l.listing_id === activePin,
-        color:    l.listing_id === activePin ? T.navyMid : "#8A96B4",
-      }));
-    const soldOut = filteredDelisted
-      .filter(l => l.lat && l.lng)
-      .map(l => ({
-        id:       `d-${l.listing_id}`,
-        lat:      l.lat,
-        lng:      l.lng,
-        label:    l.property_name,
-        sublabel: `Sold Out · ${fmt(l.avg_price)}`,
-        active:   false,
-        color:    "#DC2626",
-      }));
+    const active = listingStatus !== "sold_out"
+      ? displayResults
+          .filter(l => l.lat && l.lng)
+          .map(l => ({
+            id:       l.listing_id,
+            lat:      l.lat,
+            lng:      l.lng,
+            label:    l.property_name,
+            sublabel: `${fmt(l.avg_price)} · ${l.units} apts`,
+            active:   l.listing_id === activePin,
+            color:    l.listing_id === activePin ? T.navyMid : "#8A96B4",
+          }))
+      : [];
+    const soldOut = listingStatus !== "active"
+      ? filteredDelisted
+          .filter(l => l.lat && l.lng)
+          .map(l => ({
+            id:       `d-${l.listing_id}`,
+            lat:      l.lat,
+            lng:      l.lng,
+            label:    l.property_name,
+            sublabel: `Sold Out · ${fmt(l.avg_price)}`,
+            active:   false,
+            color:    "#DC2626",
+          }))
+      : [];
     return [...active, ...soldOut];
-  }, [results, activePin, filteredDelisted]);
+  }, [displayResults, activePin, filteredDelisted, listingStatus]);
 
   // ── Charts computed from displayResults ─────────────────────────────────
   // Use server-computed unit_type_stats (unit-level accuracy) when available
@@ -756,6 +761,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     setSelMuni([]); setSelStreet([]); setRadiusKm(null);
     setSelUnit([]); setSelEsg([]); setSelHouseType([]);
     setMinPrice(""); setMaxPrice(""); setMinM2(""); setMaxM2("");
+    setListingStatus("all");
     setResults(null); setSearched(false);
     setActivePin(null); setTrend([]); setSearchCenter(null);
     setSelectedIds(new Set());
@@ -968,6 +974,29 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
               maxDisplay={3}
             />
 
+            {/* Listing Status */}
+            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.05em" }}>Listings</div>
+              <div style={{ display:"flex", gap:4 }}>
+                {[["all","All"],["active","Active"],["sold_out","Sold Out"]].map(([val,lbl]) => {
+                  const isActive = listingStatus === val;
+                  const bg = val === "sold_out" ? (isActive ? "#DC2626" : "#FEF2F2") : (isActive ? T.navy : "#fff");
+                  const color = val === "sold_out" ? (isActive ? "#fff" : "#6B2A2A") : (isActive ? "#fff" : T.textSub);
+                  const border = val === "sold_out" ? "1px solid #FCA5A5" : `1px solid ${isActive ? T.navy : T.border}`;
+                  return (
+                    <button key={val} onClick={() => setListingStatus(val)}
+                      style={{ padding:"8px 12px", borderRadius:9, fontSize:12, fontWeight:isActive?700:500,
+                        cursor:"pointer", background:bg, border, color, transition:"all 0.15s",
+                        whiteSpace:"nowrap", height:42 }}>
+                      {lbl}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ width:1, alignSelf:"stretch", background:T.border, margin:"2px 0" }} />
+
             {/* Price range with slider */}
             <div style={{ display:"flex", flexDirection:"column", gap:6, minWidth:160 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -1136,9 +1165,9 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                 <div>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10, gap:8, flexWrap:"wrap" }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>
-                      {showSoldOutOnly ? "Sold Out" : "Developments"}
-                      <span style={{ color: T.textMuted, fontWeight: 400, fontSize: 12 }}> ({showSoldOutOnly ? filteredDelisted.length : displayResults.length})</span>
-                      {!showSoldOutOnly && filteredDelisted.length > 0 && (
+                      {listingStatus === "sold_out" ? "Sold Out" : "Developments"}
+                      <span style={{ color: T.textMuted, fontWeight: 400, fontSize: 12 }}> ({listingStatus === "sold_out" ? filteredDelisted.length : listingStatus === "active" ? displayResults.length : displayResults.length + filteredDelisted.length})</span>
+                      {listingStatus !== "sold_out" && filteredDelisted.length > 0 && listingStatus === "all" && (
                         <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: "#6B2A2A",
                           background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: 4, padding: "1px 6px" }}>
                           +{filteredDelisted.length} sold out
@@ -1146,16 +1175,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                       )}
                     </div>
                     <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-                      {filteredDelisted.length > 0 && (
-                        <button onClick={() => setShowSoldOutOnly(v => !v)}
-                          style={{ fontSize: 10, fontWeight: 700, padding: "3px 9px", borderRadius: 6, cursor: "pointer",
-                            border: "1px solid #FCA5A5",
-                            background: showSoldOutOnly ? "#DC2626" : "#FEF2F2",
-                            color: showSoldOutOnly ? "#fff" : "#6B2A2A" }}>
-                          {showSoldOutOnly ? "✕ Sold out only" : "Sold out only"}
-                        </button>
-                      )}
-                      {!showSoldOutOnly && (
+                      {listingStatus !== "sold_out" && (
                         <button onClick={() => {
                           if (selectedIds.size === displayResults.length) {
                             setSelectedIds(new Set());
@@ -1172,7 +1192,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                   <div style={{ height: "calc(100vh - 260px)", overflowY: "auto", overflowX: "hidden",
                     display: "flex", flexDirection: "column", gap: 10,
                     paddingRight: 4, scrollbarWidth: "thin", scrollbarColor: `${T.border} transparent` }}>
-                    {!showSoldOutOnly && displayResults.map(l => (
+                    {listingStatus !== "sold_out" && displayResults.map(l => (
                       <ResultCard key={l.listing_id} l={l}
                         mapType="google"
                         active={l.listing_id === activePin}
@@ -1187,7 +1207,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                       />
                     ))}
 
-                    {!showSoldOutOnly && filteredDelisted.length > 0 && (
+                    {listingStatus !== "sold_out" && listingStatus !== "active" && filteredDelisted.length > 0 && (
                       <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 0 2px" }}>
                         <div style={{ flex: 1, height: 1, background: "#FCA5A5" }} />
                         <span style={{ fontSize: 10, fontWeight: 700, color: "#6B2A2A",
@@ -1198,7 +1218,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                         <div style={{ flex: 1, height: 1, background: "#FCA5A5" }} />
                       </div>
                     )}
-                    {filteredDelisted.map(l => (
+                    {listingStatus !== "active" && filteredDelisted.map(l => (
                       <DelistedSearchCard key={`d-${l.listing_id}`} l={l}
                         onSelect={l => onSelectDelisted && onSelectDelisted(l.listing_id)}
                       />

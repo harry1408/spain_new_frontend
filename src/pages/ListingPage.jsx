@@ -473,15 +473,41 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
                       background:"rgba(0,0,0,0.45)", border:"none", color:"#fff",
                       width:32, height:32, borderRadius:"50%", cursor:"pointer",
                       fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
-                  <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)",
-                    display:"flex", gap:5 }}>
-                    {floorPlans.map((_,i) => (
-                      <div key={i} onClick={() => setFpIdx(i)}
-                        style={{ width:i===fpIdx?18:7, height:7, borderRadius:4,
-                          background:i===fpIdx?"#0B1239":"rgba(0,0,0,0.2)",
-                          cursor:"pointer", transition:"all 0.2s" }} />
-                    ))}
-                  </div>
+                  {(() => {
+                    const MAX = 7;
+                    if (floorPlans.length <= MAX) {
+                      return (
+                        <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)",
+                          display:"flex", gap:5 }}>
+                          {floorPlans.map((_,i) => (
+                            <div key={i} onClick={() => setFpIdx(i)}
+                              style={{ width:i===fpIdx?18:7, height:7, borderRadius:4,
+                                background:i===fpIdx?"#0B1239":"rgba(0,0,0,0.25)",
+                                cursor:"pointer", transition:"all 0.2s" }} />
+                          ))}
+                        </div>
+                      );
+                    }
+                    const half = Math.floor(MAX / 2);
+                    let start = Math.max(0, fpIdx - half);
+                    let end = start + MAX;
+                    if (end > floorPlans.length) { end = floorPlans.length; start = Math.max(0, end - MAX); }
+                    const visible = Array.from({ length: end - start }, (_, i) => start + i);
+                    return (
+                      <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)",
+                        display:"flex", gap:5, alignItems:"center" }}>
+                        {start > 0 && <div style={{ width:4, height:4, borderRadius:"50%", background:"rgba(0,0,0,0.2)" }}/>}
+                        {visible.map(i => (
+                          <div key={i} onClick={() => setFpIdx(i)}
+                            style={{ width:i===fpIdx?18:7, height:7, borderRadius:4,
+                              background:i===fpIdx?"#0B1239":"rgba(0,0,0,0.25)",
+                              cursor:"pointer", transition:"all 0.2s",
+                              transform:`scale(${i===fpIdx ? 1 : Math.abs(i-fpIdx)===1 ? 0.85 : 0.7})` }} />
+                        ))}
+                        {end < floorPlans.length && <div style={{ width:4, height:4, borderRadius:"50%", background:"rgba(0,0,0,0.2)" }}/>}
+                      </div>
+                    );
+                  })()}
                 </>)}
                 <div style={{ position:"absolute", top:8, right:8,
                   background:"rgba(0,0,0,0.45)", color:"#fff", fontSize:10,

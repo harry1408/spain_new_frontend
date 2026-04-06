@@ -1,9 +1,24 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { T, StatCard, ChartCard, Tag, Pill, fmt, fmtFull, COLORS, UNIT_COLORS, ESG_COLORS, AddressBreadcrumb, MapPinPopup, PRICE_COLOR, M2_COLOR } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 import LoadingHouse from "../components/LoadingHouse.jsx";
 import GoogleStaticMap from "../components/GoogleStaticMap.jsx";
+
+function makeBins(values, numBins = 8, fmt1000 = true) {
+  const vals = values.filter(v => v != null && isFinite(v));
+  if (!vals.length) return [];
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+  if (mn === mx) return [{ bin: fmt1000 ? `€${Math.round(mn/1000)}K` : `€${Math.round(mn).toLocaleString()}`, count: vals.length }];
+  const step = (mx - mn) / numBins;
+  return Array.from({ length: numBins }, (_, i) => {
+    const lo = mn + i * step, hi = mn + (i + 1) * step;
+    const count = vals.filter(v => v >= lo && (i === numBins - 1 ? v <= hi : v < hi)).length;
+    const label = fmt1000 ? `€${Math.round(lo/1000)}K` : `€${Math.round(lo).toLocaleString()}`;
+    return { bin: label, count };
+  }).filter(b => b.count > 0);
+}
 
 function MultiSelect({ label, options, value, onChange, placeholder = "All", maxDisplay = 2 }) {
   const [open, setOpen] = useState(false);
@@ -52,6 +67,90 @@ function MultiSelect({ label, options, value, onChange, placeholder = "All", max
               style={{ padding:"6px 14px", borderTop:`1px solid ${T.border}`, color:T.textMuted,
                 fontSize:11, cursor:"pointer", fontWeight:600 }}>✕ Clear</div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Type-search multi-select ──────────────────────────────────────────────
+function TypeSearchMultiSelect({ label, options, value, onChange, width=200 }) {
+  const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+  const filteredOpts = options.filter(o => o.toLowerCase().includes(query.toLowerCase()));
+  const hasVal = value.length > 0;
+
+  return (
+    <div ref={ref} style={{ position:"relative" }}>
+      <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase", marginBottom:4, letterSpacing:"0.05em" }}>{label}</div>
+      <div onClick={() => setOpen(o => !o)}
+        style={{ background:"#fff", border:`1px solid ${hasVal ? T.borderAccent : T.border}`,
+          borderRadius:10, padding:"8px 12px", cursor:"pointer",
+          display:"flex", alignItems:"center", gap:6, minWidth:width,
+          boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+        <span style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase", fontWeight:600, whiteSpace:"nowrap" }}></span>
+        {hasVal
+          ? <span style={{ background:T.navy, color:"#fff", borderRadius:4, fontSize:10, fontWeight:700, padding:"1px 6px" }}>{value.length}</span>
+          : <span style={{ color:T.textSub, fontSize:12, flex:1 }}>All</span>}
+        <span style={{ color:T.textMuted, fontSize:10, marginLeft:"auto" }}>{open?"▲":"▼"}</span>
+      </div>
+      {open && (
+        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:300,
+          background:"#fff", border:`1px solid ${T.border}`, borderRadius:10,
+          boxShadow:"0 8px 24px rgba(0,0,0,0.12)", minWidth:Math.max(width, 240), overflow:"hidden" }}>
+          <div style={{ padding:"8px 10px", borderBottom:`1px solid ${T.border}` }}>
+            <input autoFocus value={query} onChange={e=>setQuery(e.target.value)}
+              placeholder={`Search ${label.toLowerCase()}…`}
+              onClick={e=>e.stopPropagation()}
+              style={{ width:"100%", border:`1px solid ${T.border}`, borderRadius:6,
+                padding:"6px 10px", fontSize:12, outline:"none", color:T.text,
+                background:T.bgStripe, boxSizing:"border-box" }}/>
+          </div>
+          {value.length > 0 && (
+            <div style={{ padding:"6px 10px", borderBottom:`1px solid ${T.border}`,
+              display:"flex", flexWrap:"wrap", gap:4 }}>
+              {value.map(v=>(
+                <span key={v} onClick={e=>{e.stopPropagation();onChange(value.filter(x=>x!==v));}}
+                  style={{ background:T.navyLight||T.navy, border:`1px solid ${T.borderAccent||T.navy}`,
+                    color:"#fff", fontSize:10, fontWeight:700, padding:"2px 6px",
+                    borderRadius:4, cursor:"pointer" }}>
+                  {v} ×
+                </span>
+              ))}
+              <span onClick={e=>{e.stopPropagation();onChange([]);setQuery("");}}
+                style={{ color:"#6B2A2A", fontSize:10, cursor:"pointer", alignSelf:"center" }}>Clear all</span>
+            </div>
+          )}
+          <div style={{ maxHeight:240, overflowY:"auto" }}>
+            {filteredOpts.length===0
+              ? <div style={{ padding:"12px", color:T.textMuted, fontSize:12, textAlign:"center" }}>No matches</div>
+              : filteredOpts.map(opt=>{
+                  const sel = value.includes(opt);
+                  return (
+                    <div key={opt} onClick={e=>{e.stopPropagation();onChange(sel?value.filter(v=>v!==opt):[...value,opt]);}}
+                      style={{ padding:"8px 12px", cursor:"pointer", fontSize:12,
+                        background:sel?(T.navyLight||T.navy):"transparent", color:sel?"#fff":T.text,
+                        borderLeft:`3px solid ${sel?T.navy:"transparent"}`,
+                        display:"flex", alignItems:"center", gap:8,
+                        transition:"background 0.1s" }}
+                      onMouseEnter={e=>{ if(!sel) e.currentTarget.style.background=T.bgStripe; }}
+                      onMouseLeave={e=>{ if(!sel) e.currentTarget.style.background="transparent"; }}>
+                      <span style={{ width:14, height:14, borderRadius:3, flexShrink:0,
+                        border:`2px solid ${sel?T.navy:T.border}`, background:sel?T.navy:"transparent",
+                        display:"inline-flex", alignItems:"center", justifyContent:"center" }}>
+                        {sel&&<span style={{ color:"#fff", fontSize:8, fontWeight:900 }}>✓</span>}
+                      </span>
+                      {opt}
+                    </div>
+                  );
+                })}
+          </div>
         </div>
       )}
     </div>
@@ -278,13 +377,37 @@ function DelistedApartments({ listingId, listingName, onBack, backLabel = "All S
                       background:"rgba(0,0,0,0.45)", border:"none", color:"#fff",
                       width:32, height:32, borderRadius:"50%", cursor:"pointer",
                       fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
-                  <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)", display:"flex", gap:5 }}>
-                    {floorPlans.map((_,i) => (
-                      <div key={i} onClick={() => setFpIdx(i)}
-                        style={{ width:i===fpIdx?18:7, height:7, borderRadius:4,
-                          background:i===fpIdx?"#0B1239":"rgba(0,0,0,0.2)", cursor:"pointer", transition:"all 0.2s" }} />
-                    ))}
-                  </div>
+                  {(() => {
+                    const MAX = 7;
+                    if (floorPlans.length <= MAX) {
+                      return (
+                        <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)", display:"flex", gap:5 }}>
+                          {floorPlans.map((_,i) => (
+                            <div key={i} onClick={() => setFpIdx(i)}
+                              style={{ width:i===fpIdx?18:7, height:7, borderRadius:4,
+                                background:i===fpIdx?"#0B1239":"rgba(0,0,0,0.25)", cursor:"pointer", transition:"all 0.2s" }} />
+                          ))}
+                        </div>
+                      );
+                    }
+                    const half = Math.floor(MAX / 2);
+                    let start = Math.max(0, fpIdx - half);
+                    let end = start + MAX;
+                    if (end > floorPlans.length) { end = floorPlans.length; start = Math.max(0, end - MAX); }
+                    const visible = Array.from({ length: end - start }, (_, i) => start + i);
+                    return (
+                      <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)", display:"flex", gap:5, alignItems:"center" }}>
+                        {start > 0 && <div style={{ width:4, height:4, borderRadius:"50%", background:"rgba(0,0,0,0.2)" }}/>}
+                        {visible.map(i => (
+                          <div key={i} onClick={() => setFpIdx(i)}
+                            style={{ width:i===fpIdx?18:7, height:7, borderRadius:4,
+                              background:i===fpIdx?"#0B1239":"rgba(0,0,0,0.25)", cursor:"pointer", transition:"all 0.2s",
+                              transform:`scale(${i===fpIdx ? 1 : Math.abs(i-fpIdx)===1 ? 0.85 : 0.7})` }} />
+                        ))}
+                        {end < floorPlans.length && <div style={{ width:4, height:4, borderRadius:"50%", background:"rgba(0,0,0,0.2)" }}/>}
+                      </div>
+                    );
+                  })()}
                 </>)}
                 <div style={{ position:"absolute", top:8, right:8, background:"rgba(0,0,0,0.45)",
                   color:"#fff", fontSize:10, fontWeight:600, padding:"3px 8px", borderRadius:10 }}>
@@ -469,7 +592,11 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
   const [loading,      setLoading]      = useState(true);
   const [activePin,    setActivePin]    = useState(null);
   const [selected,     setSelected]     = useState(null);
-  // filters
+  // province/municipality filters
+  const [filtersData,  setFiltersData]  = useState({ provinces:[], province_munis:{} });
+  const [selProvince,  setSelProvince]  = useState([]);
+  const [selMuni,      setSelMuni]      = useState([]);
+  // other filters
   const [search,       setSearch]       = useState("");
   const [selUnit,      setSelUnit]      = useState([]);
   const [selHouseType, setSelHouseType] = useState([]);
@@ -480,6 +607,13 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
   const [minM2,        setMinM2]        = useState("");
   const [maxM2,        setMaxM2]        = useState("");
   const [sortBy,       setSortBy]       = useState("avg_price");
+
+  useEffect(() => {
+    fetch(`${API}/filters`)
+      .then(r => r.json())
+      .then(f => setFiltersData({ provinces: f.provinces||[], province_munis: f.province_munis||{} }))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch(`${API}/delisted/listings`)
@@ -501,8 +635,16 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
 
   const allMonths = useMemo(() => [...new Set(listings.map(l => l.last_period).filter(Boolean))].sort(), [listings]);
 
+  // Province → Municipality options
+  const muniOptions = useMemo(() => {
+    if (selProvince.length === 0) return [...new Set(listings.map(l => l.municipality).filter(Boolean))].sort();
+    return selProvince.flatMap(p => filtersData.province_munis[p] || []).sort();
+  }, [selProvince, filtersData, listings]);
+
   const filtered = useMemo(() => {
     let r = listings;
+    if (selProvince.length) r = r.filter(l => selProvince.some(p => (filtersData.province_munis[p]||[]).includes(l.municipality)));
+    if (selMuni.length)     r = r.filter(l => selMuni.includes(l.municipality));
     if (search.trim()) {
       const q = search.toLowerCase();
       r = r.filter(l => l.property_name?.toLowerCase().includes(q) || l.municipality?.toLowerCase().includes(q));
@@ -516,9 +658,55 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
     if (minM2)    r = r.filter(l => l.avg_price_m2 && l.avg_price_m2 >= Number(minM2));
     if (maxM2)    r = r.filter(l => l.avg_price_m2 && l.avg_price_m2 <= Number(maxM2));
     return [...r].sort((a,b) => (b[sortBy]||0)-(a[sortBy]||0));
-  }, [listings, search, selUnit, selHouseType, selEsg, selMonth, minPrice, maxPrice, minM2, maxM2, sortBy]);
+  }, [listings, selProvince, selMuni, filtersData, search, selUnit, selHouseType, selEsg, selMonth, minPrice, maxPrice, minM2, maxM2, sortBy]);
 
-  const hasFilters = selUnit.length || selHouseType.length || selEsg.length || selMonth.length || minPrice || maxPrice || minM2 || maxM2;
+  const hasFilters = selProvince.length || selMuni.length || selUnit.length || selHouseType.length || selEsg.length || selMonth.length || minPrice || maxPrice || minM2 || maxM2;
+
+  const unitTypeStats = useMemo(() => {
+    const map = {};
+    filtered.forEach(l => {
+      (l.unit_types||"").split(", ").filter(Boolean).forEach(ut => {
+        if (!map[ut]) map[ut] = { unit_type: ut, count: 0, prices: [], sizes: [], pm2s: [] };
+        map[ut].count += l.units || 1;
+        if (l.avg_price)    map[ut].prices.push(l.avg_price);
+        if (l.avg_size)     map[ut].sizes.push(l.avg_size);
+        if (l.avg_price_m2) map[ut].pm2s.push(l.avg_price_m2);
+      });
+    });
+    const ORDER = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
+    return Object.values(map).map(r => ({
+      unit_type: r.unit_type, count: r.count,
+      avg_size:  r.sizes.length  ? Math.round(r.sizes.reduce((a,b)=>a+b,0)/r.sizes.length) : null,
+      min_price: r.prices.length ? Math.min(...r.prices) : null,
+      avg_price: r.prices.length ? r.prices.reduce((a,b)=>a+b,0)/r.prices.length : null,
+      max_price: r.prices.length ? Math.max(...r.prices) : null,
+      avg_pm2:   r.pm2s.length   ? r.pm2s.reduce((a,b)=>a+b,0)/r.pm2s.length : null,
+    })).sort((a,b) => ORDER.indexOf(a.unit_type) - ORDER.indexOf(b.unit_type));
+  }, [filtered]);
+
+  const houseTypeStats = useMemo(() => {
+    const map = {};
+    filtered.forEach(l => {
+      (l.house_types||"").split(", ").filter(Boolean).forEach(ht => {
+        if (!map[ht]) map[ht] = { house_type: ht, count: 0, prices: [], sizes: [], pm2s: [] };
+        map[ht].count += l.units || 1;
+        if (l.avg_price)    map[ht].prices.push(l.avg_price);
+        if (l.avg_size)     map[ht].sizes.push(l.avg_size);
+        if (l.avg_price_m2) map[ht].pm2s.push(l.avg_price_m2);
+      });
+    });
+    return Object.values(map).map(r => ({
+      house_type: r.house_type, count: r.count,
+      avg_size:  r.sizes.length  ? Math.round(r.sizes.reduce((a,b)=>a+b,0)/r.sizes.length) : null,
+      min_price: r.prices.length ? Math.min(...r.prices) : null,
+      avg_price: r.prices.length ? r.prices.reduce((a,b)=>a+b,0)/r.prices.length : null,
+      max_price: r.prices.length ? Math.max(...r.prices) : null,
+      avg_pm2:   r.pm2s.length   ? r.pm2s.reduce((a,b)=>a+b,0)/r.pm2s.length : null,
+    }));
+  }, [filtered]);
+
+  const priceDist = useMemo(() => makeBins(filtered.map(l => l.avg_price)), [filtered]);
+  const m2Dist    = useMemo(() => makeBins(filtered.map(l => l.avg_price_m2), 8, false), [filtered]);
 
   const mapMarkers = useMemo(() => filtered.map(l => ({
     id:       l.listing_id,
@@ -580,61 +768,291 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
           </div>
         </div>
       ) : (
-        <div style={{ display:"grid", gridTemplateColumns:"340px 1fr", gap:20, alignItems:"start" }}>
+        <>
+          {/* ── Filter bar ── */}
+          <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:12,
+            padding:"14px 20px", marginBottom:16, boxShadow:"0 1px 4px rgba(0,0,0,0.05)" }}>
+            <div style={{ display:"flex", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
 
-          {/* Left: filter + cards */}
-          <div>
-            {/* Search + sort */}
-            <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:12 }}>
-              <input value={search} onChange={e=>setSearch(e.target.value)}
-                placeholder="Search by name or municipality…"
-                style={{ width:"100%", padding:"8px 12px", borderRadius:8,
-                  border:`1px solid ${T.border}`, fontSize:12, boxSizing:"border-box",
-                  outline:"none", background:"#fff" }}/>
-              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                <span style={{ fontSize:11, color:T.textMuted, alignSelf:"center" }}>Sort:</span>
-                {[["avg_price","Price"],["units","Apts"],["avg_price_m2","€/m²"]].map(([k,lbl])=>(
-                  <button key={k} onClick={()=>setSortBy(k)}
-                    style={{ background:sortBy===k?PRICE_COLOR:"#fff",
-                      border:`1px solid ${sortBy===k?PRICE_COLOR:T.border}`,
-                      color:sortBy===k?"#fff":T.textSub,
-                      padding:"3px 10px", borderRadius:6, cursor:"pointer",
-                      fontSize:11, fontWeight:sortBy===k?700:500 }}>{lbl}</button>
-                ))}
+              <TypeSearchMultiSelect label="Province" options={filtersData.provinces} value={selProvince}
+                onChange={v => { setSelProvince(v); setSelMuni([]); }} width={160} />
+
+              <TypeSearchMultiSelect label="Municipality" options={muniOptions} value={selMuni}
+                onChange={setSelMuni} width={180} />
+
+              <div style={{ width:1, alignSelf:"stretch", background:T.border, margin:"2px 0" }} />
+
+              <MultiSelect label="House Type" options={["Detached house","Semi-detached house","Terraced house","Apartments"]}
+                value={selHouseType} onChange={setSelHouseType} placeholder="All types" maxDisplay={1} />
+
+              <MultiSelect label="Unit Type" options={ALL_UTS}
+                value={selUnit} onChange={setSelUnit} placeholder="All types" maxDisplay={2} />
+
+              <MultiSelect label="ESG Grade" options={ALL_ESG}
+                value={selEsg} onChange={setSelEsg} placeholder="All grades" maxDisplay={3} />
+
+              <MultiSelect label="Last Seen Month" options={allMonths}
+                value={selMonth} onChange={setSelMonth} placeholder="All months" maxDisplay={2} />
+
+              {/* Price range */}
+              <div style={{ display:"flex", flexDirection:"column", gap:4, minWidth:160 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Price Range</span>
+                  <span style={{ fontSize:10, fontWeight:700, color:PRICE_COLOR }}>
+                    {minPrice ? `€${Number(minPrice).toLocaleString()}` : "Any"} – {maxPrice ? `€${Number(maxPrice).toLocaleString()}` : "Any"}
+                  </span>
+                </div>
+                <div style={{ display:"flex", gap:3, flexWrap:"wrap" }}>
+                  {[["<200k",0,200000],["200-400k",200000,400000],["400-700k",400000,700000],[">700k",700000,""]].map(([lbl,mn,mx]) => {
+                    const active = String(minPrice)===String(mn) && String(maxPrice)===String(mx);
+                    return (
+                      <button key={lbl} onClick={() => { setMinPrice(active?"":mn); setMaxPrice(active?"":mx); }}
+                        style={{ padding:"3px 9px", borderRadius:20, fontSize:10, fontWeight:700, cursor:"pointer",
+                          background:active?PRICE_COLOR:"#fff", border:`1.5px solid ${active?PRICE_COLOR:"transparent"}`,
+                          color:active?"#fff":T.textSub }}>
+                        {lbl}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                  <input type="number" placeholder="Min €" value={minPrice} onChange={e => setMinPrice(e.target.value)}
+                    style={{ width:80, padding:"4px 7px", borderRadius:7, fontSize:11,
+                      border:`1.5px solid ${minPrice?PRICE_COLOR:T.border}`, outline:"none", color:T.text, background:"#F2F4F6" }} />
+                  <span style={{ color:T.textMuted, fontSize:11 }}>–</span>
+                  <input type="number" placeholder="Max €" value={maxPrice} onChange={e => setMaxPrice(e.target.value)}
+                    style={{ width:80, padding:"4px 7px", borderRadius:7, fontSize:11,
+                      border:`1.5px solid ${maxPrice?PRICE_COLOR:T.border}`, outline:"none", color:T.text, background:"#F2F4F6" }} />
+                </div>
               </div>
-              <div style={{ color:T.textMuted, fontSize:11 }}>
-                {filtered.length} of {listings.length} delisted developments
+
+              <div style={{ width:1, alignSelf:"stretch", background:T.border, margin:"2px 0" }} />
+
+              {/* €/m² range */}
+              <div style={{ display:"flex", flexDirection:"column", gap:4, minWidth:150 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>€/m²</span>
+                  <span style={{ fontSize:10, fontWeight:700, color:M2_COLOR }}>
+                    {minM2 ? `€${Number(minM2).toLocaleString()}` : "Any"} – {maxM2 ? `€${Number(maxM2).toLocaleString()}` : "Any"}
+                  </span>
+                </div>
+                <div style={{ display:"flex", gap:3, flexWrap:"wrap" }}>
+                  {[["<2k",0,2000],["2-3k",2000,3000],["3-5k",3000,5000],[">5k",5000,""]].map(([lbl,mn,mx]) => {
+                    const active = String(minM2)===String(mn) && String(maxM2)===String(mx);
+                    return (
+                      <button key={lbl} onClick={() => { setMinM2(active?"":mn); setMaxM2(active?"":mx); }}
+                        style={{ padding:"3px 9px", borderRadius:20, fontSize:10, fontWeight:700, cursor:"pointer",
+                          background:active?M2_COLOR:"#fff", border:`1.5px solid ${active?M2_COLOR:"transparent"}`,
+                          color:active?"#fff":T.textSub }}>
+                        {lbl}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                  <input type="number" placeholder="Min" value={minM2} onChange={e => setMinM2(e.target.value)}
+                    style={{ width:75, padding:"4px 7px", borderRadius:7, fontSize:11,
+                      border:`1.5px solid ${minM2?M2_COLOR:T.border}`, outline:"none", color:T.text, background:"#F2F4F6" }} />
+                  <span style={{ color:T.textMuted, fontSize:11 }}>–</span>
+                  <input type="number" placeholder="Max" value={maxM2} onChange={e => setMaxM2(e.target.value)}
+                    style={{ width:75, padding:"4px 7px", borderRadius:7, fontSize:11,
+                      border:`1.5px solid ${maxM2?M2_COLOR:T.border}`, outline:"none", color:T.text, background:"#F2F4F6" }} />
+                </div>
               </div>
+
+              {hasFilters ? (
+                <button onClick={() => { setSelProvince([]); setSelMuni([]); setSelUnit([]); setSelHouseType([]); setSelEsg([]); setSelMonth([]);
+                  setMinPrice(""); setMaxPrice(""); setMinM2(""); setMaxM2(""); }}
+                  style={{ alignSelf:"flex-end", background:"#FEF2F2", border:"1px solid rgba(192,57,43,0.4)",
+                    color:"#6B2A2A", padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:11 }}>
+                  ✕ Clear all
+                </button>
+              ) : null}
             </div>
+          </div>
+
+          {/* ── Search + sort bar ── */}
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, flexWrap:"wrap" }}>
+            <input value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder="Search by name or municipality…"
+              style={{ flex:1, minWidth:200, padding:"8px 12px", borderRadius:8,
+                border:`1px solid ${T.border}`, fontSize:12, outline:"none", background:"#fff" }}/>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
+              <span style={{ fontSize:11, color:T.textMuted }}>Sort:</span>
+              {[["avg_price","Price"],["units","Apts"],["avg_price_m2","€/m²"]].map(([k,lbl])=>(
+                <button key={k} onClick={()=>setSortBy(k)}
+                  style={{ background:sortBy===k?PRICE_COLOR:"#fff", border:`1px solid ${sortBy===k?PRICE_COLOR:T.border}`,
+                    color:sortBy===k?"#fff":T.textSub, padding:"4px 12px", borderRadius:6,
+                    cursor:"pointer", fontSize:11, fontWeight:sortBy===k?700:500 }}>{lbl}</button>
+              ))}
+            </div>
+            <span style={{ color:T.textMuted, fontSize:11, marginLeft:"auto" }}>
+              {filtered.length} of {listings.length} developments
+            </span>
+          </div>
+
+          {/* ── Content: cards + right panel ── */}
+          <div style={{ display:"grid", gridTemplateColumns:"340px 1fr", gap:20, alignItems:"start" }}>
 
             {/* Cards */}
-            <div style={{ height:"calc(100vh - 340px)", overflowY:"auto", overflowX:"hidden",
+            <div style={{ height:"calc(100vh - 280px)", overflowY:"auto", overflowX:"hidden",
               display:"flex", flexDirection:"column", gap:10,
               paddingRight:4, scrollbarWidth:"thin", scrollbarColor:`${T.border} transparent` }}>
               {filtered.map(l => (
-                <DelistedCard key={l.listing_id} l={l}
-                  onClick={() => setSelected(l)}
-                />
+                <div key={l.listing_id} id={`scard-d-${l.listing_id}`}>
+                  <DelistedCard l={l} onClick={() => setSelected(l)} />
+                </div>
               ))}
             </div>
-          </div>
 
-          {/* Right: map */}
-          <div style={{ position:"sticky", top:80 }}>
-            <div style={{ background:T.bgCard, border:`1px solid ${T.border}`,
-              borderRadius:14, padding:"16px 18px", boxShadow:T.shadow }}>
-              <div style={{ fontWeight:700, fontSize:13, color:T.text, marginBottom:10 }}>
-                📍 {filtered.length} delisted developments · click a pin to highlight
+            {/* Right panel — 3 rows */}
+            <div style={{ display:"flex", flexDirection:"column", gap:14, minWidth:0,
+              height:"calc(100vh - 200px)", overflowY:"auto",
+              scrollbarWidth:"thin", scrollbarColor:`${T.border} transparent` }}>
+
+              {/* Row 1: Leaflet | Google Maps */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+                <LeafletMap markers={mapMarkers} height="280px"
+                  onMarkerClick={id => {
+                    const newId = id === activePin ? null : id;
+                    setActivePin(newId);
+                    if (newId) {
+                      setTimeout(() => {
+                        document.getElementById(`scard-d-${newId}`)?.scrollIntoView({ behavior:"smooth", block:"nearest" });
+                      }, 50);
+                    }
+                  }} />
+                <div style={{ minWidth:0 }}>
+                  {(() => {
+                    const pinTarget = mapMarkers.find(m => m.active) || mapMarkers.find(m => m.id === filtered[0]?.listing_id) || mapMarkers[0];
+                    if (!pinTarget) return <div style={{ height:280, borderRadius:12, background:T.bgStripe, border:`1px solid ${T.border}` }}/>;
+                    return (
+                      <div style={{ position:"relative", width:"100%", height:280, borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}` }}>
+                        <iframe key={`${pinTarget.lat},${pinTarget.lng}`} title="gmap"
+                          src={`https://maps.google.com/maps?q=${pinTarget.lat},${pinTarget.lng}&hl=en&z=15&output=embed`}
+                          width="100%" height="100%" style={{ border:0, display:"block" }}
+                          allowFullScreen="" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+                        <a href={`https://www.google.com/maps?q=${pinTarget.lat},${pinTarget.lng}`}
+                          target="_blank" rel="noreferrer"
+                          style={{ position:"absolute", bottom:6, right:6, background:"rgba(255,255,255,0.92)",
+                            borderRadius:4, fontSize:10, fontWeight:600, color:"#2D3F8F",
+                            padding:"2px 7px", textDecoration:"none", boxShadow:"0 1px 4px rgba(0,0,0,0.2)", zIndex:10 }}>
+                          Open in Maps ↗
+                        </a>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
-              <LeafletMap
-                markers={mapMarkers}
-                height="calc(100vh - 260px)"
-                onMarkerClick={id => setActivePin(id === activePin ? null : id)}
-              />
-            </div>
-          </div>
 
-        </div>
+              {/* Row 2: Unit Type Summary | House Type Summary */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+                <ChartCard title="Unit Type Summary">
+                  <div style={{ overflowX:"auto", overflowY:"auto", maxHeight:240 }}>
+                    <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                      <thead style={{ position:"sticky", top:0, zIndex:1 }}>
+                        <tr style={{ borderBottom:`2px solid ${T.border}`, background:T.bgStripe }}>
+                          {["Type","Units","Avg m²","Min","Avg","Max","€/m²"].map(h => (
+                            <th key={h} style={{ padding:"7px 8px", textAlign:h==="Type"?"left":"right",
+                              color:T.textMuted, fontSize:10, textTransform:"uppercase",
+                              letterSpacing:"0.07em", fontWeight:600, background:T.bgStripe }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {unitTypeStats.map((row,i) => {
+                          const uc = UNIT_COLORS[row.unit_type] || COLORS[i%COLORS.length];
+                          return (
+                            <tr key={row.unit_type} style={{ borderBottom:`1px solid ${T.border}`, background:i%2===0?T.bgStripe:"#fff" }}>
+                              <td style={{ padding:"7px 8px" }}>
+                                <span style={{ background:uc, color:"#fff", fontWeight:700, fontSize:11,
+                                  padding:"2px 8px", borderRadius:4, display:"block", whiteSpace:"nowrap" }}>{row.unit_type}</span>
+                              </td>
+                              <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
+                              <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size ?? "—"}</td>
+                              <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
+                              <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
+                              <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price!=null?`€${Math.round(row.max_price).toLocaleString()}`:"—"}</td>
+                              <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2).toLocaleString("en")}`:"—"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </ChartCard>
+
+                <ChartCard title="House Type Summary">
+                  <div style={{ overflowX:"auto", overflowY:"auto", maxHeight:240 }}>
+                    <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                      <thead style={{ position:"sticky", top:0, zIndex:1 }}>
+                        <tr style={{ borderBottom:`2px solid ${T.border}`, background:T.bgStripe }}>
+                          {["Type","Units","Avg m²","Min","Avg","Max","€/m²"].map(h => (
+                            <th key={h} style={{ padding:"7px 8px", textAlign:h==="Type"?"left":"right",
+                              color:T.textMuted, fontSize:10, textTransform:"uppercase",
+                              letterSpacing:"0.07em", fontWeight:600, background:T.bgStripe }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {houseTypeStats.map((row,i) => (
+                          <tr key={row.house_type} style={{ borderBottom:`1px solid ${T.border}`, background:i%2===0?T.bgStripe:"#fff" }}>
+                            <td style={{ padding:"7px 8px", whiteSpace:"nowrap" }}>
+                              <span style={{ background:"rgba(100,100,140,0.10)", color:"#6B7A9F",
+                                border:"1px solid rgba(100,100,140,0.25)", fontWeight:700,
+                                fontSize:11, padding:"2px 8px", borderRadius:4,
+                                display:"block", whiteSpace:"nowrap" }}>{row.house_type}</span>
+                            </td>
+                            <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
+                            <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size ?? "—"}</td>
+                            <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
+                            <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
+                            <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price!=null?`€${Math.round(row.max_price).toLocaleString()}`:"—"}</td>
+                            <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2).toLocaleString("en")}`:"—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </ChartCard>
+              </div>
+
+              {/* Row 3: Price Distribution | €/m² Distribution */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+                <ChartCard title="Price Distribution">
+                  <ResponsiveContainer width="100%" height={160}>
+                    <BarChart data={priceDist} barSize={22}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                      <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                      <Tooltip formatter={v=>[`${v} developments`,"Count"]}
+                        contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
+                      <Bar dataKey="count" radius={[4,4,0,0]} isAnimationActive={false}>
+                        {priceDist.map((_,i)=><Cell key={i} fill="#0B1239" fillOpacity={0.35+(i/Math.max(priceDist.length-1,1))*0.65}/>)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+
+                <ChartCard title="€/m² Distribution">
+                  <ResponsiveContainer width="100%" height={160}>
+                    <BarChart data={m2Dist} barSize={22}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                      <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                      <Tooltip formatter={v=>[`${v} developments`,"Count"]}
+                        contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
+                      <Bar dataKey="count" radius={[4,4,0,0]} isAnimationActive={false}>
+                        {m2Dist.map((_,i)=><Cell key={i} fill="#4A5A8A" fillOpacity={0.35+(i/Math.max(m2Dist.length-1,1))*0.65}/>)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+              </div>
+
+            </div>{/* end right panel */}
+          </div>
+        </>
       )}
     </div>
   );
