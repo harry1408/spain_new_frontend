@@ -133,7 +133,7 @@ function ComparePanel({ listing, current, onGoListing, onClose }) {
   );
 }
 
-// ── Nearby section (no map, click to compare) ─────────────────────────────
+// ── Nearby section ────────────────────────────────────────────────────────
 function NearbySection({ listings, comarca, currentListingId, currentListing, onGoListing }) {
   const [selected, setSelected] = useState(null);
   const sorted = useMemo(() => [...listings].sort((a,b)=>a.avg_price-b.avg_price), [listings]);
@@ -141,55 +141,115 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
 
   return (
     <div style={{ marginTop:36 }}>
-      <div style={{ fontWeight:700, fontSize:16, color:T.text, marginBottom:4 }}>Nearby Developments</div>
+      <div style={{ display:"flex", alignItems:"baseline", gap:10, marginBottom:4 }}>
+        <div style={{ fontWeight:700, fontSize:16, color:T.text }}>Nearby Developments</div>
+        <span style={{ fontSize:11, color:T.textMuted, fontWeight:500 }}>within 20 km</span>
+      </div>
       <div style={{ color:T.textSub, fontSize:12, marginBottom:16 }}>
-        {comarca} comarca · {listings.length} developments
-        <span style={{ color:T.textMuted, marginLeft:6 }}>· click any card to compare</span>
+        {comarca} comarca · {listings.length} development{listings.length !== 1 ? "s" : ""} found
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))", gap:10 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:12 }}>
         {sorted.map(l => {
           const isCur = l.listing_id === currentListingId;
           const isSel = l.listing_id === selected;
+          const unitTypes  = (l.unit_types  || "").split(", ").filter(Boolean);
+          const houseTypes = (l.house_types || "").split(", ").filter(Boolean);
           return (
             <div key={l.listing_id}
-              onClick={() => !isCur && setSelected(p => p===l.listing_id ? null : l.listing_id)}
-              style={{ background: isCur?T.navyLight:isSel?"rgba(74,128,176,0.10)":"#fff",
-                border:`2px solid ${isCur?T.borderAccent:isSel?T.navyMid:T.border}`,
-                borderRadius:12, padding:"14px 14px", boxShadow:T.shadow,
-                cursor:isCur?"default":"pointer", transition:"all 0.12s",
-                display:"flex", flexDirection:"column", gap:10 }}>
+              onClick={() => !isCur && onGoListing(l.listing_id, l.property_name, l.municipality)}
+              style={{ background: isCur ? "rgba(201,168,76,0.08)" : "#fff",
+                border:`1px solid ${isCur ? T.borderAccent : T.border}`,
+                borderRadius:12, padding:"14px 16px", cursor:isCur?"default":"pointer",
+                boxShadow:"0 1px 4px rgba(0,0,0,0.06)", transition:"all 0.15s",
+                display:"flex", flexDirection:"column", gap:8 }}>
 
               {/* Header */}
-              <div>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:4, marginBottom:4 }}>
-                  <div style={{ fontWeight:700, fontSize:12, color:isCur?"#fff":isSel?T.navyMid:T.text,
-                    overflow:"hidden", textOverflow:"ellipsis",
-                    display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8 }}>
+                <div style={{ minWidth:0, flex:1 }}>
+                  <div style={{ fontWeight:700, fontSize:14, color:T.text, marginBottom:2,
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                     {l.property_name}
                   </div>
-                  {l.esg_grade&&l.esg_grade!=="nan"&&
-                    <Tag label={`ESG ${l.esg_grade}`} color={ESG_COLORS[l.esg_grade]||"#999"}/>}
+                  <div style={{ fontSize:11, color:T.textSub }}>
+                    {l.municipality}{l.province ? ` · ${l.province}` : ""}
+                  </div>
+                  {l.city_area && (
+                    <div style={{ fontSize:10, color:T.textMuted, marginTop:2,
+                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      📍 {l.city_area}
+                    </div>
+                  )}
                 </div>
-                <div style={{ color:isCur?"rgba(255,255,255,0.75)":T.textSub, fontSize:10 }}>{l.municipality}</div>
-                {(isCur||isSel) && (
-                  <span style={{ marginTop:3, display:"inline-block", fontSize:9,
-                    background:isCur?T.navy:T.navyMid, color:"#fff", padding:"1px 6px", borderRadius:3 }}>
-                    {isCur?"Current":"Comparing"}
+                {l.esg_grade && l.esg_grade !== "Unknown" && l.esg_grade !== "nan" && (
+                  <span style={{ background:ESG_COLORS[l.esg_grade]||"#8A96B4",
+                    color:"#fff", borderRadius:5, padding:"2px 8px", fontSize:10,
+                    fontWeight:700, whiteSpace:"nowrap", flexShrink:0 }}>
+                    ESG {l.esg_grade}
                   </span>
                 )}
               </div>
 
-              {/* Stats — vertical stack */}
-              <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-                {[["Apartments",l.units,T.text],["Avg Price",fmt(l.avg_price),T.navy],
-                  ["Min Price",fmt(l.min_price),T.green],["€/m²",l.avg_price_m2?`€${Math.round(l.avg_price_m2).toLocaleString("en")}`:"—",T.navyMid]].map(([lbl,val,color])=>(
-                  <div key={lbl} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                    <div style={{ color:isCur?"rgba(255,255,255,0.6)":T.textMuted, fontSize:10, fontWeight:600 }}>{lbl}</div>
-                    <div style={{ color:isCur?"#fff":color, fontWeight:700, fontSize:12 }}>{val}</div>
-                  </div>
-                ))}
+              {/* Stats row */}
+              <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
+                <div>
+                  <div style={{ fontSize:9, color:T.textMuted, fontWeight:700, textTransform:"uppercase" }}>Units</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:T.text }}>{l.units}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize:9, color:T.textMuted, fontWeight:700, textTransform:"uppercase" }}>Avg Price</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:PRICE_COLOR }}>{fmt(l.avg_price)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize:9, color:T.textMuted, fontWeight:700, textTransform:"uppercase" }}>€/m²</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:M2_COLOR }}>€{Math.round(l.avg_price_m2||0).toLocaleString()}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize:9, color:T.textMuted, fontWeight:700, textTransform:"uppercase" }}>Range</div>
+                  <div style={{ fontSize:12, fontWeight:600, color:T.textSub }}>{fmt(l.min_price)} – {fmt(l.max_price)}</div>
+                </div>
               </div>
+
+              {/* Tags */}
+              {(unitTypes.length > 0 || houseTypes.length > 0) && (
+                <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+                  {unitTypes.map(ut => (
+                    <span key={ut} style={{ background:UNIT_COLORS[ut]||"#8A96B4",
+                      color:"#fff", borderRadius:4, padding:"2px 7px", fontSize:10, fontWeight:700 }}>{ut}</span>
+                  ))}
+                  {houseTypes.map(ht => (
+                    <span key={ht} style={{ background:"rgba(100,100,140,0.10)", color:T.textSub,
+                      border:`1px solid ${T.border}`, borderRadius:4, padding:"2px 7px",
+                      fontSize:10, fontWeight:700 }}>{ht}</span>
+                  ))}
+                </div>
+              )}
+
+              {/* Beach / stated units */}
+              {(l.stated_total_units || l.nearest_beach_km) && (
+                <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginTop:-2 }}>
+                  {l.stated_total_units && (
+                    <span style={{ fontSize:10, color:T.textMuted }}>
+                      📋 <span style={{ fontWeight:600 }}>{l.stated_total_units}</span> apts per description
+                    </span>
+                  )}
+                  {l.nearest_beach_km && (
+                    <span style={{ fontSize:10, color:"#0077B6", fontWeight:600 }}>
+                      🏖 {l.nearest_beach_km} km
+                      {l.nearest_beach_name ? <span style={{ fontWeight:400, color:T.textMuted }}> · {l.nearest_beach_name}</span> : null}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {!isCur && (
+                <div style={{ fontSize:11, color:T.navy, fontWeight:600, marginTop:-4 }}>
+                  View development →
+                </div>
+              )}
+              {isCur && (
+                <div style={{ fontSize:10, color:T.textMuted, fontStyle:"italic", marginTop:-4 }}>Current listing</div>
+              )}
             </div>
           );
         })}
@@ -216,7 +276,7 @@ function DescriptionBlock({ text, forceExpand = false }) {
   return (
     <div style={{ background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:10,
       padding:"14px 18px", fontSize:12, lineHeight:1.7, color:T.textSub,
-      maxWidth:820, maxHeight:280, overflowY:"auto" }}>
+      width:"100%" }}>
       <div style={{ whiteSpace:"pre-wrap" }}>{display}</div>
       {short && !forceExpand && (
         <button onClick={() => setExpanded(v=>!v)}
@@ -260,7 +320,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
     Promise.all([
       fetch(`${API}/drilldown/listing/${listingId}`).then(r=>r.json()),
       fetch(`${API}/listing/meta/${listingId}`).then(r=>r.json()),
-      fetch(`${API}/nearby/listings/${listingId}`).then(r=>r.json()),
+      fetch(`${API}/nearby/listings/${listingId}?radius_km=20`).then(r=>r.json()),
       fetch(`${API}/listing/photos/${listingId}`).then(r=>r.json()).catch(()=>({photos:[]})),
     ]).then(([d,m,nb,ph]) => {
       setData(d); setMeta(m); setNearby(nb);
@@ -384,38 +444,18 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
           : "";
         const hasPhotos = photos.length > 0 || photoLoading;
         const hasFP = floorPlans.length > 0;
-        const cols = hasPhotos
-          ? (hasFP ? "1fr 160px 520px" : "1fr 520px")
-          : "1fr";
+        const IMG_SIZE = 320;
         return (
-          <div style={{ display:"grid", gridTemplateColumns: cols,
-            gap:16, marginBottom:11, alignItems:"stretch" }}>
-            {cleaned && <DescriptionBlock text={cleaned} forceExpand={hasPhotos} />}
-            {!cleaned && hasPhotos && <div/>}
+          <div style={{ marginBottom:11 }}>
 
-            {/* Floor Plans — vertical slider in middle */}
-            {hasPhotos && hasFP && (
-              <div style={{ display:"flex", flexDirection:"column", gap:6, overflowY:"auto",
-                height:280, scrollbarWidth:"thin", scrollbarColor:`${T.border} transparent`,
-                borderRadius:10, padding:"2px 0" }}>
-                {floorPlans.map((url, i) => (
-                  <div key={i} onClick={() => { setFpIdx(i); setFpLightbox(true); }}
-                    style={{ flexShrink:0, width:"100%", height:120, borderRadius:8, overflow:"hidden",
-                      border:`2px solid ${fpIdx===i ? T.borderAccent : T.border}`,
-                      cursor:"zoom-in", background:"#f8f9fb" }}>
-                    <img src={url} alt={`FP ${i+1}`}
-                      style={{ width:"100%", height:"100%", objectFit:"contain", display:"block" }}
-                      onError={e => { e.target.parentElement.style.display="none"; }} />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Photo Slideshow */}
+            {/* Row 1: Images side-by-side, left-aligned */}
             {hasPhotos && (
-              <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
-                boxShadow:T.shadow, background:"#0B1239", position:"relative",
-                height:280 }}>
+              <div style={{ display:"flex", gap:16, marginBottom:16, alignItems:"stretch" }}>
+
+                {/* Photo Slideshow — leftmost */}
+                <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
+                  boxShadow:T.shadow, background:"#0B1239", position:"relative",
+                  flex:1, height:400 }}>
 
                 {photoLoading && photos.length === 0 ? (
                   <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
@@ -494,8 +534,52 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
                     </div>
                   </>
                 )}
+                </div>
+
+                {/* Floor Plans — slideshow matching house photos */}
+                {hasFP && (
+                  <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
+                    boxShadow:T.shadow, background:"#f8f9fb", position:"relative",
+                    flex:1, height:400 }}>
+                    <img src={floorPlans[fpIdx]} alt={`Floor plan ${fpIdx+1}`}
+                      onClick={() => setFpLightbox(true)}
+                      style={{ width:"100%", height:"100%", objectFit:"contain", display:"block",
+                        position:"absolute", inset:0, cursor:"zoom-in" }}
+                      onError={e => { e.target.style.display="none"; }} />
+                    {floorPlans.length > 1 && (<>
+                      <button onClick={() => setFpIdx(i => (i-1+floorPlans.length)%floorPlans.length)}
+                        style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)",
+                          background:"rgba(0,0,0,0.45)", border:"none", color:"#fff",
+                          width:32, height:32, borderRadius:"50%", cursor:"pointer",
+                          fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
+                      <button onClick={() => setFpIdx(i => (i+1)%floorPlans.length)}
+                        style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)",
+                          background:"rgba(0,0,0,0.45)", border:"none", color:"#fff",
+                          width:32, height:32, borderRadius:"50%", cursor:"pointer",
+                          fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
+                      <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)",
+                        display:"flex", gap:5 }}>
+                        {floorPlans.map((_,i) => (
+                          <div key={i} onClick={() => setFpIdx(i)}
+                            style={{ width:i===fpIdx?18:7, height:7, borderRadius:4,
+                              background:i===fpIdx?"#0B1239":"rgba(0,0,0,0.25)",
+                              cursor:"pointer", transition:"all 0.2s" }} />
+                        ))}
+                      </div>
+                    </>)}
+                    <div style={{ position:"absolute", top:8, right:8,
+                      background:"rgba(0,0,0,0.45)", color:"#fff", fontSize:10,
+                      fontWeight:600, padding:"3px 8px", borderRadius:10 }}>
+                      {fpIdx+1} / {floorPlans.length}
+                    </div>
+                  </div>
+                )}
+
               </div>
             )}
+
+            {/* Row 2: Description below images */}
+            {cleaned && <DescriptionBlock text={cleaned} forceExpand={false} />}
           </div>
         );
       })()}
