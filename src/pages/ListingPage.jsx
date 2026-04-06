@@ -276,7 +276,7 @@ function DescriptionBlock({ text, forceExpand = false }) {
   return (
     <div style={{ background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:10,
       padding:"14px 18px", fontSize:12, lineHeight:1.7, color:T.textSub,
-      width:"100%" }}>
+      maxWidth:820, maxHeight:280, overflowY:"auto" }}>
       <div style={{ whiteSpace:"pre-wrap" }}>{display}</div>
       {short && !forceExpand && (
         <button onClick={() => setExpanded(v=>!v)}
@@ -444,18 +444,58 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
           : "";
         const hasPhotos = photos.length > 0 || photoLoading;
         const hasFP = floorPlans.length > 0;
-        const IMG_SIZE = 320;
+        const cols = hasPhotos
+          ? (hasFP ? "1fr 320px 320px" : "1fr 320px")
+          : "1fr";
         return (
-          <div style={{ marginBottom:11 }}>
+          <div style={{ display:"grid", gridTemplateColumns: cols,
+            gap:16, marginBottom:11, alignItems:"stretch" }}>
+            {cleaned && <DescriptionBlock text={cleaned} forceExpand={hasPhotos} />}
+            {!cleaned && hasPhotos && <div/>}
 
-            {/* Row 1: Images side-by-side, left-aligned */}
+            {/* Floor Plans — slideshow */}
+            {hasPhotos && hasFP && (
+              <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
+                boxShadow:T.shadow, background:"#f8f9fb", position:"relative", height:280 }}>
+                <img src={floorPlans[fpIdx]} alt={`Floor plan ${fpIdx+1}`}
+                  onClick={() => setFpLightbox(true)}
+                  style={{ width:"100%", height:"100%", objectFit:"contain", display:"block",
+                    position:"absolute", inset:0, cursor:"zoom-in" }}
+                  onError={e => { e.target.style.display="none"; }} />
+                {floorPlans.length > 1 && (<>
+                  <button onClick={() => setFpIdx(i => (i-1+floorPlans.length)%floorPlans.length)}
+                    style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)",
+                      background:"rgba(0,0,0,0.45)", border:"none", color:"#fff",
+                      width:32, height:32, borderRadius:"50%", cursor:"pointer",
+                      fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
+                  <button onClick={() => setFpIdx(i => (i+1)%floorPlans.length)}
+                    style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)",
+                      background:"rgba(0,0,0,0.45)", border:"none", color:"#fff",
+                      width:32, height:32, borderRadius:"50%", cursor:"pointer",
+                      fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
+                  <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)",
+                    display:"flex", gap:5 }}>
+                    {floorPlans.map((_,i) => (
+                      <div key={i} onClick={() => setFpIdx(i)}
+                        style={{ width:i===fpIdx?18:7, height:7, borderRadius:4,
+                          background:i===fpIdx?"#0B1239":"rgba(0,0,0,0.2)",
+                          cursor:"pointer", transition:"all 0.2s" }} />
+                    ))}
+                  </div>
+                </>)}
+                <div style={{ position:"absolute", top:8, right:8,
+                  background:"rgba(0,0,0,0.45)", color:"#fff", fontSize:10,
+                  fontWeight:600, padding:"3px 8px", borderRadius:10 }}>
+                  {fpIdx+1} / {floorPlans.length}
+                </div>
+              </div>
+            )}
+
+            {/* Photo Slideshow */}
             {hasPhotos && (
-              <div style={{ display:"flex", gap:16, marginBottom:16, alignItems:"stretch" }}>
-
-                {/* Photo Slideshow — leftmost */}
-                <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
-                  boxShadow:T.shadow, background:"#0B1239", position:"relative",
-                  flex:1, height:400 }}>
+              <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
+                boxShadow:T.shadow, background:"#0B1239", position:"relative",
+                height:280 }}>
 
                 {photoLoading && photos.length === 0 ? (
                   <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
@@ -534,52 +574,8 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
                     </div>
                   </>
                 )}
-                </div>
-
-                {/* Floor Plans — slideshow matching house photos */}
-                {hasFP && (
-                  <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
-                    boxShadow:T.shadow, background:"#f8f9fb", position:"relative",
-                    flex:1, height:400 }}>
-                    <img src={floorPlans[fpIdx]} alt={`Floor plan ${fpIdx+1}`}
-                      onClick={() => setFpLightbox(true)}
-                      style={{ width:"100%", height:"100%", objectFit:"contain", display:"block",
-                        position:"absolute", inset:0, cursor:"zoom-in" }}
-                      onError={e => { e.target.style.display="none"; }} />
-                    {floorPlans.length > 1 && (<>
-                      <button onClick={() => setFpIdx(i => (i-1+floorPlans.length)%floorPlans.length)}
-                        style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)",
-                          background:"rgba(0,0,0,0.45)", border:"none", color:"#fff",
-                          width:32, height:32, borderRadius:"50%", cursor:"pointer",
-                          fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
-                      <button onClick={() => setFpIdx(i => (i+1)%floorPlans.length)}
-                        style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)",
-                          background:"rgba(0,0,0,0.45)", border:"none", color:"#fff",
-                          width:32, height:32, borderRadius:"50%", cursor:"pointer",
-                          fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
-                      <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)",
-                        display:"flex", gap:5 }}>
-                        {floorPlans.map((_,i) => (
-                          <div key={i} onClick={() => setFpIdx(i)}
-                            style={{ width:i===fpIdx?18:7, height:7, borderRadius:4,
-                              background:i===fpIdx?"#0B1239":"rgba(0,0,0,0.25)",
-                              cursor:"pointer", transition:"all 0.2s" }} />
-                        ))}
-                      </div>
-                    </>)}
-                    <div style={{ position:"absolute", top:8, right:8,
-                      background:"rgba(0,0,0,0.45)", color:"#fff", fontSize:10,
-                      fontWeight:600, padding:"3px 8px", borderRadius:10 }}>
-                      {fpIdx+1} / {floorPlans.length}
-                    </div>
-                  </div>
-                )}
-
               </div>
             )}
-
-            {/* Row 2: Description below images */}
-            {cleaned && <DescriptionBlock text={cleaned} forceExpand={false} />}
           </div>
         );
       })()}

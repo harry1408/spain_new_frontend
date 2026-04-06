@@ -592,8 +592,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
           <button onClick={()=>setSel({province:[],municipality:[],unit_type:[],house_type:[],year:[],esg:[]})} style={{ background:"#FEF2F2", border:"1px solid rgba(192,57,43,0.4)", color:"#6B2A2A", padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:11 }}>✕ Clear all</button>
         ) : null}
         <div style={{ marginLeft:"auto", color:"#8A96B4", fontSize:12 }}>
-          {filters.latest_period && <span style={{ color:"#0B1239" }}>Snapshot: {filters.latest_period}</span>}
-          {filters.prev_period && <span style={{ color:"#8A96B4" }}> &middot; prev: {filters.prev_period}</span>}
+          <span style={{ color:"#0B1239" }}>Snapshot: 4 Apr 2026</span>
         </div>
       </div>
 

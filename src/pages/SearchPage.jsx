@@ -254,7 +254,8 @@ function DelistedSearchCard({ l, onSelect }) {
   const unitTypes  = (l.unit_types  || "").split(", ").filter(Boolean);
   const houseTypes = (l.house_types || "").split(", ").filter(Boolean);
   return (
-    <div onClick={() => onSelect(l)}
+    <div id={`scard-d-${l.listing_id}`}
+      onClick={() => onSelect(l)}
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{ background: hov ? "#FEF2F2" : T.bgCard,
         border: `2px solid ${hov ? "#6B2A2A" : "#FCA5A5"}`,
@@ -359,7 +360,7 @@ function extractGmapsPlaceName(url) {
 let _ss = null; // module-level saved state
 
 // ── Main SearchPage ────────────────────────────────────────────────────────
-export default function SearchPage({ onSelectListing }) {
+export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   const [opts, setOpts]         = useState({ municipalities: [], locations: [] });
   const [streetCoords, setStreetCoords] = useState(_ss?.streetCoords ?? {});
   const [selMuni,  setSelMuni]  = useState(_ss?.selMuni  ?? []);
@@ -801,7 +802,7 @@ export default function SearchPage({ onSelectListing }) {
                 cursor: selMuni.length === 0 ? "not-allowed" : "pointer",
                 outline: "none" }}>
               <option value="">Auto</option>
-              {[0.5, 1, 2, 5, 10, 20, 30].map(v => (
+              {[0.5, 1, 2, 3, 5, 7].map(v => (
                 <option key={v} value={v}>{v < 1 ? `${v * 1000} m` : `${v} km`}</option>
               ))}
             </select>
@@ -1106,7 +1107,7 @@ export default function SearchPage({ onSelectListing }) {
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8,
               background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:8, padding:"6px 12px" }}>
               <span style={{ fontSize:10, color:T.textMuted, whiteSpace:"nowrap" }}>📍 Radius:</span>
-              <input type="range" min="0.1" max="30" step="0.1"
+              <input type="range" min="0.1" max="7" step="0.1"
                 value={radiusKm ?? 0.1}
                 onChange={e => setRadiusKm(+e.target.value)}
                 style={{ flex:1, accentColor:"#0B1239", cursor:"pointer" }} />
@@ -1199,7 +1200,7 @@ export default function SearchPage({ onSelectListing }) {
                     )}
                     {filteredDelisted.map(l => (
                       <DelistedSearchCard key={`d-${l.listing_id}`} l={l}
-                        onSelect={l => onSelectListing(l.listing_id, l.property_name, l.municipality)}
+                        onSelect={l => onSelectDelisted && onSelectDelisted(l.listing_id)}
                       />
                     ))}
                   </div>
@@ -1218,7 +1219,7 @@ export default function SearchPage({ onSelectListing }) {
                       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8,
                         background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:8, padding:"6px 12px" }}>
                         <span style={{ fontSize:10, color:T.textMuted, whiteSpace:"nowrap" }}>📍 Radius:</span>
-                        <input type="range" min="0.1" max="30" step="0.1"
+                        <input type="range" min="0.1" max="7" step="0.1"
                           value={radiusKm ?? 0.1}
                           onChange={e => setRadiusKm(+e.target.value)}
                           style={{ flex:1, accentColor:"#0B1239", cursor:"pointer" }} />

@@ -1,8 +1,62 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { T, StatCard, ChartCard, Tag, Pill, fmt, fmtFull, COLORS, UNIT_COLORS, ESG_COLORS, AddressBreadcrumb, MapPinPopup, PRICE_COLOR, M2_COLOR } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 import LoadingHouse from "../components/LoadingHouse.jsx";
+import GoogleStaticMap from "../components/GoogleStaticMap.jsx";
+
+function MultiSelect({ label, options, value, onChange, placeholder = "All", maxDisplay = 2 }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+  const toggle = opt => onChange(value.includes(opt) ? value.filter(x => x !== opt) : [...value, opt]);
+  const displayLabel = value.length === 0 ? placeholder
+    : value.length <= maxDisplay ? value.join(", ")
+    : `${value.slice(0, maxDisplay).join(", ")} +${value.length - maxDisplay}`;
+  return (
+    <div ref={ref} style={{ position:"relative" }}>
+      <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase", marginBottom:4, letterSpacing:"0.05em" }}>{label}</div>
+      <div onClick={() => setOpen(o => !o)} style={{ background:"#fff", border:`1px solid ${value.length ? T.borderAccent : T.border}`,
+        borderRadius:10, padding:"8px 12px", cursor:"pointer", minWidth:120,
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        fontSize:12, color:value.length ? T.text : T.textMuted, fontWeight:value.length ? 600 : 400,
+        boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+        <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"85%" }}>{displayLabel}</span>
+        <span style={{ color:T.textMuted, fontSize:10, flexShrink:0 }}>{open?"▲":"▼"}</span>
+      </div>
+      {open && (
+        <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, zIndex:999, background:"#fff",
+          border:`1px solid ${T.border}`, borderRadius:10, boxShadow:"0 8px 24px rgba(0,0,0,0.12)",
+          minWidth:"100%", maxHeight:240, overflowY:"auto" }}>
+          {options.map(opt => (
+            <div key={opt} onClick={() => toggle(opt)}
+              style={{ padding:"8px 14px", cursor:"pointer", fontSize:12,
+                background:value.includes(opt) ? T.navyTint : "transparent",
+                color:value.includes(opt) ? T.navy : T.text,
+                fontWeight:value.includes(opt) ? 700 : 400,
+                display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ width:14, height:14, borderRadius:3, border:`2px solid ${value.includes(opt) ? T.navy : T.border}`,
+                background:value.includes(opt) ? T.navy : "#fff", display:"inline-flex",
+                alignItems:"center", justifyContent:"center", fontSize:9, color:"#fff", flexShrink:0 }}>
+                {value.includes(opt) ? "✓" : ""}
+              </span>
+              {opt}
+            </div>
+          ))}
+          {value.length > 0 && (
+            <div onClick={() => onChange([])}
+              style={{ padding:"6px 14px", borderTop:`1px solid ${T.border}`, color:T.textMuted,
+                fontSize:11, cursor:"pointer", fontWeight:600 }}>✕ Clear</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Delisted listing card ─────────────────────────────────────────────────
 function DelistedCard({ l, onClick }) {
@@ -65,47 +119,114 @@ function DelistedCard({ l, onClick }) {
   );
 }
 
-// ── Apartment table for a delisted listing ────────────────────────────────
-function DelistedApartments({ listingId, listingName, onBack }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+// ── Description block ────────────────────────────────────────────────────
+function DescriptionBlock({ text, forceExpand = false }) {
+  const [expanded, setExpanded] = React.useState(false);
+  const LIMIT = 280;
+  const short = text.length > LIMIT;
+  const display = expanded || !short || forceExpand ? text : text.slice(0, LIMIT) + "…";
+  return (
+    <div style={{ background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:10,
+      padding:"14px 18px", fontSize:12, lineHeight:1.7, color:T.textSub,
+      maxWidth:820, maxHeight:280, overflowY:"auto" }}>
+      <div style={{ whiteSpace:"pre-wrap" }}>{display}</div>
+      {short && !forceExpand && (
+        <button onClick={() => setExpanded(v=>!v)}
+          style={{ background:"none", border:"none", color:PRICE_COLOR, fontSize:11,
+            fontWeight:700, cursor:"pointer", padding:"4px 0 0", marginTop:4 }}>
+          {expanded ? "Show less ▲" : "Read more ▼"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Apartment detail view (ListingPage-style) ─────────────────────────────
+function DelistedApartments({ listingId, listingName, onBack, backLabel = "All Sold Out" }) {
+  const [data,         setData]         = useState(null);
+  const [loading,      setLoading]      = useState(true);
+  const [photos,       setPhotos]       = useState([]);
+  const [floorPlans,   setFloorPlans]   = useState([]);
+  const [photoIdx,     setPhotoIdx]     = useState(0);
+  const [fpIdx,        setFpIdx]        = useState(0);
+  const [photoLoading, setPhotoLoading] = useState(true);
+  const [lightbox,     setLightbox]     = useState(false);
+  const [fpLightbox,   setFpLightbox]   = useState(false);
+  const [showAddrMap,  setShowAddrMap]  = useState(false);
 
   useEffect(() => {
-    fetch(`${API}/delisted/apartments/${listingId}`)
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
+    setPhotoLoading(true);
+    Promise.all([
+      fetch(`${API}/delisted/apartments/${listingId}`).then(r => r.json()),
+      fetch(`${API}/listing/photos/${listingId}`).then(r => r.json()).catch(() => ({ photos:[], floor_plans:[] })),
+    ]).then(([d, ph]) => {
+      setData(d);
+      setPhotos(ph.photos || []);
+      setFloorPlans(ph.floor_plans || []);
+      setPhotoLoading(false);
+      setLoading(false);
+    }).catch(() => { setLoading(false); setPhotoLoading(false); });
   }, [listingId]);
 
-  if (loading) return <div style={{ padding:40, textAlign:"center" }}><LoadingHouse message="Loading…" /></div>;
+  if (loading) return <div style={{ padding:60, textAlign:"center" }}><LoadingHouse message="Loading…" /></div>;
   if (!data) return null;
 
   const apts = data.apartments || [];
+  const esgColor = ESG_COLORS[data.esg_grade] || "#999";
 
   return (
     <div style={{ padding:"20px 20px", maxWidth:1700, margin:"0 auto" }}>
+
       {/* Header */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start",
+        marginBottom:20, flexWrap:"wrap", gap:12 }}>
         <div>
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
             <h2 style={{ margin:0, fontFamily:"'Inter',sans-serif", fontSize:26, color:T.text, fontWeight:400 }}>
               {data.property_name}
             </h2>
-            <span style={{ background:"#FEF2F2", color:"#6B2A2A", border:"1px solid #FCA5A5",
+            <span style={{ background:T.redBg, color:T.red, border:`1px solid ${T.red}40`,
               borderRadius:5, padding:"3px 10px", fontSize:11, fontWeight:700 }}>Sold Out</span>
+            {data.esg_grade && data.esg_grade !== "nan" && <Tag label={`ESG ${data.esg_grade}`} color={esgColor}/>}
           </div>
           <div style={{ color:T.textSub, fontSize:12, marginBottom:4 }}>
-            {data.developer && <><strong style={{ color:T.text }}>{data.developer}</strong> · </>}
-            <span style={{ color:PRICE_COLOR, fontWeight:600 }}>{data.municipality}</span>
+            {data.developer && <>by <strong style={{ color:T.text }}>{data.developer}</strong> · </>}
+            <span style={{ color:T.navy, fontWeight:600 }}>{data.municipality}</span>
             {" · "}
-            <span style={{ color:"#6B2A2A", fontWeight:600 }}>Last seen: {data.last_period}</span>
+            <span style={{ color:T.red, fontWeight:600 }}>Last seen: {data.last_period}</span>
+            {" · "}
+            <span style={{ color:T.green, fontWeight:600 }}>{apts.length} apartments</span>
           </div>
+          {data.city_area && (
+            <div style={{ position:"relative", display:"inline-block" }}>
+              <div onClick={() => setShowAddrMap(v=>!v)}
+                style={{ color:T.textMuted, fontSize:11, display:"flex", alignItems:"center",
+                  gap:4, cursor:"pointer", userSelect:"none" }}>
+                <span>📍</span>
+                <span style={{ textDecoration:"underline dotted", textUnderlineOffset:2 }}>{data.city_area}</span>
+                <span style={{ fontSize:10, opacity:0.6 }}>{showAddrMap?"▲":"▼"}</span>
+              </div>
+              {showAddrMap && data.lat && (
+                <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, zIndex:999,
+                  background:"#fff", border:`1px solid ${T.border}`, borderRadius:10,
+                  boxShadow:"0 8px 32px rgba(0,0,0,0.13)", overflow:"hidden", width:340 }}>
+                  <div style={{ padding:"8px 12px", borderBottom:`1px solid ${T.border}`,
+                    display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                    <span style={{ fontSize:11, color:T.textSub, fontWeight:600 }}>{data.property_name}</span>
+                    <button onClick={e=>{e.stopPropagation();setShowAddrMap(false);}}
+                      style={{ background:"none", border:"none", cursor:"pointer", color:T.textMuted, fontSize:16, lineHeight:1, padding:0 }}>×</button>
+                  </div>
+                  <GoogleStaticMap lat={data.lat} lng={data.lng} label={data.property_name} height="220px" zoom={15}/>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <button onClick={onBack}
           style={{ background:"#fff", border:`1px solid ${T.border}`, color:T.textSub,
             padding:"8px 16px", borderRadius:9, cursor:"pointer", fontSize:12, fontWeight:600,
             boxShadow:T.shadow }}>
-          ← All Sold Out
+          ← {backLabel}
         </button>
       </div>
 
@@ -116,6 +237,159 @@ function DelistedApartments({ listingId, listingName, onBack }) {
         <StatCard label="Avg €/m² (last)"  value={`€${Math.round(apts.length ? apts.reduce((s,a)=>s+(a.price_per_m2||0),0)/apts.length : 0).toLocaleString("en")}`} accent={M2_COLOR} />
         <StatCard label="Avg Size"          value={`${Math.round(apts.length ? apts.reduce((s,a)=>s+(a.size||0),0)/apts.length : 0)}m²`} accent={T.textSub} />
       </div>
+
+      {/* Description + Photos row */}
+      {(photos.length > 0 || photoLoading || data.description) && (() => {
+        const cleaned = data.description
+          ? data.description
+              .replace(/This comment was automatically translated[^\n]*/gi, "")
+              .replace(/See description in the original language/gi, "")
+              .replace(/\n{3,}/g, "\n\n").trim()
+          : "";
+        const hasPhotos = photos.length > 0 || photoLoading;
+        const hasFP = floorPlans.length > 0;
+        const cols = hasPhotos ? (hasFP ? "1fr 320px 320px" : "1fr 320px") : "1fr";
+        return (
+          <div style={{ display:"grid", gridTemplateColumns:cols, gap:16, marginBottom:20, alignItems:"stretch" }}>
+            {cleaned
+              ? <DescriptionBlock text={cleaned} forceExpand={hasPhotos} />
+              : hasPhotos && <div style={{ background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:10,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  color:T.textMuted, fontSize:12, fontStyle:"italic" }}>No description available</div>
+            }
+
+            {/* Floor Plans slideshow */}
+            {hasPhotos && hasFP && (
+              <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
+                boxShadow:T.shadow, background:"#f8f9fb", position:"relative", height:280 }}>
+                <img src={floorPlans[fpIdx]} alt={`Floor plan ${fpIdx+1}`}
+                  onClick={() => setFpLightbox(true)}
+                  style={{ width:"100%", height:"100%", objectFit:"contain", display:"block",
+                    position:"absolute", inset:0, cursor:"zoom-in" }}
+                  onError={e => { e.target.style.display="none"; }} />
+                {floorPlans.length > 1 && (<>
+                  <button onClick={() => setFpIdx(i => (i-1+floorPlans.length)%floorPlans.length)}
+                    style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)",
+                      background:"rgba(0,0,0,0.45)", border:"none", color:"#fff",
+                      width:32, height:32, borderRadius:"50%", cursor:"pointer",
+                      fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
+                  <button onClick={() => setFpIdx(i => (i+1)%floorPlans.length)}
+                    style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)",
+                      background:"rgba(0,0,0,0.45)", border:"none", color:"#fff",
+                      width:32, height:32, borderRadius:"50%", cursor:"pointer",
+                      fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
+                  <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)", display:"flex", gap:5 }}>
+                    {floorPlans.map((_,i) => (
+                      <div key={i} onClick={() => setFpIdx(i)}
+                        style={{ width:i===fpIdx?18:7, height:7, borderRadius:4,
+                          background:i===fpIdx?"#0B1239":"rgba(0,0,0,0.2)", cursor:"pointer", transition:"all 0.2s" }} />
+                    ))}
+                  </div>
+                </>)}
+                <div style={{ position:"absolute", top:8, right:8, background:"rgba(0,0,0,0.45)",
+                  color:"#fff", fontSize:10, fontWeight:600, padding:"3px 8px", borderRadius:10 }}>
+                  {fpIdx+1} / {floorPlans.length}
+                </div>
+              </div>
+            )}
+
+            {/* Photo slideshow */}
+            {hasPhotos && (
+              <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
+                boxShadow:T.shadow, background:"#0B1239", position:"relative", height:280 }}>
+                {photoLoading && photos.length === 0 ? (
+                  <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
+                    justifyContent:"center", color:"#6B7A9F", fontSize:12 }}>Loading photos…</div>
+                ) : (<>
+                  <img src={photos[photoIdx]} alt={`Photo ${photoIdx+1}`}
+                    onClick={() => setLightbox(true)}
+                    style={{ width:"100%", height:"100%", objectFit:"cover", display:"block",
+                      position:"absolute", inset:0, cursor:"zoom-in" }}
+                    onError={e => { e.target.style.display="none"; }} />
+                  {photos.length > 1 && (<>
+                    <button onClick={() => setPhotoIdx(i => (i-1+photos.length)%photos.length)}
+                      style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)",
+                        background:"rgba(0,0,0,0.55)", border:"none", color:"#fff",
+                        width:32, height:32, borderRadius:"50%", cursor:"pointer",
+                        fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
+                    <button onClick={() => setPhotoIdx(i => (i+1)%photos.length)}
+                      style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)",
+                        background:"rgba(0,0,0,0.55)", border:"none", color:"#fff",
+                        width:32, height:32, borderRadius:"50%", cursor:"pointer",
+                        fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
+                    <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)", display:"flex", gap:5 }}>
+                      {photos.slice(0,7).map((_,i) => (
+                        <div key={i} onClick={() => setPhotoIdx(i)}
+                          style={{ width:i===photoIdx?18:7, height:7, borderRadius:4,
+                            background:i===photoIdx?"#0B1239":"rgba(255,255,255,0.5)",
+                            cursor:"pointer", transition:"all 0.2s" }} />
+                      ))}
+                    </div>
+                  </>)}
+                  <div style={{ position:"absolute", top:8, right:8, background:"rgba(0,0,0,0.55)",
+                    color:"#fff", fontSize:10, fontWeight:600, padding:"3px 8px", borderRadius:10 }}>
+                    {photoIdx+1} / {photos.length}
+                  </div>
+                </>)}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Photo Lightbox */}
+      {lightbox && photos.length > 0 && (
+        <div onClick={() => setLightbox(false)}
+          style={{ position:"fixed", inset:0, zIndex:9999, background:"rgba(0,0,0,0.92)",
+            display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <img src={photos[photoIdx]} alt={`Photo ${photoIdx+1}`} onClick={e => e.stopPropagation()}
+            style={{ maxWidth:"90vw", maxHeight:"88vh", objectFit:"contain", borderRadius:8 }}
+            onError={e => { e.target.style.display="none"; }} />
+          {photos.length > 1 && (<>
+            <button onClick={e => { e.stopPropagation(); setPhotoIdx(i => (i-1+photos.length)%photos.length); }}
+              style={{ position:"fixed", left:24, top:"50%", transform:"translateY(-50%)",
+                background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
+                width:48, height:48, borderRadius:"50%", cursor:"pointer", fontSize:28,
+                display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
+            <button onClick={e => { e.stopPropagation(); setPhotoIdx(i => (i+1)%photos.length); }}
+              style={{ position:"fixed", right:24, top:"50%", transform:"translateY(-50%)",
+                background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
+                width:48, height:48, borderRadius:"50%", cursor:"pointer", fontSize:28,
+                display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
+          </>)}
+          <button onClick={() => setLightbox(false)}
+            style={{ position:"fixed", top:16, right:20, background:"rgba(255,255,255,0.15)",
+              border:"none", color:"#fff", width:40, height:40, borderRadius:"50%",
+              cursor:"pointer", fontSize:20, display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+        </div>
+      )}
+
+      {/* Floor Plan Lightbox */}
+      {fpLightbox && floorPlans.length > 0 && (
+        <div onClick={() => setFpLightbox(false)}
+          style={{ position:"fixed", inset:0, zIndex:9999, background:"rgba(0,0,0,0.92)",
+            display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <img src={floorPlans[fpIdx]} alt={`Floor plan ${fpIdx+1}`} onClick={e => e.stopPropagation()}
+            style={{ maxWidth:"90vw", maxHeight:"88vh", objectFit:"contain", borderRadius:8 }}
+            onError={e => { e.target.style.display="none"; }} />
+          {floorPlans.length > 1 && (<>
+            <button onClick={e => { e.stopPropagation(); setFpIdx(i => (i-1+floorPlans.length)%floorPlans.length); }}
+              style={{ position:"fixed", left:24, top:"50%", transform:"translateY(-50%)",
+                background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
+                width:48, height:48, borderRadius:"50%", cursor:"pointer", fontSize:28,
+                display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
+            <button onClick={e => { e.stopPropagation(); setFpIdx(i => (i+1)%floorPlans.length); }}
+              style={{ position:"fixed", right:24, top:"50%", transform:"translateY(-50%)",
+                background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
+                width:48, height:48, borderRadius:"50%", cursor:"pointer", fontSize:28,
+                display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
+          </>)}
+          <button onClick={() => setFpLightbox(false)}
+            style={{ position:"fixed", top:16, right:20, background:"rgba(255,255,255,0.15)",
+              border:"none", color:"#fff", width:40, height:40, borderRadius:"50%",
+              cursor:"pointer", fontSize:20, display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+        </div>
+      )}
 
       {/* Apartments table */}
       <div style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:14,
@@ -138,8 +412,7 @@ function DelistedApartments({ listingId, listingName, onBack }) {
               {apts.map((a, i) => {
                 const uc = UNIT_COLORS[a.unit_type] || "#aaa";
                 return (
-                  <tr key={i} style={{ borderBottom:`1px solid ${T.border}`,
-                    background: i%2===0 ? T.bgStripe : "#fff" }}>
+                  <tr key={i} style={{ borderBottom:`1px solid ${T.border}`, background:i%2===0?T.bgStripe:"#fff" }}>
                     <td style={{ padding:"9px 12px" }}>
                       <span style={{ background:uc, color:"#fff", fontWeight:700, fontSize:11,
                         padding:"2px 8px", borderRadius:4 }}>{a.unit_type}</span>
@@ -188,30 +461,45 @@ function DelistedApartments({ listingId, listingName, onBack }) {
 }
 
 // ── Main Delisted Page ────────────────────────────────────────────────────
-export default function DelistedPage({ onGoListing }) {
-  const [data,      setData]      = useState(null);
-  const [loading,   setLoading]   = useState(true);
-  const [selProv,   setSelProv]   = useState([]);
-  const [selMuni,   setSelMuni]   = useState([]);
-  const [search,    setSearch]    = useState("");
-  const [sortBy,    setSortBy]    = useState("avg_price");
-  const [activePin, setActivePin] = useState(null);
-  const [selected,  setSelected]  = useState(null); // listing_id for apartment view
+const ALL_UTS  = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
+const ALL_ESG  = ["A","B","C","D","E","F","G"];
+
+export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBackToSearch }) {
+  const [data,         setData]         = useState(null);
+  const [loading,      setLoading]      = useState(true);
+  const [activePin,    setActivePin]    = useState(null);
+  const [selected,     setSelected]     = useState(null);
+  // filters
+  const [search,       setSearch]       = useState("");
+  const [selUnit,      setSelUnit]      = useState([]);
+  const [selHouseType, setSelHouseType] = useState([]);
+  const [selEsg,       setSelEsg]       = useState([]);
+  const [selMonth,     setSelMonth]     = useState([]);
+  const [minPrice,     setMinPrice]     = useState("");
+  const [maxPrice,     setMaxPrice]     = useState("");
+  const [minM2,        setMinM2]        = useState("");
+  const [maxM2,        setMaxM2]        = useState("");
+  const [sortBy,       setSortBy]       = useState("avg_price");
 
   useEffect(() => {
-    const params = new URLSearchParams();
-    selProv.forEach(p => params.append("province", p));
-    selMuni.forEach(m => params.append("municipality", m));
-    fetch(`${API}/delisted/listings?${params}`)
+    fetch(`${API}/delisted/listings`)
       .then(r => r.json())
-      .then(d => { setData(d); setLoading(false); })
+      .then(d => {
+        setData(d);
+        setLoading(false);
+        if (selectedId && d.listings) {
+          const match = d.listings.find(l => l.listing_id === selectedId);
+          if (match) setSelected(match);
+        }
+      })
       .catch(() => setLoading(false));
-  }, [selProv, selMuni]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // All hooks before early returns
   const listings = data?.listings || [];
   const summary  = data?.summary  || {};
   const periods  = data?.periods  || {};
+
+  const allMonths = useMemo(() => [...new Set(listings.map(l => l.last_period).filter(Boolean))].sort(), [listings]);
 
   const filtered = useMemo(() => {
     let r = listings;
@@ -219,8 +507,18 @@ export default function DelistedPage({ onGoListing }) {
       const q = search.toLowerCase();
       r = r.filter(l => l.property_name?.toLowerCase().includes(q) || l.municipality?.toLowerCase().includes(q));
     }
+    if (selUnit.length)      r = r.filter(l => selUnit.some(ut => (l.unit_types||"").includes(ut)));
+    if (selHouseType.length) r = r.filter(l => selHouseType.some(ht => (l.house_types||"").includes(ht)));
+    if (selEsg.length)       r = r.filter(l => selEsg.includes(l.esg_grade));
+    if (selMonth.length)     r = r.filter(l => selMonth.includes(l.last_period));
+    if (minPrice) r = r.filter(l => l.avg_price >= Number(minPrice));
+    if (maxPrice) r = r.filter(l => l.avg_price <= Number(maxPrice));
+    if (minM2)    r = r.filter(l => l.avg_price_m2 && l.avg_price_m2 >= Number(minM2));
+    if (maxM2)    r = r.filter(l => l.avg_price_m2 && l.avg_price_m2 <= Number(maxM2));
     return [...r].sort((a,b) => (b[sortBy]||0)-(a[sortBy]||0));
-  }, [listings, search, sortBy]);
+  }, [listings, search, selUnit, selHouseType, selEsg, selMonth, minPrice, maxPrice, minM2, maxM2, sortBy]);
+
+  const hasFilters = selUnit.length || selHouseType.length || selEsg.length || selMonth.length || minPrice || maxPrice || minM2 || maxM2;
 
   const mapMarkers = useMemo(() => filtered.map(l => ({
     id:       l.listing_id,
@@ -236,7 +534,9 @@ export default function DelistedPage({ onGoListing }) {
     return <DelistedApartments
       listingId={selected.listing_id}
       listingName={selected.property_name}
-      onBack={() => setSelected(null)}
+      fromSearch={fromSearch}
+      onBack={fromSearch && onBackToSearch ? onBackToSearch : () => setSelected(null)}
+      backLabel={fromSearch ? "Search" : "All Sold Out"}
     />;
   }
 
