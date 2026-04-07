@@ -259,9 +259,11 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
   const [radiusKm,      setRadiusKm]      = useState(null); // null = comarca mode
   const [loading,       setLoading]       = useState(true);
   const [floorPlans,    setFloorPlans]    = useState([]);
+  const [devPhotos,     setDevPhotos]     = useState([]);
   const [fpAptSpecific, setFpAptSpecific] = useState(false);
   const [fpIdx,         setFpIdx]         = useState(0);
   const [fpLightbox,    setFpLightbox]    = useState(false);
+  const [mediaTab,      setMediaTab]      = useState("photos"); // "photos" | "floorplan"
 
   const utColor = UNIT_COLORS[apt.unit_type] || T.navy;
 
@@ -271,12 +273,18 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
     return (parseInt(y||"0")-2000)*100 + (MO[m]||0);
   };
 
-  // Fetch floor plans — try apt-specific first, fall back to listing-level
+  // Fetch apt floor plans + development photos
   useEffect(() => {
-    setFloorPlans([]); setFpIdx(0);
+    setFloorPlans([]); setDevPhotos([]); setFpIdx(0); setMediaTab("photos");
+    // Apt-specific floor plans
     fetch(`${API}/listing/photos/${listingId}/${apt.sub_listing_id}`)
       .then(r => r.json())
       .then(d => { setFloorPlans(d.floor_plans || []); setFpAptSpecific(d.apt_specific || false); })
+      .catch(() => {});
+    // Development-level photos
+    fetch(`${API}/listing/photos/${listingId}`)
+      .then(r => r.json())
+      .then(d => { setDevPhotos(d.photos || []); })
       .catch(() => {});
   }, [listingId, apt.sub_listing_id]);
 
@@ -337,132 +345,332 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
     </button>
   );
 
+  // Get current listing coords from nearbyListings
+  const currentListingCoords = useMemo(() => {
+    const found = nearbyListings?.listings?.find(l => l.listing_id === listingId);
+    return found ? { lat: found.lat, lng: found.lng } : null;
+  }, [nearbyListings, listingId]);
+
   return (
     <div style={{ minHeight:"100vh", background:"#F2F4F6" }}>
       <div style={{ maxWidth:1700, margin:"0 auto" }}>
 
-        {/* ── Header ────────────────────────────────────────────────── */}
-        <div style={{ background:"#fff", borderBottom:`1px solid ${T.border}`,
-          padding:"18px 28px", display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
-          <span style={{ background:utColor, color:"#fff", fontWeight:800, fontSize:14,
-            padding:"4px 12px", borderRadius:6 }}>{apt.unit_type}</span>
-          <div>
-            <div style={{ fontWeight:700, fontSize:17, color:T.text }}>{listingName}</div>
-            <div style={{ color:T.textSub, fontSize:12, marginTop:2 }}>
-              {apt.floor || "—"} &nbsp;·&nbsp; {apt.size} m²
-              {apt.bedrooms != null && ` · ${apt.bedrooms} beds`}
-              {apt.bathrooms != null && ` · ${apt.bathrooms} baths`}
-            </div>
-          </div>
-          <div style={{ marginLeft:"auto", display:"flex", gap:24, alignItems:"center" }}>
-            <div style={{ textAlign:"right" }}>
-              <div style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>Listed Price</div>
-              <div style={{ color:T.navy, fontWeight:800, fontSize:22 }}>{fmtFull(apt.price)}</div>
-              <div style={{ color:T.textSub, fontSize:11 }}>€{apt.price_per_m2 ? Math.round(apt.price_per_m2).toLocaleString("en") : "—"}/m²</div>
+        {/* ── Breadcrumb nav ─────────────────────────────────────────── */}
+        <div style={{ background:"#fff", borderBottom:`1px solid ${T.border}`, padding:"10px 28px",
+          display:"flex", alignItems:"center", gap:10 }}>
+          <button onClick={onBack}
+            style={{ background:"none", border:"none", color:T.textSub, cursor:"pointer",
+              fontSize:13, fontWeight:600, padding:0, display:"flex", alignItems:"center", gap:6 }}>
+            ← {listingName || "Back"}
+          </button>
+          <span style={{ color:T.border }}>›</span>
+          <span style={{ color:T.textMuted, fontSize:12 }}>{apt.unit_type}</span>
+          {apt.floor && <><span style={{ color:T.border }}>›</span><span style={{ color:T.textMuted, fontSize:12 }}>Floor {apt.floor}</span></>}
+        </div>
+
+        {/* ── Hero: two-column listing card ─────────────────────────── */}
+        {(() => {
+          // Build combined media: dev photos first, then floor plans
+          const allMedia = [
+            ...devPhotos.map(u => ({ url:u, type:"photo" })),
+            ...floorPlans.map(u => ({ url:u, type:"floorplan" })),
+          ];
+          const curMedia = allMedia[fpIdx] || null;
+          const total = allMedia.length;
+          const prev = () => setFpIdx(i => (i - 1 + total) % total);
+          const next = () => setFpIdx(i => (i + 1) % total);
+
+          return (
+        <div style={{ background:"#fff", borderBottom:`1px solid ${T.border}`, padding:"28px 28px 24px" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 320px", gap:28, alignItems:"start", maxWidth:1100 }}>
+
+            {/* ── LEFT: media + listing details ── */}
+            <div>
+              {/* Media area */}
+              <div style={{ position:"relative", borderRadius:12, overflow:"hidden",
+                background:"#F2F4F6", border:`1px solid ${T.border}`, marginBottom:20, height:320 }}>
+                {curMedia ? (
+                  <img src={curMedia.url}
+                    alt={curMedia.type === "floorplan" ? "Floor plan" : "Photo"}
+                    style={{ width:"100%", height:"100%",
+                      objectFit: curMedia.type === "floorplan" ? "contain" : "cover",
+                      display:"block", cursor:"zoom-in" }}
+                    onClick={() => setFpLightbox(true)}
+                    onError={e => { e.target.style.display="none"; }} />
+                ) : (
+                  <div style={{ height:"100%", display:"flex", flexDirection:"column",
+                    alignItems:"center", justifyContent:"center", color:T.textMuted }}>
+                    <div style={{ fontSize:40, marginBottom:8 }}>🏗️</div>
+                    <div style={{ fontSize:12 }}>No media available</div>
+                  </div>
+                )}
+
+                {/* Nav arrows */}
+                {total > 1 && (<>
+                  <button onClick={e => { e.stopPropagation(); prev(); }}
+                    style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)",
+                      background:"rgba(255,255,255,0.88)", border:`1px solid ${T.border}`, color:T.text,
+                      width:32, height:32, borderRadius:"50%", cursor:"pointer", fontSize:18,
+                      display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 2px 6px rgba(0,0,0,0.1)" }}>‹</button>
+                  <button onClick={e => { e.stopPropagation(); next(); }}
+                    style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)",
+                      background:"rgba(255,255,255,0.88)", border:`1px solid ${T.border}`, color:T.text,
+                      width:32, height:32, borderRadius:"50%", cursor:"pointer", fontSize:18,
+                      display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 2px 6px rgba(0,0,0,0.1)" }}>›</button>
+                </>)}
+
+                {/* Bottom overlay: type badge + counter + links */}
+                <div style={{ position:"absolute", bottom:0, left:0, right:0,
+                  background:"linear-gradient(transparent, rgba(0,0,0,0.45))",
+                  padding:"18px 12px 10px", display:"flex", alignItems:"center", gap:6 }}>
+                  {curMedia && (
+                    <span style={{ background:"rgba(255,255,255,0.92)", borderRadius:5,
+                      padding:"2px 8px", fontSize:10, fontWeight:700,
+                      color: curMedia.type === "floorplan" ? T.navy : T.text }}>
+                      {curMedia.type === "floorplan"
+                        ? `🗺 Floor plan${fpAptSpecific ? " · This unit" : ""}`
+                        : "📸 Photo"}
+                    </span>
+                  )}
+                  {total > 1 && (
+                    <span style={{ background:"rgba(0,0,0,0.55)", borderRadius:5,
+                      padding:"2px 8px", fontSize:10, fontWeight:600, color:"#fff" }}>
+                      {fpIdx + 1} / {total}
+                    </span>
+                  )}
+                  {devPhotos.length > 0 && (
+                    <span style={{ background:"rgba(0,0,0,0.45)", borderRadius:5,
+                      padding:"2px 8px", fontSize:10, color:"rgba(255,255,255,0.85)" }}>
+                      📸 {devPhotos.length} photos
+                      {floorPlans.length > 0 ? `  ·  🗺 ${floorPlans.length} floor plans` : ""}
+                    </span>
+                  )}
+                  {apt.unit_url && (
+                    <a href={apt.unit_url} target="_blank" rel="noreferrer"
+                      style={{ marginLeft:"auto", background:"rgba(255,255,255,0.92)", border:"none",
+                        borderRadius:6, padding:"4px 10px", fontSize:11, fontWeight:600,
+                        color:T.navy, textDecoration:"none" }}>
+                      ↗ Idealista
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* Thumbnail strip */}
+              {total > 1 && (
+                <div style={{ display:"flex", gap:6, overflowX:"auto", marginBottom:16, paddingBottom:4 }}>
+                  {allMedia.map((m, i) => (
+                    <div key={i} onClick={() => setFpIdx(i)}
+                      style={{ flexShrink:0, width:64, height:48, borderRadius:7, overflow:"hidden",
+                        border:`2px solid ${fpIdx===i ? T.navy : T.border}`, cursor:"pointer",
+                        opacity: fpIdx===i ? 1 : 0.65, transition:"all 0.15s" }}>
+                      <img src={m.url} alt=""
+                        style={{ width:"100%", height:"100%",
+                          objectFit: m.type === "floorplan" ? "contain" : "cover" }}
+                        onError={e => { e.target.parentElement.style.display="none"; }} />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Title + location */}
+              <h1 style={{ margin:"0 0 6px", fontSize:22, fontWeight:700, color:T.text, lineHeight:1.3 }}>
+                {apt.unit_type} for sale — {listingName}
+              </h1>
+              <div style={{ color:T.textSub, fontSize:13, marginBottom:16, display:"flex", alignItems:"center", gap:6 }}>
+                📍 {municipality}
+                {apt.floor && <span style={{ color:T.textMuted }}>· Floor {apt.floor}</span>}
+              </div>
+
+              {/* Price */}
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:30, fontWeight:800, color:T.navy, lineHeight:1 }}>
+                  {fmtFull(apt.price)}
+                </div>
+                <div style={{ color:T.textSub, fontSize:13, marginTop:4, display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                  {apt.price_per_m2 ? `€${Math.round(apt.price_per_m2).toLocaleString("en")}/m²` : ""}
+                  {priceStats && priceStats.diff !== 0 && (
+                    <span style={{ fontWeight:600,
+                      color: priceStats.diff > 0 ? T.red : T.green }}>
+                      {priceStats.diff > 0 ? "▲" : "▼"} {fmtFull(Math.abs(priceStats.diff))} ({Math.abs(priceStats.pct)}%) since {aptTrend[0]?.period}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Key features row */}
+              <div style={{ display:"flex", alignItems:"center", flexWrap:"wrap", gap:0, marginBottom:16,
+                borderTop:`1px solid ${T.border}`, borderBottom:`1px solid ${T.border}`, padding:"12px 0" }}>
+                {[
+                  ["🏠", "New home"],
+                  apt.size && ["📐", `${apt.size} m²`],
+                  apt.bedrooms != null && ["🛏", `${apt.bedrooms} bed.`],
+                  apt.bathrooms != null && ["🚿", `${apt.bathrooms} bath.`],
+                  apt.has_parking && ["🚗", "Parking included"],
+                  apt.has_terrace && ["🌅", "Terrace"],
+                  apt.has_pool && ["🏊", "Pool"],
+                  apt.has_ac && ["❄️", "A/C"],
+                  apt.has_lift && ["🛗", "Lift"],
+                ].filter(Boolean).map(([icon, label], i, arr) => (
+                  <span key={i} style={{ display:"flex", alignItems:"center", gap:5, fontSize:13, color:T.text,
+                    paddingRight: i < arr.length-1 ? 16 : 0,
+                    marginRight: i < arr.length-1 ? 16 : 0,
+                    borderRight: i < arr.length-1 ? `1px solid ${T.border}` : "none" }}>
+                    <span>{icon}</span>{label}
+                  </span>
+                ))}
+              </div>
+
               {apt.last_updated && (
-                <div style={{ color:"#6B7A9F", fontSize:10, marginTop:3 }}>
+                <div style={{ color:T.textMuted, fontSize:11, marginBottom:8 }}>
                   🕒 {apt.last_updated.replace("Listing updated on ","").replace("listing updated on ","")}
                 </div>
               )}
             </div>
-            {priceStats && (
-              <div style={{ textAlign:"right" }}>
-                <div style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>Total Change</div>
-                <div style={{ color: priceStats.diff>0?T.red:priceStats.diff<0?T.green:T.textSub,
-                  fontWeight:700, fontSize:15 }}>
-                  {priceStats.diff===0 ? "No change"
-                    : `${priceStats.diff>0?"▲":"▼"} ${fmtFull(Math.abs(priceStats.diff))} (${Math.abs(priceStats.pct)}%)`}
+
+            {/* ── RIGHT: sidebar ── */}
+            <div style={{ position:"sticky", top:16 }}>
+              {/* Idealista CTA */}
+              <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:12,
+                padding:"20px", boxShadow:T.shadowMd, marginBottom:14 }}>
+                <div style={{ fontWeight:700, fontSize:15, color:T.text, marginBottom:14, textAlign:"center" }}>
+                  View on Idealista
                 </div>
-                <div style={{ color:T.textMuted, fontSize:10 }}>
-                  {aptTrend[0]?.period} → {aptTrend[aptTrend.length-1]?.period}
+                {apt.unit_url ? (
+                  <>
+                    <a href={apt.unit_url} target="_blank" rel="noreferrer"
+                      style={{ display:"block", width:"100%", background:T.navy, color:"#fff",
+                        textAlign:"center", padding:"12px", borderRadius:8, textDecoration:"none",
+                        fontWeight:700, fontSize:14, marginBottom:10, boxSizing:"border-box" }}>
+                      Contact via Idealista →
+                    </a>
+                    <a href={apt.unit_url} target="_blank" rel="noreferrer"
+                      style={{ display:"block", width:"100%", background:"none", border:`1px solid ${T.border}`,
+                        color:T.textSub, textAlign:"center", padding:"10px", borderRadius:8, textDecoration:"none",
+                        fontWeight:600, fontSize:13, boxSizing:"border-box" }}>
+                      View phone / full listing ↗
+                    </a>
+                  </>
+                ) : (
+                  <div style={{ background:T.bgStripe, borderRadius:8, padding:"12px",
+                    textAlign:"center", color:T.textMuted, fontSize:12 }}>
+                    No Idealista listing link available
+                  </div>
+                )}
+
+                {/* Listing reference */}
+                <div style={{ borderTop:`1px solid ${T.border}`, marginTop:14, paddingTop:14 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                    <span style={{ color:T.textMuted, fontSize:11 }}>Listing reference</span>
+                    <span style={{ color:T.text, fontSize:11, fontWeight:600 }}>Unit {apt.sub_listing_id}</span>
+                  </div>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                    <span style={{ color:T.textMuted, fontSize:11 }}>Developer</span>
+                    <span style={{ color:T.text, fontSize:11, fontWeight:600 }}>{apt.developer || listingName}</span>
+                  </div>
+                  {apt.unit_type && (
+                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                      <span style={{ color:T.textMuted, fontSize:11 }}>Type</span>
+                      <span style={{ background:utColor, color:"#fff", fontSize:10, fontWeight:700,
+                        padding:"2px 8px", borderRadius:4 }}>{apt.unit_type}</span>
+                    </div>
+                  )}
+                  {apt.size && (
+                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                      <span style={{ color:T.textMuted, fontSize:11 }}>Size</span>
+                      <span style={{ color:T.text, fontSize:11, fontWeight:600 }}>{apt.size} m²</span>
+                    </div>
+                  )}
+                  {apt.floor && (
+                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                      <span style={{ color:T.textMuted, fontSize:11 }}>Floor</span>
+                      <span style={{ color:T.text, fontSize:11, fontWeight:600 }}>{apt.floor}</span>
+                    </div>
+                  )}
+                  {apt.esg_grade && apt.esg_grade !== "nan" && (
+                    <div style={{ display:"flex", justifyContent:"space-between" }}>
+                      <span style={{ color:T.textMuted, fontSize:11 }}>ESG Certificate</span>
+                      <Tag label={`ESG ${apt.esg_grade}`} color={ESG_COLORS[apt.esg_grade]||"#999"}/>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-            <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-              <Pill on={apt.has_terrace} label="Terrace"/>
-              <Pill on={apt.has_parking} label="Parking"/>
-              <Pill on={apt.has_pool}    label="Pool"/>
-              <Pill on={apt.has_ac}      label="AC"/>
-              <Pill on={apt.has_lift}    label="Lift"/>
+
+              {/* Price history card */}
+              {priceStats && (
+                <div style={{ background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:12, padding:"16px" }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:T.textMuted, textTransform:"uppercase",
+                    letterSpacing:"0.06em", marginBottom:12 }}>Price History</div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                    {[
+                      ["First seen", fmtFull(priceStats.first), T.textSub],
+                      ["Current",    fmtFull(priceStats.last),  T.navy],
+                      ["Change",     `${priceStats.diff > 0 ? "+" : ""}${fmtFull(priceStats.diff)}`, priceStats.diff > 0 ? T.red : T.green],
+                      ["% Change",   `${priceStats.diff > 0 ? "+" : ""}${priceStats.pct}%`,           priceStats.diff > 0 ? T.red : T.green],
+                    ].map(([lbl, val, color]) => (
+                      <div key={lbl}>
+                        <div style={{ color:T.textMuted, fontSize:9, textTransform:"uppercase", fontWeight:600 }}>{lbl}</div>
+                        <div style={{ color, fontWeight:700, fontSize:13 }}>{val}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            {apt.unit_url && (
-              <a href={apt.unit_url} target="_blank" rel="noreferrer"
-                style={{ display:"inline-flex", alignItems:"center", gap:4,
-                  color:"#fff", background:T.navyMid, fontSize:12, fontWeight:700,
-                  textDecoration:"none", padding:"6px 14px", borderRadius:7 }}>
-                Idealista ↗
-              </a>
-            )}
-            <button onClick={onBack}
-              style={{ background:"#fff", border:`1px solid ${T.border}`, color:T.textSub,
-                padding:"8px 16px", borderRadius:9, cursor:"pointer", fontSize:12, fontWeight:600,
-                boxShadow:"0 1px 3px rgba(0,0,0,0.08)" }}>← Back</button>
           </div>
         </div>
+          );
+        })()}
 
+        {/* Lightbox */}
+        {fpLightbox && (devPhotos.length > 0 || floorPlans.length > 0) && (
+          <div onClick={() => setFpLightbox(false)}
+            style={{ position:"fixed", inset:0, zIndex:9999, background:"rgba(0,0,0,0.92)",
+              display:"flex", alignItems:"center", justifyContent:"center" }}>
+            {(() => {
+              const allMedia = [...devPhotos.map(u=>({url:u,type:"photo"})), ...floorPlans.map(u=>({url:u,type:"floorplan"}))];
+              const cur = allMedia[fpIdx];
+              const total = allMedia.length;
+              return <>
+                <img src={cur?.url} alt={`${cur?.type} ${fpIdx+1}`}
+                  onClick={e => e.stopPropagation()}
+                  style={{ maxWidth:"90vw", maxHeight:"88vh",
+                    objectFit: cur?.type === "floorplan" ? "contain" : "cover",
+                    borderRadius:8, boxShadow:"0 8px 40px rgba(0,0,0,0.6)" }}
+                  onError={e => { e.target.style.display="none"; }} />
+                {total > 1 && (<>
+                  <button onClick={e => { e.stopPropagation(); setFpIdx(i => (i-1+total)%total); }}
+                    style={{ position:"fixed", left:24, top:"50%", transform:"translateY(-50%)",
+                      background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
+                      width:48, height:48, borderRadius:"50%", cursor:"pointer", fontSize:28,
+                      display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
+                  <button onClick={e => { e.stopPropagation(); setFpIdx(i => (i+1)%total); }}
+                    style={{ position:"fixed", right:24, top:"50%", transform:"translateY(-50%)",
+                      background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
+                      width:48, height:48, borderRadius:"50%", cursor:"pointer", fontSize:28,
+                      display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
+                </>)}
+                <button onClick={() => setFpLightbox(false)}
+                  style={{ position:"fixed", top:16, right:20, background:"rgba(255,255,255,0.15)",
+                    border:"none", color:"#fff", width:40, height:40, borderRadius:"50%",
+                    cursor:"pointer", fontSize:20, display:"flex", alignItems:"center",
+                    justifyContent:"center" }}>✕</button>
+                <div style={{ position:"fixed", top:20, left:"50%", transform:"translateX(-50%)",
+                  background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:13, fontWeight:600,
+                  padding:"6px 16px", borderRadius:20 }}>
+                  {cur?.type === "floorplan" ? "Floor Plan" : "Photo"} {fpIdx+1} / {total}
+                </div>
+              </>;
+            })()}
+          </div>
+        )}
+
+        {/* ── Analytics sections ─────────────────────────────────────── */}
         <div style={{ padding:"28px 28px 36px" }}>
           {loading ? (
             <div style={{ padding:60, textAlign:"center" }}><LoadingHouse message="Loading analysis…" /></div>
           ) : (
             <>
-              {/* ── Floor Plans ──────────────────────────────────────── */}
-              {floorPlans.length > 0 && (
-                <div style={{ marginBottom:28 }}>
-                  <div style={{ fontWeight:700, fontSize:14, color:T.text, marginBottom:10, display:"flex", alignItems:"center", gap:8 }}>
-                    Floor Plans <span style={{ color:T.textMuted, fontWeight:400, fontSize:11 }}>({floorPlans.length})</span>
-                    {fpAptSpecific
-                      ? <span style={{ fontSize:10, padding:"2px 7px", borderRadius:4, fontWeight:700, background:"#E8F5E9", color:"#2E7D32", border:"1px solid #A5D6A7" }}>This unit</span>
-                      : <span style={{ fontSize:10, padding:"2px 7px", borderRadius:4, fontWeight:400, background:"#F2F4F6", color:T.textMuted, border:`1px solid ${T.border}` }}>Development</span>
-                    }
-                  </div>
-                  <div style={{ display:"flex", gap:12, overflowX:"auto", paddingBottom:6 }}>
-                    {floorPlans.map((url, i) => (
-                      <div key={i} onClick={() => { setFpIdx(i); setFpLightbox(true); }}
-                        style={{ flexShrink:0, width:200, height:150, borderRadius:10, overflow:"hidden",
-                          border:`2px solid ${fpIdx===i?T.borderAccent:T.border}`, cursor:"zoom-in",
-                          boxShadow:T.shadow, background:"#f8f9fb" }}>
-                        <img src={url} alt={`Floor plan ${i+1}`}
-                          style={{ width:"100%", height:"100%", objectFit:"contain", display:"block" }}
-                          onError={e => { e.target.parentElement.style.display="none"; }} />
-                      </div>
-                    ))}
-                  </div>
-                  {/* Lightbox */}
-                  {fpLightbox && (
-                    <div onClick={() => setFpLightbox(false)}
-                      style={{ position:"fixed", inset:0, zIndex:9999, background:"rgba(0,0,0,0.92)",
-                        display:"flex", alignItems:"center", justifyContent:"center" }}>
-                      <img src={floorPlans[fpIdx]} alt={`Floor plan ${fpIdx+1}`}
-                        onClick={e => e.stopPropagation()}
-                        style={{ maxWidth:"90vw", maxHeight:"88vh", objectFit:"contain",
-                          borderRadius:8, boxShadow:"0 8px 40px rgba(0,0,0,0.6)" }}
-                        onError={e => { e.target.style.display="none"; }} />
-                      {floorPlans.length > 1 && (<>
-                        <button onClick={e => { e.stopPropagation(); setFpIdx(i => (i-1+floorPlans.length)%floorPlans.length); }}
-                          style={{ position:"fixed", left:24, top:"50%", transform:"translateY(-50%)",
-                            background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
-                            width:48, height:48, borderRadius:"50%", cursor:"pointer", fontSize:28,
-                            display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
-                        <button onClick={e => { e.stopPropagation(); setFpIdx(i => (i+1)%floorPlans.length); }}
-                          style={{ position:"fixed", right:24, top:"50%", transform:"translateY(-50%)",
-                            background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
-                            width:48, height:48, borderRadius:"50%", cursor:"pointer", fontSize:28,
-                            display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
-                      </>)}
-                      <button onClick={() => setFpLightbox(false)}
-                        style={{ position:"fixed", top:16, right:20, background:"rgba(255,255,255,0.15)",
-                          border:"none", color:"#fff", width:40, height:40, borderRadius:"50%",
-                          cursor:"pointer", fontSize:20, display:"flex", alignItems:"center",
-                          justifyContent:"center" }}>✕</button>
-                      <div style={{ position:"fixed", top:20, left:"50%", transform:"translateX(-50%)",
-                        background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:13, fontWeight:600,
-                        padding:"6px 16px", borderRadius:20 }}>
-                        Floor Plan {fpIdx+1} / {floorPlans.length}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* ── Section 1: Price History ─────────────────────────── */}
               <div style={{ marginBottom:32 }}>

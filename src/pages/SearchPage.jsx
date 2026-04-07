@@ -531,6 +531,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     if (selEsg.length       && !selEsg.includes(l.esg_grade))                        return false;
     if (minPrice && l.avg_price < Number(minPrice) * 1000) return false;
     if (maxPrice && l.avg_price > Number(maxPrice) * 1000) return false;
+    if (newThisMonth && !newThisMonthIds.includes(l.listing_id)) return false;
     if (minM2 && l.avg_price_m2 && l.avg_price_m2 < Number(minM2)) return false;
     if (maxM2 && l.avg_price_m2 && l.avg_price_m2 > Number(maxM2)) return false;
     // When gmaps radius search is active, filter delisted by radius too
@@ -538,7 +539,15 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
       if (haversineKm(searchCenter.lat, searchCenter.lng, l.lat, l.lng) > radiusKm) return false;
     }
     return true;
-  }), [delistedResults, selUnit, selHouseType, selEsg, minPrice, maxPrice, minM2, maxM2, searchCenter, radiusKm]);
+  }), [delistedResults, selUnit, selHouseType, selEsg, minPrice, maxPrice, minM2, maxM2, searchCenter, radiusKm, newThisMonth, newThisMonthIds]);
+
+  // chartData: newThisMonth has priority over listingStatus when both active
+  const chartData = useMemo(() => {
+    if (newThisMonth) return [...displayResults, ...filteredDelisted];
+    if (listingStatus === "sold_out") return filteredDelisted;
+    if (listingStatus === "active")   return displayResults;
+    return [...displayResults, ...filteredDelisted];
+  }, [newThisMonth, listingStatus, displayResults, filteredDelisted]);
 
   const mapMarkers = useMemo(() => {
     const active = listingStatus !== "sold_out"
@@ -568,11 +577,56 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
           }))
       : [];
     return [...active, ...soldOut];
-  }, [displayResults, activePin, filteredDelisted, listingStatus]);
+  }, [displayResults, activePin, filteredDelisted, listingStatus, newThisMonth]);
 
-  // ── Charts computed from displayResults ─────────────────────────────────
-  // Use server-computed unit_type_stats (unit-level accuracy) when available
-  const utStats = serverUtStats.length > 0 ? serverUtStats : [];
+  // ── Charts + tables computed from chartData (reflects listingStatus + newThisMonth) ─
+  const UT_ORDER = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
+
+  const utStats = useMemo(() => {
+    const groups = {};
+    chartData.forEach(l => {
+      const types = (l.unit_types || "").split(", ").filter(Boolean);
+      if (!types.length) return;
+      // Divide units equally across unit types to avoid double-counting
+      const share = Math.round((l.units || 1) / types.length);
+      types.forEach(ut => {
+        if (!groups[ut]) groups[ut] = { units: 0, prices: [], pm2s: [] };
+        groups[ut].units += share;
+        if (l.avg_price)    groups[ut].prices.push(l.avg_price);
+        if (l.avg_price_m2) groups[ut].pm2s.push(l.avg_price_m2);
+      });
+    });
+    const rows = Object.entries(groups).map(([ut, g]) => ({
+      unit_type: ut,
+      count:     g.units,
+      avg_price: g.prices.length ? Math.round(g.prices.reduce((a,b)=>a+b,0)/g.prices.length) : null,
+      min_price: g.prices.length ? Math.min(...g.prices) : null,
+      max_price: g.prices.length ? Math.max(...g.prices) : null,
+      avg_pm2:   g.pm2s.length   ? Math.round(g.pm2s.reduce((a,b)=>a+b,0)/g.pm2s.length)    : null,
+    })).sort((a,b) => UT_ORDER.indexOf(a.unit_type) - UT_ORDER.indexOf(b.unit_type));
+    return rows.length > 0 ? rows : serverUtStats;
+  }, [chartData, serverUtStats]);
+
+  const htStats = useMemo(() => {
+    const groups = {};
+    chartData.forEach(l => {
+      (l.house_types || "").split(", ").filter(Boolean).forEach(ht => {
+        if (!groups[ht]) groups[ht] = { units: 0, prices: [], pm2s: [] };
+        groups[ht].units += (l.units || 1);
+        if (l.avg_price)    groups[ht].prices.push(l.avg_price);
+        if (l.avg_price_m2) groups[ht].pm2s.push(l.avg_price_m2);
+      });
+    });
+    const rows = Object.entries(groups).map(([ht, g]) => ({
+      house_type: ht,
+      count:      g.units,
+      avg_price:  g.prices.length ? Math.round(g.prices.reduce((a,b)=>a+b,0)/g.prices.length) : null,
+      min_price:  g.prices.length ? Math.min(...g.prices) : null,
+      max_price:  g.prices.length ? Math.max(...g.prices) : null,
+      avg_pm2:    g.pm2s.length   ? Math.round(g.pm2s.reduce((a,b)=>a+b,0)/g.pm2s.length)    : null,
+    })).sort((a,b) => a.house_type.localeCompare(b.house_type));
+    return rows.length > 0 ? rows : serverHtStats;
+  }, [chartData, serverHtStats]);
 
   const priceDist = useMemo(() => {
     const bins = [
@@ -587,9 +641,9 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     ];
     return bins.map(b => ({
       bin: b.bin,
-      count: displayResults.filter(l => l.avg_price >= b.min && l.avg_price < b.max).length,
+      count: chartData.filter(l => l.avg_price >= b.min && l.avg_price < b.max).length,
     })).filter(b => b.count > 0);
-  }, [displayResults]);
+  }, [chartData]);
 
   const m2Dist = useMemo(() => {
     const bins = [
@@ -606,9 +660,9 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     ];
     return bins.map(b => ({
       bin: b.bin,
-      count: displayResults.filter(l => l.avg_price_m2 >= b.min && l.avg_price_m2 < b.max).length,
+      count: chartData.filter(l => l.avg_price_m2 >= b.min && l.avg_price_m2 < b.max).length,
     })).filter(b => b.count > 0);
-  }, [displayResults]);
+  }, [chartData]);
 
   const hasSelection = selMuni.length > 0 || gmapsLabel !== "";
   const canSearch = selMuni.length > 0;
@@ -1369,7 +1423,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                             </tr>
                           </thead>
                           <tbody>
-                            {serverHtStats.map((row, i) => (
+                            {htStats.map((row, i) => (
                               <tr key={row.house_type} style={{ borderBottom:`1px solid ${T.border}`, background:i%2===0?T.bgStripe:"#fff" }}>
                                 <td style={{ padding:"7px 8px", whiteSpace:"nowrap" }}>
                                   <span style={{ background:"rgba(100,100,140,0.10)", color:"#6B7A9F",
