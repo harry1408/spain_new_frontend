@@ -603,12 +603,14 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
       // Divide units equally across unit types to avoid double-counting
       const share = Math.round((l.units || 1) / types.length);
       types.forEach(ut => {
-        if (!groups[ut]) groups[ut] = { units: 0, prices: [], pm2s: [] };
+        if (!groups[ut]) groups[ut] = { units: 0, prices: [], pm2s: [], sizes: [] };
         groups[ut].units += share;
         if (l.avg_price)    groups[ut].prices.push(l.avg_price);
         if (l.avg_price_m2) groups[ut].pm2s.push(l.avg_price_m2);
+        if (l.avg_size)     groups[ut].sizes.push(l.avg_size);
       });
     });
+    const serverSizeMap = Object.fromEntries((serverUtStats||[]).map(r => [r.unit_type, r.avg_size]));
     const rows = Object.entries(groups).map(([ut, g]) => ({
       unit_type: ut,
       count:     g.units,
@@ -616,6 +618,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
       min_price: g.prices.length ? Math.min(...g.prices) : null,
       max_price: g.prices.length ? Math.max(...g.prices) : null,
       avg_pm2:   g.pm2s.length   ? Math.round(g.pm2s.reduce((a,b)=>a+b,0)/g.pm2s.length)    : null,
+      avg_size:  g.sizes.length  ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length)   : (serverSizeMap[ut] ?? null),
     })).sort((a,b) => UT_ORDER.indexOf(a.unit_type) - UT_ORDER.indexOf(b.unit_type));
     return rows.length > 0 ? rows : serverUtStats;
   }, [chartData, serverUtStats]);
@@ -624,12 +627,14 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     const groups = {};
     chartData.forEach(l => {
       (l.house_types || "").split(", ").filter(Boolean).forEach(ht => {
-        if (!groups[ht]) groups[ht] = { units: 0, prices: [], pm2s: [] };
+        if (!groups[ht]) groups[ht] = { units: 0, prices: [], pm2s: [], sizes: [] };
         groups[ht].units += (l.units || 1);
         if (l.avg_price)    groups[ht].prices.push(l.avg_price);
         if (l.avg_price_m2) groups[ht].pm2s.push(l.avg_price_m2);
+        if (l.avg_size)     groups[ht].sizes.push(l.avg_size);
       });
     });
+    const serverHtSizeMap = Object.fromEntries((serverHtStats||[]).map(r => [r.house_type, r.avg_size]));
     const rows = Object.entries(groups).map(([ht, g]) => ({
       house_type: ht,
       count:      g.units,
@@ -637,6 +642,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
       min_price:  g.prices.length ? Math.min(...g.prices) : null,
       max_price:  g.prices.length ? Math.max(...g.prices) : null,
       avg_pm2:    g.pm2s.length   ? Math.round(g.pm2s.reduce((a,b)=>a+b,0)/g.pm2s.length)    : null,
+      avg_size:   g.sizes.length  ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length)   : (serverHtSizeMap[ht] ?? null),
     })).sort((a,b) => a.house_type.localeCompare(b.house_type));
     return rows.length > 0 ? rows : serverHtStats;
   }, [chartData, serverHtStats]);
