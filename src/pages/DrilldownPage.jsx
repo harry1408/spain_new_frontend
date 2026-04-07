@@ -296,7 +296,7 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200, nav
 
 export default function DrilldownPage({ municipality, onSelectMunicipality, onSelectListing, onBackToSearch }) {
   const [muniList,    setMuniList]    = useState([]);
-  const [filters,     setFilters]     = useState({ provinces:[], province_munis:{}, house_types:[] });
+  const [filters,     setFilters]     = useState({ provinces:[], province_munis:{}, house_types:[], new_this_month_ids:[] });
   const [selProvince, setSelProvince] = useState([]);
   const [selMuni,     setSelMuni]     = useState([]);
   const [selHouseType,setSelHouseType]= useState([]);
@@ -316,11 +316,12 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   const [fMaxPrice,      setFMaxPrice]      = useState("");
   const [fMinM2,         setFMinM2]         = useState("");
   const [fMaxM2,         setFMaxM2]         = useState("");
+  const [fNewThisMonth,  setFNewThisMonth]  = useState(false);
 
   // Filters (once)
   useEffect(() => {
     fetch(`${API}/filters`).then(r=>r.json()).then(f => setFilters({
-      provinces: f.provinces||[], province_munis: f.province_munis||{}, house_types: f.house_types||[]
+      provinces: f.provinces||[], province_munis: f.province_munis||{}, house_types: f.house_types||[], new_this_month_ids: f.new_this_month_ids||[]
     })).catch(()=>{});
   }, []);
 
@@ -369,8 +370,9 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
     if (fMaxPrice && l.avg_price > Number(fMaxPrice)*1000) return false;
     if (fMinM2 && l.avg_price_m2 && l.avg_price_m2 < Number(fMinM2)) return false;
     if (fMaxM2 && l.avg_price_m2 && l.avg_price_m2 > Number(fMaxM2)) return false;
+    if (fNewThisMonth && !filters.new_this_month_ids.includes(l.listing_id)) return false;
     return true;
-  }), [_listings, unitFilter, fSelUnit, fSelHouseType, fSelEsg, fMinPrice, fMaxPrice, fMinM2, fMaxM2]);
+  }), [_listings, unitFilter, fSelUnit, fSelHouseType, fSelEsg, fMinPrice, fMaxPrice, fMinM2, fMaxM2, fNewThisMonth, filters.new_this_month_ids]);
 
   const filteredIds = useMemo(() => new Set(filteredListings.map(l => l.listing_id)), [filteredListings]);
   const mapMarkers = useMemo(() =>
@@ -517,8 +519,8 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
 
   const sortedListings = [...filteredListings].sort((a,b) => b.avg_price - a.avg_price);
 
-  const hasFilter = fSelUnit.length||fSelHouseType.length||fSelEsg.length||fMinPrice||fMaxPrice||fMinM2||fMaxM2;
-  const clearFilters = () => { setFSelUnit([]); setFSelHouseType([]); setFSelEsg([]); setFMinPrice(""); setFMaxPrice(""); setFMinM2(""); setFMaxM2(""); };
+  const hasFilter = fSelUnit.length||fSelHouseType.length||fSelEsg.length||fMinPrice||fMaxPrice||fMinM2||fMaxM2||fNewThisMonth;
+  const clearFilters = () => { setFSelUnit([]); setFSelHouseType([]); setFSelEsg([]); setFMinPrice(""); setFMaxPrice(""); setFMinM2(""); setFMaxM2(""); setFNewThisMonth(false); };
 
   const ALL_UTS = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
 
@@ -579,6 +581,16 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
             <input value={fMaxM2} onChange={e=>setFMaxM2(e.target.value)} placeholder="Max"
               style={{ width:70, border:`1px solid ${fMaxM2?T.borderAccent:T.border}`, borderRadius:8, padding:"9px 8px", fontSize:12, outline:"none", background:"#fff" }} />
           </div>
+        </div>
+        <div style={{ alignSelf:"flex-end" }}>
+          <button onClick={() => setFNewThisMonth(v => !v)} style={{
+            background: fNewThisMonth ? T.navy : "#fff",
+            border: `1px solid ${fNewThisMonth ? T.navy : T.border}`,
+            color: fNewThisMonth ? "#fff" : T.textSub,
+            padding:"9px 12px", borderRadius:8, cursor:"pointer", fontSize:11, fontWeight:600, whiteSpace:"nowrap",
+          }}>
+            🆕 New This Month
+          </button>
         </div>
         {hasFilter && (
           <button onClick={clearFilters} style={{ background:"#FEF2F2", border:"1px solid rgba(192,57,43,0.4)",

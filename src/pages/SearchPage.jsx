@@ -389,6 +389,8 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   const [delistedResults,   setDelistedResults]   = useState([]);
   const [showSoldOutOnly,   setShowSoldOutOnly]   = useState(false);
   const [listingStatus,     setListingStatus]     = useState("all"); // "all" | "active" | "sold_out"
+  const [newThisMonth,      setNewThisMonth]      = useState(false);
+  const [newThisMonthIds,   setNewThisMonthIds]   = useState([]);
   const [gmapsLink,  setGmapsLink]  = useState("");
   const [gmapsLabel, setGmapsLabel] = useState("");
   const [gmapsError, setGmapsError] = useState("");
@@ -414,6 +416,9 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
             minPrice, maxPrice, minM2, maxM2, results, searched, searchCenter, streetCoords,
             serverUtStats, serverHtStats };
   });  // runs every render — cheap object assign
+  useEffect(() => {
+    fetch(`${API}/filters`).then(r => r.json()).then(f => setNewThisMonthIds(f.new_this_month_ids || [])).catch(() => {});
+  }, []);
   const isAutoRadiusRef = React.useRef(false); // flag to skip re-fetch on auto-set
   // Track the last selMuni/selStreet identity that triggered the auto-search effect.
   // On mount (including StrictMode double-invoke), the ref is initialized to the
@@ -515,7 +520,10 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
 
   const delistedIds = useMemo(() => new Set(delistedResults.map(l => l.listing_id)), [delistedResults]);
 
-  const displayResults = (results || []).filter(l => !delistedIds.has(l.listing_id));
+  const displayResults = (results || []).filter(l =>
+    !delistedIds.has(l.listing_id) &&
+    (!newThisMonth || newThisMonthIds.includes(l.listing_id))
+  );
 
   const filteredDelisted = useMemo(() => delistedResults.filter(l => {
     if (selUnit.length      && !selUnit.some(ut => l.unit_types?.includes(ut)))      return false;
@@ -770,6 +778,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     setSelUnit([]); setSelEsg([]); setSelHouseType([]);
     setMinPrice(""); setMaxPrice(""); setMinM2(""); setMaxM2("");
     setListingStatus("all");
+    setNewThisMonth(false);
     setResults(null); setSearched(false);
     setActivePin(null); setTrend([]); setSearchCenter(null);
     setSelectedIds(new Set());
@@ -1001,6 +1010,19 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                   );
                 })}
               </div>
+            </div>
+
+            {/* New This Month */}
+            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.05em" }}>Added</div>
+              <button onClick={() => setNewThisMonth(v => !v)} style={{
+                padding:"8px 12px", borderRadius:9, fontSize:12, fontWeight: newThisMonth ? 700 : 500,
+                cursor:"pointer", background: newThisMonth ? T.navy : "#fff",
+                border:`1px solid ${newThisMonth ? T.navy : T.border}`,
+                color: newThisMonth ? "#fff" : T.textSub, transition:"all 0.15s", whiteSpace:"nowrap", height:42,
+              }}>
+                🆕 New This Month
+              </button>
             </div>
 
             <div style={{ width:1, alignSelf:"stretch", background:T.border, margin:"2px 0" }} />
