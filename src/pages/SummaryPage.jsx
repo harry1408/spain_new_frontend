@@ -846,9 +846,9 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                     <YAxis tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={{ background:"#fff", border:"1px solid #0B1239", borderRadius:8, fontSize:12 }} />
                     <Legend wrapperStyle={{ fontSize:11, color:"#6B7A9F" }} />
-                    <Bar dataKey="total" name="Total Units" fill={M2_COLOR} radius={[4,4,0,0]} />
-                    <Bar dataKey="new"   name="New Listings" fill={T.green} radius={[4,4,0,0]} />
-                    <Bar dataKey="removed" name="Removed"   fill={T.red} radius={[4,4,0,0]} />
+                    <Bar dataKey="total" name="Total Units" fill={T.navy} radius={[4,4,0,0]} />
+                    <Bar dataKey="new"   name="New Listings" fill={T.navyLight} radius={[4,4,0,0]} />
+                    <Bar dataKey="removed" name="Removed"   fill={T.navyTint2} radius={[4,4,0,0]} />
                   </BarChart>
                 </ResponsiveContainer>}
           </ChartCard>
@@ -883,9 +883,9 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {(trend.mkt||[]).map((row,i)=>(
-                    <tr key={i} style={{ borderBottom:"1px solid "+T.border, background: row.period===filters.latest_period?"rgba(232,168,56,0.06)":"transparent" }}>
-                      <td style={{ padding:"7px 10px", textAlign:"right", color: row.period===filters.latest_period?T.navy:T.text, fontWeight: row.period===filters.latest_period?600:400 }}>{row.period} {row.period===filters.latest_period&&"★"}</td>
+                  {[...(trend.mkt||[])].reverse().map((row,i)=>(
+                    <tr key={i} style={{ borderBottom:"1px solid "+T.border, background: row.period===filters.latest_period?"rgba(235,101,44,0.09)":"transparent" }}>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color: row.period===filters.latest_period?"#eb652c":T.text, fontWeight: row.period===filters.latest_period?700:400 }}>{row.period}</td>
                       <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{fmt(row.avg_price)}</td>
                       <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.avg_price_m2 != null ? `€${Math.round(row.avg_price_m2).toLocaleString("en")}` : "—"}</td>
                       <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.total_units?.toLocaleString()}</td>
