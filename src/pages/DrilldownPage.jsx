@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Cell,
          LineChart,Line,Legend } from "recharts";
-import { T,StatCard,ChartCard,Tag,Pill,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS,AddressBreadcrumb,MapPinPopup,PRICE_COLOR,M2_COLOR} from "../components/shared.jsx";
+import { T,StatCard,ChartCard,Tag,Pill,fmt,fmtFull,fmtNum,COLORS,UNIT_COLORS,ESG_COLORS,AddressBreadcrumb,MapPinPopup,PRICE_COLOR,M2_COLOR} from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 import LoadingHouse from "../components/LoadingHouse.jsx";
@@ -39,7 +39,7 @@ function MuniCard({ m, onClick }) {
       <div style={{ fontWeight:700, fontSize:14, color:hov ? T.navy : T.text, marginBottom:10 }}>{m.municipality}</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"7px 12px" }}>
         <Metric label="Devel."    value={m.listings||"—"} />
-        <Metric label="Apts"      value={m.units} />
+        <Metric label="Apts"      value={fmtNum(m.units)} />
         <Metric label="Avg Price" value={fmt(m.avg_price)} color={T.navy} />
         <Metric label="€/m²"      value={m.avg_price_m2 != null ? `€${Math.round(m.avg_price_m2).toLocaleString("en")}` : "—"} color={T.textSub} />
       </div>
@@ -106,7 +106,7 @@ function ListingCard({ l, active, onSelect, onHover }) {
         </div>
       )}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"7px 10px", marginBottom:10 }}>
-        <Metric label="Apts"     value={l.units}               active={active} />
+        <Metric label="Apts"     value={fmtNum(l.units)}        active={active} />
         <Metric label="Avg"      value={fmt(l.avg_price)}      color={T.navy}    active={active} />
         <Metric label="€/m²"     value={l.avg_price_m2 != null ? `€${Math.round(l.avg_price_m2).toLocaleString("en")}` : "—"}  color={T.textSub} active={active} />
         <Metric label="From"     value={fmt(l.min_price)}      color={T.green}   active={active} />
@@ -121,7 +121,7 @@ function ListingCard({ l, active, onSelect, onHover }) {
         <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginTop:4 }}>
           {l.stated_total_units && (
             <span style={{ fontSize:10, color: active ? "rgba(255,255,255,0.55)" : T.textMuted }}>
-              📋 <span style={{ fontWeight:600 }}>{l.stated_total_units}</span> apts per description
+              📋 <span style={{ fontWeight:600 }}>{fmtNum(l.stated_total_units)}</span> apts per description
             </span>
           )}
           {l.nearest_beach_km && (
@@ -350,7 +350,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       id:       l.listing_id,
       lat:      l.lat, lng: l.lng,
       label:    l.property_name,
-      sublabel: `${fmt(l.avg_price)} · ${l.units} apts`,
+      sublabel: `${fmt(l.avg_price)} · ${fmtNum(l.units)} apts`,
       active:   false,
       color:    T.navyMid,
     })), [mapListings]);
@@ -489,7 +489,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                 onClick={() => window.open(`${API}/export/by-filter?${params.toString()}`, "_blank")}
                 style={{ background:T.navy, border:"none", color:"#fff",
                   padding:"6px 14px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:700 }}>
-                ↓ Excel ({sorted.length} developments)
+                ↓ Excel ({sorted.reduce((s, m) => s + (m.listings || 0), 0)} developments)
               </button>
             );
           })()}
@@ -532,7 +532,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
             <em style={{ color:T.navy }}>{municipality}</em>
           </h2>
           <div style={{ color:T.textSub, fontSize:12, marginTop:4 }}>
-            {stats.total_listings} developments · {stats.total_units} apartments
+            {fmtNum(stats.total_listings)} developments · {fmtNum(stats.total_units)} apartments
           </div>
         </div>
         <button onClick={()=>onSelectMunicipality(null)} style={{
@@ -545,8 +545,8 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       {/* KPIs — driven by filteredStats when filters active */}
       <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
         {((_s => [
-          <StatCard key="dev"   label="Developments"     value={_s.total_listings} accent={T.text} />,
-          <StatCard key="apts"  label="Total Apartments" value={_s.total_units?.toLocaleString()} />,
+          <StatCard key="dev"   label="Developments"     value={fmtNum(_s.total_listings)} accent={T.text} />,
+          <StatCard key="apts"  label="Total Apartments" value={fmtNum(_s.total_units)} />,
           <StatCard key="avg"   label="Avg Price"        value={fmt(_s.avg_price)} />,
           <StatCard key="m2"    label="Avg €/m²"         value={_s.avg_price_m2 != null ? `€${Math.round(_s.avg_price_m2).toLocaleString("en")}` : "—"} accent={T.navyMid} />,
           <StatCard key="range" label="Price Range"      value={`${fmt(_s.price_range?.[0])} – ${fmt(_s.price_range?.[1])}`} accent={T.textSub} />,
@@ -595,7 +595,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
         <div>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10, gap:8 }}>
             <div style={{ fontSize:14, fontWeight:700, color:T.text }}>
-              Developments <span style={{ color:T.textMuted, fontWeight:400, fontSize:12 }}>({sortedListings.length})</span>
+              Developments <span style={{ color:T.textMuted, fontWeight:400, fontSize:12 }}>({fmtNum(sortedListings.length)})</span>
             </div>
           </div>
           {/* Unit type filter */}
@@ -700,7 +700,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                             <span style={{ background:uc, color:"#fff", fontWeight:700, fontSize:11,
                               padding:"2px 8px", borderRadius:4, display:"block", whiteSpace:"nowrap" }}>{row.unit_type}</span>
                           </td>
-                          <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
+                          <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
                           <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size!=null?Math.round(row.avg_size):"—"}</td>
                           <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
                           <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
@@ -736,7 +736,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                             fontSize:11, padding:"2px 8px", borderRadius:4,
                             display:"block", whiteSpace:"nowrap" }}>{row.house_type}</span>
                         </td>
-                        <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
+                        <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
                         <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size!=null?Math.round(row.avg_size):"—"}</td>
                         <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
                         <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>

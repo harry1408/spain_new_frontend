@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,
          LineChart,Line,ScatterChart,Scatter,PieChart,Pie,Cell,Legend } from "recharts";
-import { T,StatCard,ChartCard,fmt,fmtFull,COLORS,UNIT_COLORS,ESG_COLORS,PRICE_COLOR,M2_COLOR } from "../components/shared.jsx";
+import { T,StatCard,ChartCard,fmt,fmtFull,fmtNum,COLORS,UNIT_COLORS,ESG_COLORS,PRICE_COLOR,M2_COLOR } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 
@@ -132,8 +132,8 @@ function Delta({ cur, prev, field, format, prevPeriod }) {
   const up = diff > 0;
   const zero = diff === 0;
   return (
-    <div style={{ fontSize:10, marginTop:2, color: zero?T.textMuted: up?T.navy:T.green }}>
-      {zero ? "↔ No change" : `${up?"▲":"▼"} ${format ? format(Math.abs(diff)) : Number(Math.abs(diff)).toLocaleString("en",{maximumFractionDigits:2})} (${Math.abs(pct)}%)`}
+    <div style={{ fontSize:10, marginTop:2, color: zero?T.textMuted: up?T.navy:"#DC2626" }}>
+      {zero ? "↔ No change" : `${up?"▲":"▼"} ${format ? format(Math.abs(diff)) : Number(Math.abs(diff)).toLocaleString("en",{maximumFractionDigits:2})} (${up?"":"-"}${Math.abs(pct)}%)`}
       <span style={{ color:"#8A96B4", marginLeft:4 }}>vs {prevPeriod || "prev"}</span>
     </div>
   );
@@ -610,6 +610,13 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
               <Delta cur={stats} prev={stats.prev} field={field} format={f} prevPeriod={stats.prev_period} />
             </StatCard>
           ))}
+          {stats.total_stated_units > 0 && (
+            <StatCard label="Apts per Description" value={stats.total_stated_units}>
+              <div style={{ color:"#8A96B4", fontSize:10, marginTop:3 }}>
+                *where mentioned ({fmtNum(stats.stated_unit_count)} developments)
+              </div>
+            </StatCard>
+          )}
         </div>
       )}
 
@@ -782,7 +789,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                             <div style={{ width:8, height:8, borderRadius:2, background:getColor(e.esg_grade) }}/>
                             <span style={{ color:T.text }}>{e.esg_grade}</span>
                           </div>
-                          <span style={{ color:T.navy, fontWeight:600 }}>{e.count}</span>
+                          <span style={{ color:T.navy, fontWeight:600 }}>{fmtNum(e.count)}</span>
                         </div>
                       ))}
                     </div>

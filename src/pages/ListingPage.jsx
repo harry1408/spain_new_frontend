@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
          ResponsiveContainer, Cell } from "recharts";
-import { T, ChartCard, Tag, Pill, fmt, fmtFull, COLORS, UNIT_COLORS, ESG_COLORS ,PRICE_COLOR,M2_COLOR} from "../components/shared.jsx";
+import { T, ChartCard, Tag, Pill, fmt, fmtFull, fmtNum, COLORS, UNIT_COLORS, ESG_COLORS ,PRICE_COLOR,M2_COLOR} from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import PriceMatrixTab from "./PriceMatrixTab.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
@@ -146,7 +146,7 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
         <span style={{ fontSize:11, color:T.textMuted, fontWeight:500 }}>within 20 km</span>
       </div>
       <div style={{ color:T.textSub, fontSize:12, marginBottom:16 }}>
-        {comarca} comarca · {listings.length} development{listings.length !== 1 ? "s" : ""} found
+        {comarca} comarca · {fmtNum(listings.length)} development{listings.length !== 1 ? "s" : ""} found
       </div>
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:12 }}>
@@ -194,7 +194,7 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
               <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
                 <div>
                   <div style={{ fontSize:9, color:T.textMuted, fontWeight:700, textTransform:"uppercase" }}>Units</div>
-                  <div style={{ fontSize:15, fontWeight:700, color:T.text }}>{l.units}</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:T.text }}>{fmtNum(l.units)}</div>
                 </div>
                 <div>
                   <div style={{ fontSize:9, color:T.textMuted, fontWeight:700, textTransform:"uppercase" }}>Avg Price</div>
@@ -230,7 +230,7 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
                 <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginTop:-2 }}>
                   {l.stated_total_units && (
                     <span style={{ fontSize:10, color:T.textMuted }}>
-                      📋 <span style={{ fontWeight:600 }}>{l.stated_total_units}</span> apts per description
+                      📋 <span style={{ fontWeight:600 }}>{fmtNum(l.stated_total_units)}</span> apts per description
                     </span>
                   )}
                   {l.nearest_beach_km && (
@@ -377,10 +377,10 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
             by <strong style={{ color:T.text }}>{data.developer}</strong>
             {" · "}<span style={{ color:T.navy, fontWeight:600 }}>{data.municipality}</span>
             {" · "}<span>{data.delivery_date?.replace("Delivery : ","")}</span>
-            {" · "}<span style={{ color:T.green, fontWeight:600 }}>{data.total_units} apartments</span>
+            {" · "}<span style={{ color:T.green, fontWeight:600 }}>{fmtNum(data.total_units)} apartments</span>
             {data.stated_total_units && (
               <span style={{ marginLeft:4, color:T.textMuted, fontSize:11 }}>
-                ({data.stated_total_units} per description)
+                ({fmtNum(data.stated_total_units)} per description)
               </span>
             )}
             {data.nearest_beach_km && (

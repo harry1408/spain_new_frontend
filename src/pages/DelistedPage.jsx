@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { T, StatCard, ChartCard, Tag, Pill, fmt, fmtFull, COLORS, UNIT_COLORS, ESG_COLORS, AddressBreadcrumb, MapPinPopup, PRICE_COLOR, M2_COLOR } from "../components/shared.jsx";
+import { T, StatCard, ChartCard, Tag, Pill, fmt, fmtFull, fmtNum, COLORS, UNIT_COLORS, ESG_COLORS, AddressBreadcrumb, MapPinPopup, PRICE_COLOR, M2_COLOR } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 import LoadingHouse from "../components/LoadingHouse.jsx";
@@ -211,7 +211,14 @@ function DelistedCard({ l, onClick }) {
           </div>
         ))}
       </div>
-      <div style={{ marginTop:10, color: hov ? "#6B2A2A" : T.textMuted, fontSize:11, fontWeight:600 }}>
+      {l.sold_date && (
+        <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:4 }}>
+          <span style={{ fontSize:10, color:T.textMuted, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>Sold</span>
+          <span style={{ fontSize:11, fontWeight:700, color:"#6B2A2A", background:"#FEF2F2",
+            border:"1px solid #FCA5A5", borderRadius:4, padding:"1px 7px" }}>{l.sold_date}</span>
+        </div>
+      )}
+      <div style={{ marginTop:6, color: hov ? "#6B2A2A" : T.textMuted, fontSize:11, fontWeight:600 }}>
         View apartments →
       </div>
     </div>
@@ -293,8 +300,10 @@ function DelistedApartments({ listingId, listingName, onBack, backLabel = "All S
             <span style={{ color:T.navy, fontWeight:600 }}>{data.municipality}</span>
             {" · "}
             <span style={{ color:T.red, fontWeight:600 }}>Last seen: {data.last_period}</span>
+            {data.sold_date && <> · <span style={{ fontWeight:700, color:"#6B2A2A", background:"#FEF2F2",
+              border:"1px solid #FCA5A5", borderRadius:4, padding:"1px 7px", fontSize:11 }}>Sold: {data.sold_date}</span></>}
             {" · "}
-            <span style={{ color:T.green, fontWeight:600 }}>{apts.length} apartments</span>
+            <span style={{ color:T.green, fontWeight:600 }}>{fmtNum(apts.length)} apartments</span>
           </div>
           {data.city_area && (
             <div style={{ position:"relative", display:"inline-block" }}>
@@ -331,7 +340,7 @@ function DelistedApartments({ listingId, listingName, onBack, backLabel = "All S
 
       {/* Stats row */}
       <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
-        <StatCard label="Total Apartments" value={apts.length} />
+        <StatCard label="Total Apartments" value={fmtNum(apts.length)} />
         <StatCard label="Avg Price (last)" value={fmt(apts.length ? apts.reduce((s,a)=>s+a.price,0)/apts.length : 0)} />
         <StatCard label="Avg €/m² (last)"  value={`€${Math.round(apts.length ? apts.reduce((s,a)=>s+(a.price_per_m2||0),0)/apts.length : 0).toLocaleString("en")}`} accent={M2_COLOR} />
         <StatCard label="Avg Size"          value={`${Math.round(apts.length ? apts.reduce((s,a)=>s+(a.size||0),0)/apts.length : 0)}m²`} accent={T.textSub} />
@@ -518,7 +527,7 @@ function DelistedApartments({ listingId, listingName, onBack, backLabel = "All S
       <div style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:14,
         padding:"20px 22px", boxShadow:T.shadow }}>
         <div style={{ fontWeight:700, fontSize:14, color:T.text, marginBottom:16 }}>
-          Apartments — {apts.length} units (last snapshot: {data.last_period})
+          Apartments — {fmtNum(apts.length)} units (last snapshot: {data.last_period})
         </div>
         <div style={{ overflowX:"auto" }}>
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
@@ -712,7 +721,7 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
     id:       l.listing_id,
     lat:      l.lat, lng: l.lng,
     label:    l.property_name,
-    sublabel: `${fmt(l.avg_price)} · ${l.units} apts · Last seen ${periods.prev}`,
+    sublabel: `${fmt(l.avg_price)} · ${fmtNum(l.units)} apts · Last seen ${periods.prev}`,
     active:   l.listing_id === activePin,
     color:    l.listing_id === activePin ? "#6B2A2A" : "#FCA5A5",
   })), [filtered, activePin, periods]);
@@ -738,20 +747,31 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
     <div style={{ padding:"20px 20px", maxWidth:1700, margin:"0 auto" }}>
 
       {/* Header */}
-      <div style={{ marginBottom:20 }}>
-        <h2 style={{ margin:"0 0 4px", fontFamily:"'Inter',sans-serif", fontSize:28,
-          color:T.text, fontWeight:400 }}>
-          Sold Out Properties
-        </h2>
-        <div style={{ color:T.textSub, fontSize:12 }}>
-          Developments present in <strong>{periods.prev}</strong> but not in <strong>{periods.latest}</strong>
+      <div style={{ marginBottom:20, display:"flex", alignItems:"flex-start", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
+        <div>
+          <h2 style={{ margin:"0 0 4px", fontFamily:"'Inter',sans-serif", fontSize:28,
+            color:T.text, fontWeight:400 }}>
+            Sold Out Properties
+          </h2>
+          <div style={{ color:T.textSub, fontSize:12 }}>
+            Developments present in <strong>{periods.prev}</strong> but not in <strong>{periods.latest}</strong>
+          </div>
         </div>
+        {listings.length > 0 && (
+          <button onClick={() => window.open(`${API}/delisted/export`, "_blank")}
+            style={{ display:"flex", alignItems:"center", gap:6, background:"#7F1D1D",
+              border:"none", borderRadius:9, padding:"9px 18px",
+              fontSize:12, fontWeight:700, color:"#fff", cursor:"pointer",
+              boxShadow:"0 2px 8px rgba(127,29,29,0.25)", whiteSpace:"nowrap" }}>
+            ↓ Export Excel
+          </button>
+        )}
       </div>
 
       {/* KPI row */}
       {summary.count > 0 && (
         <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
-          <StatCard label="Sold Out Developments" value={summary.count} accent="#6B2A2A" />
+          <StatCard label="Sold Out Developments" value={fmtNum(summary.count)} accent="#6B2A2A" />
           <StatCard label="Total Apartments"       value={(summary.units||0).toLocaleString()} />
           <StatCard label="Avg Last Price"         value={fmt(summary.avg_price)} />
           <StatCard label="Avg Last €/m²"          value={summary.avg_price_m2 != null ? `€${Math.round(summary.avg_price_m2).toLocaleString("en")}` : "—"} accent={M2_COLOR} />
@@ -887,7 +907,7 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
               ))}
             </div>
             <span style={{ color:T.textMuted, fontSize:11, marginLeft:"auto" }}>
-              {filtered.length} of {listings.length} developments
+              {fmtNum(filtered.length)} of {fmtNum(listings.length)} developments
             </span>
           </div>
 
@@ -968,7 +988,7 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
                                 <span style={{ background:uc, color:"#fff", fontWeight:700, fontSize:11,
                                   padding:"2px 8px", borderRadius:4, display:"block", whiteSpace:"nowrap" }}>{row.unit_type}</span>
                               </td>
-                              <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
+                              <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
                               <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size ?? "—"}</td>
                               <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
                               <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
@@ -1003,7 +1023,7 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
                                 fontSize:11, padding:"2px 8px", borderRadius:4,
                                 display:"block", whiteSpace:"nowrap" }}>{row.house_type}</span>
                             </td>
-                            <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
+                            <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
                             <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size ?? "—"}</td>
                             <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
                             <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>

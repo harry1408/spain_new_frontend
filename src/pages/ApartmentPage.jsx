@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
          ResponsiveContainer, Legend } from "recharts";
-import { T, Pill, fmt, fmtFull, UNIT_COLORS, COLORS, ESG_COLORS, Tag } from "../components/shared.jsx";
+import { T, Pill, fmt, fmtFull, fmtNum, UNIT_COLORS, COLORS, ESG_COLORS, Tag } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 import GoogleStaticMap, { MapThumbnail } from "../components/GoogleStaticMap.jsx";
@@ -306,7 +306,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
       id:       l.listing_id,
       lat:      l.lat, lng: l.lng,
       label:    l.property_name,
-      sublabel: `${fmt(l.avg_price)} avg · ${l.units} apts`,
+      sublabel: `${fmt(l.avg_price)} avg · ${fmtNum(l.units)} apts`,
       active:   l.listing_id === listingId || l.listing_id === activePin,
       color:    l.listing_id === listingId ? T.navy
               : l.listing_id === activePin ? T.navyMid : "#8A96B4",

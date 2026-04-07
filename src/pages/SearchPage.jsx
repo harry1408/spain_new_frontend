@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { T, fmt, fmtFull, UNIT_COLORS, ESG_COLORS, Tag, COLORS, ChartCard, MapPinPopup } from "../components/shared.jsx";
+import { T, fmt, fmtFull, fmtNum, UNIT_COLORS, ESG_COLORS, Tag, COLORS, ChartCard, MapPinPopup } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
 import LoadingHouse from "../components/LoadingHouse.jsx";
@@ -182,7 +182,7 @@ function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect, ma
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Units</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{l.units}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{fmtNum(l.units)}</div>
         </div>
         <div>
           <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Avg Price</div>
@@ -220,7 +220,7 @@ function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect, ma
         <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginTop:-2 }}>
           {l.stated_total_units && (
             <span style={{ fontSize: 10, color: T.textMuted }}>
-              📋 <span style={{ fontWeight: 600 }}>{l.stated_total_units}</span> apts per description
+              📋 <span style={{ fontWeight: 600 }}>{fmtNum(l.stated_total_units)}</span> apts per description
             </span>
           )}
           {l.nearest_beach_km && (
@@ -248,7 +248,7 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 }
 
 // ── Delisted card (red boundary, same layout as DelistedPage) ────────────────
-function DelistedSearchCard({ l, onSelect }) {
+function DelistedSearchCard({ l, onSelect, onHover }) {
   const [hov, setHov] = useState(false);
   const esgColor = ESG_COLORS[l.esg_grade] || "#999";
   const unitTypes  = (l.unit_types  || "").split(", ").filter(Boolean);
@@ -256,7 +256,8 @@ function DelistedSearchCard({ l, onSelect }) {
   return (
     <div id={`scard-d-${l.listing_id}`}
       onClick={() => onSelect(l)}
-      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      onMouseEnter={() => { setHov(true); onHover && onHover(`d-${l.listing_id}`); }}
+      onMouseLeave={() => { setHov(false); onHover && onHover(null); }}
       style={{ background: hov ? "#FEF2F2" : T.bgCard,
         border: `2px solid ${hov ? "#6B2A2A" : "#FCA5A5"}`,
         borderRadius: 12, padding: "14px 16px", cursor: "pointer",
@@ -294,7 +295,7 @@ function DelistedSearchCard({ l, onSelect }) {
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Units</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{l.units}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{fmtNum(l.units)}</div>
         </div>
         <div>
           <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Last Avg</div>
@@ -325,6 +326,13 @@ function DelistedSearchCard({ l, onSelect }) {
         </div>
       )}
 
+      {l.sold_date && (
+        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+          <span style={{ fontSize:10, color:T.textMuted, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>Sold</span>
+          <span style={{ fontSize:11, fontWeight:700, color:"#6B2A2A", background:"#FEF2F2",
+            border:"1px solid #FCA5A5", borderRadius:4, padding:"1px 7px" }}>{l.sold_date}</span>
+        </div>
+      )}
       <div style={{ fontSize: 11, color: hov ? "#6B2A2A" : T.textMuted, fontWeight: 600, marginTop: -4 }}>
         View apartments →
       </div>
@@ -533,7 +541,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
             lat:      l.lat,
             lng:      l.lng,
             label:    l.property_name,
-            sublabel: `${fmt(l.avg_price)} · ${l.units} apts`,
+            sublabel: `${fmt(l.avg_price)} · ${fmtNum(l.units)} apts`,
             active:   l.listing_id === activePin,
             color:    l.listing_id === activePin ? T.navyMid : "#8A96B4",
           }))
@@ -547,8 +555,8 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
             lng:      l.lng,
             label:    l.property_name,
             sublabel: `Sold Out · ${fmt(l.avg_price)}`,
-            active:   false,
-            color:    "#DC2626",
+            active:   `d-${l.listing_id}` === activePin,
+            color:    `d-${l.listing_id}` === activePin ? "#7F1D1D" : "#DC2626",
           }))
       : [];
     return [...active, ...soldOut];
@@ -1221,6 +1229,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                     {listingStatus !== "active" && filteredDelisted.map(l => (
                       <DelistedSearchCard key={`d-${l.listing_id}`} l={l}
                         onSelect={l => onSelectDelisted && onSelectDelisted(l.listing_id)}
+                        onHover={id => { setActivePin(id); if (id) lastHoveredPin.current = id; }}
                       />
                     ))}
                   </div>
@@ -1311,7 +1320,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                                   <span style={{ background:UNIT_COLORS[row.unit_type]||"#8A96B4", color:"#fff",
                                     fontWeight:700, fontSize:11, padding:"2px 7px", borderRadius:4 }}>{row.unit_type}</span>
                                 </td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size != null ? Math.round(row.avg_size) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price ? fmt(row.min_price) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price ? fmt(row.avg_price) : "—"}</td>
@@ -1346,7 +1355,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                                     fontSize:11, padding:"2px 8px", borderRadius:4,
                                     display:"block", whiteSpace:"nowrap" }}>{row.house_type}</span>
                                 </td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{row.count}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size != null ? Math.round(row.avg_size) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price ? fmt(row.min_price) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price ? fmt(row.avg_price) : "—"}</td>
