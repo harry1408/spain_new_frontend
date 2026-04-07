@@ -94,7 +94,7 @@ export default function App() {
         onBack={prevPageRef.current==="search" ? () => goTo("search") : () => goTo("drilldown",{municipality:nav.municipality})}
         onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onGoApartment={(apt,lid,lname,muni) => goTo("apartment",{apt,listingId:lid,listingName:lname,municipality:muni,aptLabel:`${apt.unit_type} · ${apt.floor||"—"}`})}/>}
       {nav.page==="apartment" && <ApartmentPage apt={nav.apt} listingId={nav.listingId} listingName={nav.listingName} municipality={nav.municipality} onBack={() => goTo("listing",{listingId:nav.listingId,listingName:nav.listingName,municipality:nav.municipality})}/>}
-      {nav.page==="delisted" && <DelistedPage onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} selectedId={nav.selectedId} fromSearch={nav.fromSearch} onBackToSearch={() => goTo("search")}/>}
+      {nav.page==="delisted" && <DelistedPage onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onGoDrilldown={m => goTo("drilldown",{municipality:m})} selectedId={nav.selectedId} fromSearch={nav.fromSearch} onBackToSearch={() => goTo("search")}/>}
     </div>
   );
 }

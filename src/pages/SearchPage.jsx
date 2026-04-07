@@ -250,16 +250,22 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 // ── Delisted card (red boundary, same layout as DelistedPage) ────────────────
 function DelistedSearchCard({ l, onSelect, onHover }) {
   const [hov, setHov] = useState(false);
-  const esgColor = ESG_COLORS[l.esg_grade] || "#999";
   const unitTypes  = (l.unit_types  || "").split(", ").filter(Boolean);
   const houseTypes = (l.house_types || "").split(", ").filter(Boolean);
+  const isFull = l.delisted_type !== "partial";
+  const borderBase  = isFull ? "#FCA5A5" : "#FCA5A5";
+  const borderHov   = isFull ? "#6B2A2A" : "#6B2A2A";
+  const badgeBg     = isFull ? "#FEF2F2" : "#FEF2F2";
+  const badgeColor  = isFull ? "#6B2A2A" : "#6B2A2A";
+  const badgeBorder = isFull ? "#FCA5A5" : "#FCA5A5";
+  const badgeLabel  = isFull ? "Sold Out" : "Partial Sold Out";
   return (
     <div id={`scard-d-${l.listing_id}`}
       onClick={() => onSelect(l)}
       onMouseEnter={() => { setHov(true); onHover && onHover(`d-${l.listing_id}`); }}
       onMouseLeave={() => { setHov(false); onHover && onHover(null); }}
-      style={{ background: hov ? "#FEF2F2" : T.bgCard,
-        border: `2px solid ${hov ? "#6B2A2A" : "#FCA5A5"}`,
+      style={{ background: hov ? badgeBg : T.bgCard,
+        border: `2px solid ${hov ? borderHov : borderBase}`,
         borderRadius: 12, padding: "14px 16px", cursor: "pointer",
         transition: "all 0.15s", boxShadow: hov ? T.shadowMd : T.shadow,
         display: "flex", flexDirection: "column", gap: 8 }}>
@@ -267,7 +273,7 @@ function DelistedSearchCard({ l, onSelect, onHover }) {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: hov ? "#6B2A2A" : T.text, marginBottom: 2,
+          <div style={{ fontWeight: 700, fontSize: 14, color: hov ? borderHov : T.text, marginBottom: 2,
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {l.property_name}
           </div>
@@ -280,8 +286,8 @@ function DelistedSearchCard({ l, onSelect, onHover }) {
           )}
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-          <span style={{ background: "#FEF2F2", color: "#6B2A2A", border: "1px solid #FCA5A5",
-            borderRadius: 5, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>Sold Out</span>
+          <span style={{ background: badgeBg, color: badgeColor, border: `1px solid ${badgeBorder}`,
+            borderRadius: 5, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>{badgeLabel}</span>
           {l.esg_grade && l.esg_grade !== "nan" && l.esg_grade !== "Unknown" && (
             <span style={{ background: ESG_COLORS[l.esg_grade] || "#8A96B4", color: "#fff",
               borderRadius: 5, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>
@@ -329,11 +335,11 @@ function DelistedSearchCard({ l, onSelect, onHover }) {
       {l.sold_date && (
         <div style={{ display:"flex", alignItems:"center", gap:5 }}>
           <span style={{ fontSize:10, color:T.textMuted, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>Sold</span>
-          <span style={{ fontSize:11, fontWeight:700, color:"#6B2A2A", background:"#FEF2F2",
-            border:"1px solid #FCA5A5", borderRadius:4, padding:"1px 7px" }}>{l.sold_date}</span>
+          <span style={{ fontSize:11, fontWeight:700, color:badgeColor, background:badgeBg,
+            border:`1px solid ${badgeBorder}`, borderRadius:4, padding:"1px 7px" }}>{l.sold_date}</span>
         </div>
       )}
-      <div style={{ fontSize: 11, color: hov ? "#6B2A2A" : T.textMuted, fontWeight: 600, marginTop: -4 }}>
+      <div style={{ fontSize: 11, color: hov ? borderHov : T.textMuted, fontWeight: 600, marginTop: -4 }}>
         View apartments →
       </div>
     </div>
@@ -566,15 +572,21 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     const soldOut = listingStatus !== "active"
       ? filteredDelisted
           .filter(l => l.lat && l.lng)
-          .map(l => ({
-            id:       `d-${l.listing_id}`,
-            lat:      l.lat,
-            lng:      l.lng,
-            label:    l.property_name,
-            sublabel: `Sold Out · ${fmt(l.avg_price)}`,
-            active:   `d-${l.listing_id}` === activePin,
-            color:    `d-${l.listing_id}` === activePin ? "#7F1D1D" : "#DC2626",
-          }))
+          .map(l => {
+            const isFull = l.delisted_type !== "partial";
+            const baseColor   = isFull ? "#DC2626" : "#FCA5A5";
+            const activeColor = isFull ? "#7F1D1D" : "#6B2A2A";
+            const isActive = `d-${l.listing_id}` === activePin;
+            return {
+              id:       `d-${l.listing_id}`,
+              lat:      l.lat,
+              lng:      l.lng,
+              label:    l.property_name,
+              sublabel: `${isFull ? "Sold Out" : "Partial Sold Out"} · ${fmt(l.avg_price)}`,
+              active:   isActive,
+              color:    isActive ? activeColor : baseColor,
+            };
+          })
       : [];
     return [...active, ...soldOut];
   }, [displayResults, activePin, filteredDelisted, listingStatus, newThisMonth]);

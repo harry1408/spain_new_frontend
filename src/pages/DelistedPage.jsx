@@ -161,21 +161,28 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200 }) {
 function DelistedCard({ l, onClick }) {
   const [hov, setHov] = useState(false);
   const esgColor = ESG_COLORS[l.esg_grade] || "#999";
+  const isFull = l.delisted_type !== "partial";
+  const borderBase  = isFull ? "#FCA5A5" : "#FCA5A5";
+  const borderHov   = isFull ? "#6B2A2A" : "#6B2A2A";
+  const badgeBg     = isFull ? "#FEF2F2" : "#FEF2F2";
+  const badgeColor  = isFull ? "#6B2A2A" : "#92400E";
+  const badgeBorder = isFull ? "#FCA5A5" : "#FCD34D";
+  const badgeLabel  = isFull ? "Sold Out" : "Partial Sold Out";
   return (
     <div onClick={onClick}
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{ background: hov ? T.bgHover : T.bgCard,
-        border: `2px solid ${hov ? "#6B2A2A" : "#FCA5A5"}`,
+        border: `2px solid ${hov ? borderHov : borderBase}`,
         borderRadius:12, padding:"16px 18px", cursor:"pointer",
         transition:"all 0.15s", boxShadow: hov ? T.shadowMd : T.shadow }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
         <div>
-          <div style={{ fontWeight:700, fontSize:14, color: hov ? "#6B2A2A" : T.text }}>{l.property_name}</div>
+          <div style={{ fontWeight:700, fontSize:14, color: hov ? borderHov : T.text }}>{l.property_name}</div>
           <div style={{ color:T.textSub, fontSize:11, marginTop:2 }}>{l.developer}</div>
         </div>
         <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
-          <span style={{ background:"#FEF2F2", color:"#6B2A2A", border:"1px solid #FCA5A5",
-            borderRadius:5, padding:"2px 8px", fontSize:10, fontWeight:700 }}>Sold Out</span>
+          <span style={{ background:badgeBg, color:badgeColor, border:`1px solid ${badgeBorder}`,
+            borderRadius:5, padding:"2px 8px", fontSize:10, fontWeight:700 }}>{badgeLabel}</span>
           {l.esg_grade && l.esg_grade !== "nan" && <Tag label={`ESG ${l.esg_grade}`} color={esgColor}/>}
         </div>
       </div>
@@ -214,11 +221,11 @@ function DelistedCard({ l, onClick }) {
       {l.sold_date && (
         <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:4 }}>
           <span style={{ fontSize:10, color:T.textMuted, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>Sold</span>
-          <span style={{ fontSize:11, fontWeight:700, color:"#6B2A2A", background:"#FEF2F2",
-            border:"1px solid #FCA5A5", borderRadius:4, padding:"1px 7px" }}>{l.sold_date}</span>
+          <span style={{ fontSize:11, fontWeight:700, color:badgeColor, background:badgeBg,
+            border:`1px solid ${badgeBorder}`, borderRadius:4, padding:"1px 7px" }}>{l.sold_date}</span>
         </div>
       )}
-      <div style={{ marginTop:6, color: hov ? "#6B2A2A" : T.textMuted, fontSize:11, fontWeight:600 }}>
+      <div style={{ marginTop:6, color: hov ? borderHov : T.textMuted, fontSize:11, fontWeight:600 }}>
         View apartments →
       </div>
     </div>
@@ -594,9 +601,8 @@ function DelistedApartments({ listingId, listingName, onBack, backLabel = "All S
 
 // ── Main Delisted Page ────────────────────────────────────────────────────
 const ALL_UTS  = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
-const ALL_ESG  = ["A","B","C","D","E","F","G"];
 
-export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBackToSearch }) {
+export default function DelistedPage({ onGoListing, onGoDrilldown, selectedId, fromSearch, onBackToSearch }) {
   const [data,         setData]         = useState(null);
   const [loading,      setLoading]      = useState(true);
   const [activePin,    setActivePin]    = useState(null);
@@ -609,8 +615,8 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
   const [search,       setSearch]       = useState("");
   const [selUnit,      setSelUnit]      = useState([]);
   const [selHouseType, setSelHouseType] = useState([]);
-  const [selEsg,       setSelEsg]       = useState([]);
   const [selMonth,     setSelMonth]     = useState([]);
+  const [delistType,   setDelistType]   = useState("all"); // "all" | "full" | "partial"
   const [minPrice,     setMinPrice]     = useState("");
   const [maxPrice,     setMaxPrice]     = useState("");
   const [minM2,        setMinM2]        = useState("");
@@ -660,36 +666,40 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
     }
     if (selUnit.length)      r = r.filter(l => selUnit.some(ut => (l.unit_types||"").includes(ut)));
     if (selHouseType.length) r = r.filter(l => selHouseType.some(ht => (l.house_types||"").includes(ht)));
-    if (selEsg.length)       r = r.filter(l => selEsg.includes(l.esg_grade));
     if (selMonth.length)     r = r.filter(l => selMonth.includes(l.last_period));
     if (minPrice) r = r.filter(l => l.avg_price >= Number(minPrice));
     if (maxPrice) r = r.filter(l => l.avg_price <= Number(maxPrice));
     if (minM2)    r = r.filter(l => l.avg_price_m2 && l.avg_price_m2 >= Number(minM2));
     if (maxM2)    r = r.filter(l => l.avg_price_m2 && l.avg_price_m2 <= Number(maxM2));
+    if (delistType === "full")    r = r.filter(l => l.delisted_type !== "partial");
+    if (delistType === "partial") r = r.filter(l => l.delisted_type === "partial");
     return [...r].sort((a,b) => (b[sortBy]||0)-(a[sortBy]||0));
-  }, [listings, selProvince, selMuni, filtersData, search, selUnit, selHouseType, selEsg, selMonth, minPrice, maxPrice, minM2, maxM2, sortBy]);
+  }, [listings, selProvince, selMuni, filtersData, search, selUnit, selHouseType, selMonth, minPrice, maxPrice, minM2, maxM2, sortBy, delistType]);
 
-  const hasFilters = selProvince.length || selMuni.length || selUnit.length || selHouseType.length || selEsg.length || selMonth.length || minPrice || maxPrice || minM2 || maxM2;
+  const hasFilters = selProvince.length || selMuni.length || selUnit.length || selHouseType.length || selMonth.length || minPrice || maxPrice || minM2 || maxM2 || delistType !== "all";
 
   const unitTypeStats = useMemo(() => {
+    const ORDER = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
     const map = {};
     filtered.forEach(l => {
-      (l.unit_types||"").split(", ").filter(Boolean).forEach(ut => {
-        if (!map[ut]) map[ut] = { unit_type: ut, count: 0, prices: [], sizes: [], pm2s: [] };
-        map[ut].count += l.units || 1;
+      const types = (l.unit_types||"").split(", ").filter(Boolean);
+      if (!types.length) return;
+      const share = Math.round((l.units || 1) / types.length);
+      types.forEach(ut => {
+        if (!map[ut]) map[ut] = { unit_type: ut, units: 0, prices: [], sizes: [], pm2s: [] };
+        map[ut].units += share;
         if (l.avg_price)    map[ut].prices.push(l.avg_price);
         if (l.avg_size)     map[ut].sizes.push(l.avg_size);
         if (l.avg_price_m2) map[ut].pm2s.push(l.avg_price_m2);
       });
     });
-    const ORDER = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
     return Object.values(map).map(r => ({
-      unit_type: r.unit_type, count: r.count,
+      unit_type: r.unit_type, count: r.units,
       avg_size:  r.sizes.length  ? Math.round(r.sizes.reduce((a,b)=>a+b,0)/r.sizes.length) : null,
       min_price: r.prices.length ? Math.min(...r.prices) : null,
-      avg_price: r.prices.length ? r.prices.reduce((a,b)=>a+b,0)/r.prices.length : null,
+      avg_price: r.prices.length ? Math.round(r.prices.reduce((a,b)=>a+b,0)/r.prices.length) : null,
       max_price: r.prices.length ? Math.max(...r.prices) : null,
-      avg_pm2:   r.pm2s.length   ? r.pm2s.reduce((a,b)=>a+b,0)/r.pm2s.length : null,
+      avg_pm2:   r.pm2s.length   ? Math.round(r.pm2s.reduce((a,b)=>a+b,0)/r.pm2s.length) : null,
     })).sort((a,b) => ORDER.indexOf(a.unit_type) - ORDER.indexOf(b.unit_type));
   }, [filtered]);
 
@@ -697,34 +707,39 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
     const map = {};
     filtered.forEach(l => {
       (l.house_types||"").split(", ").filter(Boolean).forEach(ht => {
-        if (!map[ht]) map[ht] = { house_type: ht, count: 0, prices: [], sizes: [], pm2s: [] };
-        map[ht].count += l.units || 1;
+        if (!map[ht]) map[ht] = { house_type: ht, units: 0, prices: [], sizes: [], pm2s: [] };
+        map[ht].units += l.units || 1;
         if (l.avg_price)    map[ht].prices.push(l.avg_price);
         if (l.avg_size)     map[ht].sizes.push(l.avg_size);
         if (l.avg_price_m2) map[ht].pm2s.push(l.avg_price_m2);
       });
     });
     return Object.values(map).map(r => ({
-      house_type: r.house_type, count: r.count,
+      house_type: r.house_type, count: r.units,
       avg_size:  r.sizes.length  ? Math.round(r.sizes.reduce((a,b)=>a+b,0)/r.sizes.length) : null,
       min_price: r.prices.length ? Math.min(...r.prices) : null,
-      avg_price: r.prices.length ? r.prices.reduce((a,b)=>a+b,0)/r.prices.length : null,
+      avg_price: r.prices.length ? Math.round(r.prices.reduce((a,b)=>a+b,0)/r.prices.length) : null,
       max_price: r.prices.length ? Math.max(...r.prices) : null,
-      avg_pm2:   r.pm2s.length   ? r.pm2s.reduce((a,b)=>a+b,0)/r.pm2s.length : null,
-    }));
+      avg_pm2:   r.pm2s.length   ? Math.round(r.pm2s.reduce((a,b)=>a+b,0)/r.pm2s.length) : null,
+    })).sort((a,b) => a.house_type.localeCompare(b.house_type));
   }, [filtered]);
 
   const priceDist = useMemo(() => makeBins(filtered.map(l => l.avg_price)), [filtered]);
   const m2Dist    = useMemo(() => makeBins(filtered.map(l => l.avg_price_m2), 8, false), [filtered]);
 
-  const mapMarkers = useMemo(() => filtered.map(l => ({
-    id:       l.listing_id,
-    lat:      l.lat, lng: l.lng,
-    label:    l.property_name,
-    sublabel: `${fmt(l.avg_price)} · ${fmtNum(l.units)} apts · Last seen ${periods.prev}`,
-    active:   l.listing_id === activePin,
-    color:    l.listing_id === activePin ? "#6B2A2A" : "#FCA5A5",
-  })), [filtered, activePin, periods]);
+  const mapMarkers = useMemo(() => filtered.map(l => {
+    const isFull = l.delisted_type !== "partial";
+    const baseColor   = isFull ? "#DC2626" : "#FCA5A5";
+    const activeColor = isFull ? "#7F1D1D" : "#6B2A2A";
+    return {
+      id:       l.listing_id,
+      lat:      l.lat, lng: l.lng,
+      label:    l.property_name,
+      sublabel: `${fmt(l.avg_price)} · ${fmtNum(l.units)} apts · Last seen ${periods.prev}`,
+      active:   l.listing_id === activePin,
+      color:    l.listing_id === activePin ? activeColor : baseColor,
+    };
+  }), [filtered, activePin, periods]);
 
   // Early returns after all hooks
   if (selected) {
@@ -808,11 +823,32 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
               <MultiSelect label="Unit Type" options={ALL_UTS}
                 value={selUnit} onChange={setSelUnit} placeholder="All types" maxDisplay={2} />
 
-              <MultiSelect label="ESG Grade" options={ALL_ESG}
-                value={selEsg} onChange={setSelEsg} placeholder="All grades" maxDisplay={3} />
-
               <MultiSelect label="Last Seen Month" options={allMonths}
                 value={selMonth} onChange={setSelMonth} placeholder="All months" maxDisplay={2} />
+
+              {/* Delist type toggle */}
+              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                <div style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Sold Out Type</div>
+                <div style={{ display:"flex", gap:4 }}>
+                  {[["all","All"],["full","Full"],["partial","Partial"]].map(([val,lbl]) => {
+                    const isActive = delistType === val;
+                    const activeColor = val === "full" ? "#fff" : val === "partial" ? "#6B2A2A" : "#fff";
+                    const activeBg    = val === "full" ? "#DC2626" : val === "partial" ? "#FEF2F2" : T.navy;
+                    const activeBorder= val === "full" ? "#DC2626" : val === "partial" ? "#FCA5A5" : T.navy;
+                    return (
+                      <button key={val} onClick={() => setDelistType(val)}
+                        style={{ padding:"6px 10px", borderRadius:7, fontSize:11, fontWeight: isActive?700:500,
+                          cursor:"pointer", whiteSpace:"nowrap",
+                          background: isActive ? activeBg : "#fff",
+                          border: `1px solid ${isActive ? activeBorder : T.border}`,
+                          color: isActive ? activeColor : T.textSub,
+                          transition:"all 0.15s" }}>
+                        {lbl}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               {/* Price range */}
               <div style={{ display:"flex", flexDirection:"column", gap:4, minWidth:160 }}>
@@ -881,8 +917,8 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
               </div>
 
               {hasFilters ? (
-                <button onClick={() => { setSelProvince([]); setSelMuni([]); setSelUnit([]); setSelHouseType([]); setSelEsg([]); setSelMonth([]);
-                  setMinPrice(""); setMaxPrice(""); setMinM2(""); setMaxM2(""); }}
+                <button onClick={() => { setSelProvince([]); setSelMuni([]); setSelUnit([]); setSelHouseType([]); setSelMonth([]);
+                  setMinPrice(""); setMaxPrice(""); setMinM2(""); setMaxM2(""); setDelistType("all"); }}
                   style={{ alignSelf:"flex-end", background:"#FEF2F2", border:"1px solid rgba(192,57,43,0.4)",
                     color:"#6B2A2A", padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:11 }}>
                   ✕ Clear all
@@ -920,7 +956,13 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
               paddingRight:4, scrollbarWidth:"thin", scrollbarColor:`${T.border} transparent` }}>
               {filtered.map(l => (
                 <div key={l.listing_id} id={`scard-d-${l.listing_id}`}>
-                  <DelistedCard l={l} onClick={() => setSelected(l)} />
+                  <DelistedCard l={l} onClick={() => {
+                    if (l.delisted_type === "partial" && onGoListing) {
+                      onGoListing(l.listing_id, l.property_name, l.municipality);
+                    } else {
+                      setSelected(l);
+                    }
+                  }} />
                 </div>
               ))}
             </div>
@@ -934,6 +976,11 @@ export default function DelistedPage({ onGoListing, selectedId, fromSearch, onBa
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
                 <LeafletMap markers={mapMarkers} height="280px"
                   onMarkerClick={id => {
+                    const listing = filtered.find(l => l.listing_id === id);
+                    if (listing?.delisted_type === "partial" && onGoListing) {
+                      onGoListing(listing.listing_id, listing.property_name, listing.municipality);
+                      return;
+                    }
                     const newId = id === activePin ? null : id;
                     setActivePin(newId);
                     if (newId) {
