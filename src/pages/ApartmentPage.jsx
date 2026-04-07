@@ -252,6 +252,7 @@ function AVMSection({ apt, comparables, utColor }) {
 // ── Main Page ─────────────────────────────────────────────────────────────
 export default function ApartmentPage({ apt, listingId, listingName, onBack, municipality }) {
   const [aptTrend,      setAptTrend]      = useState([]);
+  const [nearbyTrend,   setNearbyTrend]   = useState([]);
   const [nearbyApts,    setNearbyApts]    = useState(null);
   const [nearbyListings,setNearbyListings]= useState(null);
   const [activePin,     setActivePin]     = useState(null);
@@ -259,6 +260,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
   const [radiusKm,      setRadiusKm]      = useState(null); // null = comarca mode
   const [loading,       setLoading]       = useState(true);
   const [floorPlans,    setFloorPlans]    = useState([]);
+  const [devFloorPlans, setDevFloorPlans] = useState([]);
   const [devPhotos,     setDevPhotos]     = useState([]);
   const [fpAptSpecific, setFpAptSpecific] = useState(false);
   const [fpIdx,         setFpIdx]         = useState(0);
@@ -275,16 +277,16 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
 
   // Fetch apt floor plans + development photos
   useEffect(() => {
-    setFloorPlans([]); setDevPhotos([]); setFpIdx(0); setMediaTab("photos");
+    setFloorPlans([]); setDevFloorPlans([]); setDevPhotos([]); setFpIdx(0);
     // Apt-specific floor plans
     fetch(`${API}/listing/photos/${listingId}/${apt.sub_listing_id}`)
       .then(r => r.json())
       .then(d => { setFloorPlans(d.floor_plans || []); setFpAptSpecific(d.apt_specific || false); })
       .catch(() => {});
-    // Development-level photos
+    // Development-level photos + floor plans
     fetch(`${API}/listing/photos/${listingId}`)
       .then(r => r.json())
-      .then(d => { setDevPhotos(d.photos || []); })
+      .then(d => { setDevPhotos(d.photos || []); setDevFloorPlans(d.floor_plans || []); })
       .catch(() => {});
   }, [listingId, apt.sub_listing_id]);
 
@@ -295,13 +297,15 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
       fetch(`${API}/drilldown/listing/${listingId}`).then(r=>r.json()),
       fetch(`${API}/nearby/apartments/${listingId}?unit_type=${encodeURIComponent(apt.unit_type)}${radiusQ}`).then(r=>r.json()),
       fetch(`${API}/nearby/listings/${listingId}?${radiusQ.slice(1)}`).then(r=>r.json()),
-    ]).then(([detail, nbApts, nbListings]) => {
+      fetch(`${API}/nearby/apartments/${listingId}/trend?unit_type=${encodeURIComponent(apt.unit_type)}${radiusQ}`).then(r=>r.json()),
+    ]).then(([detail, nbApts, nbListings, nbTrend]) => {
       const history = (detail.apt_trend || [])
         .filter(r => r.sub_listing_id === apt.sub_listing_id)
         .sort((a,b) => periodSort(a.period) - periodSort(b.period));
       setAptTrend(history);
       setNearbyApts(nbApts);
       setNearbyListings(nbListings);
+      setNearbyTrend(nbTrend?.trend || []);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [apt.sub_listing_id, listingId, apt.unit_type, radiusKm]);
@@ -353,7 +357,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
 
   return (
     <div style={{ minHeight:"100vh", background:"#F2F4F6" }}>
-      <div style={{ maxWidth:1700, margin:"0 auto" }}>
+      <div style={{ maxWidth:1200, margin:"0 auto" }}>
 
         {/* ── Breadcrumb nav ─────────────────────────────────────────── */}
         <div style={{ background:"#fff", borderBottom:`1px solid ${T.border}`, padding:"10px 28px",
@@ -370,10 +374,13 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
 
         {/* ── Hero: two-column listing card ─────────────────────────── */}
         {(() => {
-          // Build combined media: dev photos first, then floor plans
+          // Floor plans first; if apt-specific floor plans exist, skip dev floor plans
+          const aptFPs  = fpAptSpecific ? floorPlans : [];
+          const devFPs  = fpAptSpecific ? [] : (floorPlans.length ? floorPlans : devFloorPlans);
           const allMedia = [
-            ...devPhotos.map(u => ({ url:u, type:"photo" })),
-            ...floorPlans.map(u => ({ url:u, type:"floorplan" })),
+            ...aptFPs.map(u  => ({ url:u, type:"floorplan", scope:"apartment" })),
+            ...devFPs.map(u  => ({ url:u, type:"floorplan", scope:"development" })),
+            ...devPhotos.map(u => ({ url:u, type:"photo",     scope:"development" })),
           ];
           const curMedia = allMedia[fpIdx] || null;
           const total = allMedia.length;
@@ -381,8 +388,8 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
           const next = () => setFpIdx(i => (i + 1) % total);
 
           return (
-        <div style={{ background:"#fff", borderBottom:`1px solid ${T.border}`, padding:"28px 28px 24px" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 320px", gap:28, alignItems:"start", maxWidth:1100 }}>
+        <div style={{ background:"#fff", borderBottom:`1px solid ${T.border}`, padding:"24px 28px 20px" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) 300px", gap:24, alignItems:"start", maxWidth:1000, margin:"0 auto" }}>
 
             {/* ── LEFT: media + listing details ── */}
             <div>
@@ -428,8 +435,8 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                       padding:"2px 8px", fontSize:10, fontWeight:700,
                       color: curMedia.type === "floorplan" ? T.navy : T.text }}>
                       {curMedia.type === "floorplan"
-                        ? `🗺 Floor plan${fpAptSpecific ? " · This unit" : ""}`
-                        : "📸 Photo"}
+                        ? `🗺 Floor plan · ${curMedia.scope === "apartment" ? "This apartment" : "Development"}`
+                        : "📸 Photo · Development"}
                     </span>
                   )}
                   {total > 1 && (
@@ -438,11 +445,10 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                       {fpIdx + 1} / {total}
                     </span>
                   )}
-                  {devPhotos.length > 0 && (
+                  {total > 0 && (
                     <span style={{ background:"rgba(0,0,0,0.45)", borderRadius:5,
                       padding:"2px 8px", fontSize:10, color:"rgba(255,255,255,0.85)" }}>
-                      📸 {devPhotos.length} photos
-                      {floorPlans.length > 0 ? `  ·  🗺 ${floorPlans.length} floor plans` : ""}
+                      {aptFPs.length > 0 ? `🗺 ${aptFPs.length} apt floor plan${aptFPs.length>1?"s":""}  ·  ` : devFPs.length > 0 ? `🗺 ${devFPs.length} floor plan${devFPs.length>1?"s":""}  ·  ` : ""}📸 {devPhotos.length} photos
                     </span>
                   )}
                   {apt.unit_url && (
@@ -462,12 +468,19 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                   {allMedia.map((m, i) => (
                     <div key={i} onClick={() => setFpIdx(i)}
                       style={{ flexShrink:0, width:64, height:48, borderRadius:7, overflow:"hidden",
-                        border:`2px solid ${fpIdx===i ? T.navy : T.border}`, cursor:"pointer",
-                        opacity: fpIdx===i ? 1 : 0.65, transition:"all 0.15s" }}>
+                        border:`2px solid ${fpIdx===i ? T.navy : m.type==="floorplan" ? T.borderAccent : T.border}`,
+                        cursor:"pointer", opacity: fpIdx===i ? 1 : 0.65, transition:"all 0.15s",
+                        background: m.type==="floorplan" ? T.navyTint : "#fff", position:"relative" }}>
                       <img src={m.url} alt=""
                         style={{ width:"100%", height:"100%",
                           objectFit: m.type === "floorplan" ? "contain" : "cover" }}
                         onError={e => { e.target.parentElement.style.display="none"; }} />
+                      {m.type === "floorplan" && (
+                        <div style={{ position:"absolute", bottom:1, right:2, fontSize:7, fontWeight:700,
+                          color:T.navy, lineHeight:1 }}>
+                          {m.scope === "apartment" ? "APT" : "DEV"}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -703,24 +716,50 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                         </div>
                       ))}
                     </div>
-                    <ResponsiveContainer width="100%" height={200}>
-                      <LineChart data={aptTrend}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
-                        <XAxis dataKey="period" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}/>
-                        <YAxis yAxisId="p" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`}
-                          tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}/>
-                        <YAxis yAxisId="m" orientation="right" tickFormatter={v=>`€${v}`}
-                          tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}/>
-                        <Tooltip formatter={v=>[fmtFull(v)]}
-                          contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }}/>
-                        <Legend wrapperStyle={{ fontSize:11 }}/>
-                        <Line yAxisId="p" type="monotone" dataKey="price" name="Price"
-                          stroke={utColor} strokeWidth={3} dot={{ r:6, fill:utColor, stroke:"#fff", strokeWidth:2 }}/>
-                        <Line yAxisId="m" type="monotone" dataKey="price_per_m2" name="€/m²"
-                          stroke={T.navyMid} strokeWidth={2} strokeDasharray="5 3"
-                          dot={{ r:4, fill:T.navyMid }}/>
-                      </LineChart>
-                    </ResponsiveContainer>
+                    {(() => {
+                      // Merge aptTrend + nearbyTrend by period
+                      const allPeriods = [...new Set([...aptTrend.map(p=>p.period), ...nearbyTrend.map(p=>p.period)])].sort((a,b) => {
+                        const MO = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+                        const [am,ay] = a.split(" "); const [bm,by] = b.split(" ");
+                        return ((parseInt(ay)-2000)*100+(MO[am]||0)) - ((parseInt(by)-2000)*100+(MO[bm]||0));
+                      });
+                      const ntMap = Object.fromEntries(nearbyTrend.map(p=>[p.period, p]));
+                      const atMap = Object.fromEntries(aptTrend.map(p=>[p.period, p]));
+                      const chartMerged = allPeriods.map(period => ({
+                        period,
+                        price:         atMap[period]?.price ?? null,
+                        price_per_m2:  atMap[period]?.price_per_m2 ?? null,
+                        nearby_price:  ntMap[period]?.avg_price ?? null,
+                        nearby_pm2:    ntMap[period]?.avg_price_m2 ?? null,
+                      }));
+                      return (
+                        <ResponsiveContainer width="100%" height={220}>
+                          <LineChart data={chartMerged}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
+                            <XAxis dataKey="period" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}/>
+                            <YAxis yAxisId="p" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`}
+                              tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}/>
+                            <YAxis yAxisId="m" orientation="right" tickFormatter={v=>`€${Math.round(v).toLocaleString("en")}`}
+                              tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}/>
+                            <Tooltip
+                              formatter={(v,name) => [v != null ? fmtFull(v) : "—", name]}
+                              contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }}/>
+                            <Legend wrapperStyle={{ fontSize:11 }}/>
+                            <Line yAxisId="p" type="monotone" dataKey="price" name="Price"
+                              stroke={utColor} strokeWidth={3} dot={{ r:5, fill:utColor, stroke:"#fff", strokeWidth:2 }} connectNulls/>
+                            <Line yAxisId="p" type="monotone" dataKey="nearby_price" name="Avg nearby price"
+                              stroke={utColor} strokeWidth={1.5} strokeDasharray="4 3" strokeOpacity={0.55}
+                              dot={{ r:3, fill:utColor, fillOpacity:0.5 }} connectNulls/>
+                            <Line yAxisId="m" type="monotone" dataKey="price_per_m2" name="€/m²"
+                              stroke={T.navyMid} strokeWidth={2} strokeDasharray="5 3"
+                              dot={{ r:4, fill:T.navyMid }} connectNulls/>
+                            <Line yAxisId="m" type="monotone" dataKey="nearby_pm2" name="Avg nearby €/m²"
+                              stroke={T.navyMid} strokeWidth={1.5} strokeDasharray="2 4" strokeOpacity={0.55}
+                              dot={{ r:3, fill:T.navyMid, fillOpacity:0.5 }} connectNulls/>
+                          </LineChart>
+                        </ResponsiveContainer>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
