@@ -524,7 +524,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
 
 
 
-  const delistedIds = useMemo(() => new Set(delistedResults.map(l => l.listing_id)), [delistedResults]);
+  const delistedIds = useMemo(() => new Set(delistedResults.filter(l => l.delisted_type !== "partial").map(l => l.listing_id)), [delistedResults]);
 
   const displayResults = (results || []).filter(l =>
     !delistedIds.has(l.listing_id) &&
@@ -532,6 +532,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   );
 
   const filteredDelisted = useMemo(() => delistedResults.filter(l => {
+    if (l.delisted_type === "partial") return false;
     if (selUnit.length      && !selUnit.some(ut => l.unit_types?.includes(ut)))      return false;
     if (selHouseType.length && !selHouseType.some(ht => l.house_types?.includes(ht))) return false;
     if (selEsg.length       && !selEsg.includes(l.esg_grade))                        return false;
