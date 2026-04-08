@@ -727,6 +727,35 @@ export default function DelistedPage({ onGoListing, onGoDrilldown, selectedId, f
   const priceDist = useMemo(() => makeBins(filtered.map(l => l.avg_price)), [filtered]);
   const m2Dist    = useMemo(() => makeBins(filtered.map(l => l.avg_price_m2), 8, false), [filtered]);
 
+  const deliveryTimeline = useMemo(() => {
+    const map = {};
+    filtered.forEach(l => {
+      const raw = (l.delivery_date || "").toString().replace("Delivery : ","").trim();
+      if (!raw || raw === "null" || raw === "undefined") return;
+      // Extract year+quarter: "Q3 2026", "2026-Q3", "2026", "Delivery : Q2 2025" etc.
+      const qm = raw.match(/Q([1-4])\s*(\d{4})|(\d{4})\s*[-\/]?\s*Q([1-4])/i);
+      const ym = raw.match(/(\d{4})/);
+      let key;
+      if (qm) key = qm[2] ? `${qm[2]} Q${qm[1]}` : `${qm[3]} Q${qm[4]}`;
+      else if (ym) key = ym[1];
+      else return;
+      map[key] = (map[key] || 0) + (l.units || 1);
+    });
+    return Object.entries(map).map(([q, count]) => ({ quarter: q, count }))
+      .sort((a,b) => a.quarter.localeCompare(b.quarter));
+  }, [filtered]);
+
+  const topMunis = useMemo(() => {
+    const map = {};
+    filtered.forEach(l => {
+      if (!l.municipality) return;
+      if (!map[l.municipality]) map[l.municipality] = { municipality: l.municipality, units: 0, listings: 0 };
+      map[l.municipality].units    += (l.units || 1);
+      map[l.municipality].listings += 1;
+    });
+    return Object.values(map).sort((a,b) => b.units - a.units).slice(0, 12);
+  }, [filtered]);
+
   const mapMarkers = useMemo(() => filtered.map(l => {
     const isFull = l.delisted_type !== "partial";
     const baseColor   = isFull ? "#DC2626" : "#FCA5A5";
@@ -1114,6 +1143,48 @@ export default function DelistedPage({ onGoListing, onGoDrilldown, selectedId, f
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
+                </ChartCard>
+              </div>
+
+              {/* Row 4: Delivery Timeline | Top Municipalities */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+                <ChartCard title="Delivery Timeline">
+                  {deliveryTimeline.length === 0 ? (
+                    <div style={{ height:160, display:"flex", alignItems:"center", justifyContent:"center", color:T.textMuted, fontSize:12 }}>No delivery data</div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={160}>
+                      <BarChart data={deliveryTimeline} barSize={20}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                        <XAxis dataKey="quarter" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} tickFormatter={v=>v.toLocaleString()} />
+                        <Tooltip formatter={v=>[`${v.toLocaleString()} units`, "Units"]}
+                          contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
+                        <Bar dataKey="count" radius={[4,4,0,0]} isAnimationActive={false}>
+                          {deliveryTimeline.map((_,i) => <Cell key={i} fill={T.navy} fillOpacity={0.4+(i/Math.max(deliveryTimeline.length-1,1))*0.6} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </ChartCard>
+
+                <ChartCard title="Top Municipalities — click to explore">
+                  {topMunis.length === 0 ? (
+                    <div style={{ height:160, display:"flex", alignItems:"center", justifyContent:"center", color:T.textMuted, fontSize:12 }}>No data</div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={160}>
+                      <BarChart data={topMunis} layout="vertical" barSize={12}
+                        onClick={d => d?.activePayload?.[0] && onGoDrilldown && onGoDrilldown(d.activePayload[0].payload.municipality)}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
+                        <XAxis type="number" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} tickFormatter={v=>v.toLocaleString()} />
+                        <YAxis type="category" dataKey="municipality" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} width={100} />
+                        <Tooltip formatter={(v,name) => [v.toLocaleString(), name === "units" ? "Units" : name]}
+                          contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
+                        <Bar dataKey="units" name="Units" radius={[0,4,4,0]} cursor="pointer" isAnimationActive={false}>
+                          {topMunis.map((_,i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
                 </ChartCard>
               </div>
 

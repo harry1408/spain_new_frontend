@@ -403,8 +403,10 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   const [loading,  setLoading]  = useState(false);
   const [searched, setSearched] = useState(_ss?.searched ?? false);
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const [activePin, setActivePin] = useState(null);
-  const lastHoveredPin = useRef(null); // persists last hovered id for Google Maps
+  const _firstPin = _ss?.results?.find?.(l => l.lat && l.lng && l.lat !== 39.47)?.listing_id ?? null;
+  const [activePin, setActivePin] = useState(_firstPin);
+  const lastHoveredPin = useRef(_firstPin); // persists last hovered id for Google Maps
+  const firstResultCenter = useRef(null); // persists first result coords once loaded
   const [trend, setTrend] = useState([]);
   const [serverUtStats, setServerUtStats] = useState(_ss?.serverUtStats ?? []);
   const [serverHtStats, setServerHtStats] = useState(_ss?.serverHtStats ?? []);
@@ -483,6 +485,12 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
         setResults(listings);
         setServerUtStats(d.unit_type_stats || []);
         setServerHtStats(d.house_type_stats || []);
+        // Auto-select first property with valid coords for Google Map
+        const firstWithCoords = listings.find(l => l.lat && l.lng && l.lat !== 39.47);
+        if (firstWithCoords) {
+          setActivePin(firstWithCoords.listing_id);
+          lastHoveredPin.current = firstWithCoords.listing_id;
+        }
         setLoading(false);
         // Fetch trend using ref so we always have current selMuni
         const munis = selMuniRef.current;
@@ -1370,17 +1378,23 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                     <div style={{ minWidth:0 }}>
                       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8,
                         background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:8, padding:"6px 12px" }}>
-                        <span style={{ fontSize:10, color:T.textMuted, flex:1 }}>📌 Hover a listing to pin it</span>
+                        <span style={{ fontSize:10, color:T.textMuted, flex:1 }}>📌 {activePin || lastHoveredPin.current ? "Pinned listing" : "Showing first result — hover to change"}</span>
                         <span style={{ fontSize:10, fontWeight:700, color:T.textMuted }}>G Maps</span>
                       </div>
                       <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
                         boxShadow:"0 2px 8px rgba(0,0,0,0.07)", height:240 }}>
                         {(() => {
                           const pinId = activePin ?? lastHoveredPin.current;
-                          const hoveredListing = pinId ? results.find(r => r.listing_id === pinId) : null;
-                          const center = hoveredListing?.lat
-                            ? { lat: hoveredListing.lat, lng: hoveredListing.lng }
-                            : searchCenter || (mapMarkers[0] ? { lat: mapMarkers[0].lat, lng: mapMarkers[0].lng } : null);
+                          const pinnedListing = pinId ? (results||[]).find(r => r.listing_id === pinId) : null;
+                          const firstResult = displayResults.find(l => l.lat && l.lng && l.lat !== 39.47)
+                            || filteredDelisted.find(l => l.lat && l.lng && l.lat !== 39.47);
+                          if (firstResult) {
+                            firstResultCenter.current = { lat: firstResult.lat, lng: firstResult.lng };
+                          }
+                          const center = pinnedListing?.lat && pinnedListing.lat !== 39.47
+                            ? { lat: pinnedListing.lat, lng: pinnedListing.lng }
+                            : searchCenter
+                            || firstResultCenter.current;
                           const gmUrl = center
                             ? `https://maps.google.com/maps?q=${center.lat},${center.lng}&hl=en&z=16&output=embed`
                             : null;

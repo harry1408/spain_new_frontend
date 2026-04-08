@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
          ResponsiveContainer, Legend } from "recharts";
-import { T, Pill, fmt, fmtFull, fmtNum, UNIT_COLORS, COLORS, ESG_COLORS, Tag } from "../components/shared.jsx";
+import { T, Pill, fmt, fmtFull, fmtNum, UNIT_COLORS, ESG_COLORS, Tag } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
-import GoogleStaticMap, { MapThumbnail } from "../components/GoogleStaticMap.jsx";
 import LoadingHouse from "../components/LoadingHouse.jsx";
 
 // ── AVM Section ───────────────────────────────────────────────────────────
@@ -36,7 +35,6 @@ function AVMSection({ apt, comparables, utColor }) {
   const listed    = apt.price;
   const diff      = estimate && listed ? estimate - listed : null;
   const diffPct   = diff && listed ? ((diff / listed) * 100).toFixed(1) : null;
-  const overUnder = diff > 0 ? "underpriced" : diff < 0 ? "overpriced" : "fairly priced";
   const diffColor = diff > 0 ? T.green : diff < 0 ? T.red : T.textSub;
 
   const allSelected = selected.size === allIds.size;
@@ -90,7 +88,7 @@ function AVMSection({ apt, comparables, utColor }) {
                 </tr>
               </thead>
               <tbody>
-                {comparables.map((a, i) => {
+                {comparables.map((a) => {
                   const isThis   = a.sub_listing_id === apt.sub_listing_id;
                   const checked  = selected.has(a.sub_listing_id);
                   const rowBg    = isThis ? "rgba(201,168,76,0.12)" : checked ? "#fff" : "#F8F9AF9";
@@ -264,8 +262,10 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
   const [devPhotos,     setDevPhotos]     = useState([]);
   const [fpAptSpecific, setFpAptSpecific] = useState(false);
   const [fpIdx,         setFpIdx]         = useState(0);
+  const [photoIdx,      setPhotoIdx]      = useState(0);
   const [fpLightbox,    setFpLightbox]    = useState(false);
-  const [mediaTab,      setMediaTab]      = useState("photos"); // "photos" | "floorplan"
+  const [lightboxSrc,   setLightboxSrc]   = useState("fp"); // "fp" | "photo"
+
 
   const utColor = UNIT_COLORS[apt.unit_type] || T.navy;
 
@@ -277,7 +277,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
 
   // Fetch apt floor plans + development photos
   useEffect(() => {
-    setFloorPlans([]); setDevFloorPlans([]); setDevPhotos([]); setFpIdx(0);
+    setFloorPlans([]); setDevFloorPlans([]); setDevPhotos([]); setFpIdx(0); setPhotoIdx(0);
     // Apt-specific floor plans
     fetch(`${API}/listing/photos/${listingId}/${apt.sub_listing_id}`)
       .then(r => r.json())
@@ -349,11 +349,6 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
     </button>
   );
 
-  // Get current listing coords from nearbyListings
-  const currentListingCoords = useMemo(() => {
-    const found = nearbyListings?.listings?.find(l => l.listing_id === listingId);
-    return found ? { lat: found.lat, lng: found.lng } : null;
-  }, [nearbyListings, listingId]);
 
   return (
     <div style={{ minHeight:"100vh", background:"#F2F4F6" }}>
@@ -374,18 +369,103 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
 
         {/* ── Hero: two-column listing card ─────────────────────────── */}
         {(() => {
-          // Floor plans first; if apt-specific floor plans exist, skip dev floor plans
-          const aptFPs  = fpAptSpecific ? floorPlans : [];
-          const devFPs  = fpAptSpecific ? [] : (floorPlans.length ? floorPlans : devFloorPlans);
-          const allMedia = [
-            ...aptFPs.map(u  => ({ url:u, type:"floorplan", scope:"apartment" })),
-            ...devFPs.map(u  => ({ url:u, type:"floorplan", scope:"development" })),
-            ...devPhotos.map(u => ({ url:u, type:"photo",     scope:"development" })),
-          ];
-          const curMedia = allMedia[fpIdx] || null;
-          const total = allMedia.length;
-          const prev = () => setFpIdx(i => (i - 1 + total) % total);
-          const next = () => setFpIdx(i => (i + 1) % total);
+          // Floor plans: apt-specific takes priority; suppress dev floor plans if apt ones exist
+          const fpMedia   = fpAptSpecific ? floorPlans : (floorPlans.length ? floorPlans : devFloorPlans);
+          const fpScope   = fpAptSpecific ? "This apartment" : "Development";
+          const fpTotal   = fpMedia.length;
+          const prevFp    = () => setFpIdx(i => (i - 1 + fpTotal) % fpTotal);
+          const nextFp    = () => setFpIdx(i => (i + 1) % fpTotal);
+
+          const photoMedia  = devPhotos;
+          const photoTotal  = photoMedia.length;
+          const prevPhoto   = () => setPhotoIdx(i => (i - 1 + photoTotal) % photoTotal);
+          const nextPhoto   = () => setPhotoIdx(i => (i + 1) % photoTotal);
+
+          const Carousel = ({ media, idx, onPrev, onNext, onThumb, label, emptyIcon, height = 260 }) => {
+            const cur = media[idx] || null;
+            const total = media.length;
+            const isFloorplan = label.includes("Floor");
+            return (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase",
+                  letterSpacing:"0.07em", marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
+                  {label}
+                  {total > 0 && <span style={{ background:T.bgStripe, border:`1px solid ${T.border}`,
+                    borderRadius:4, padding:"1px 6px", fontSize:10, fontWeight:600, color:T.textSub }}>{total}</span>}
+                </div>
+                <div style={{ position:"relative", borderRadius:10, overflow:"hidden",
+                  background: isFloorplan ? "#F8F9FF" : "#F2F4F6",
+                  border:`1px solid ${T.border}`, height }}>
+                  {cur ? (
+                    <img src={cur} alt={label}
+                      style={{ width:"100%", height:"100%",
+                        objectFit: isFloorplan ? "contain" : "cover",
+                        display:"block", cursor:"zoom-in" }}
+                      onClick={() => { setLightboxSrc(isFloorplan ? "fp" : "photo"); setFpLightbox(true); }}
+                      onError={e => { e.target.style.display="none"; }} />
+                  ) : (
+                    <div style={{ height:"100%", display:"flex", flexDirection:"column",
+                      alignItems:"center", justifyContent:"center", color:T.textMuted }}>
+                      <div style={{ fontSize:32, marginBottom:6 }}>{emptyIcon}</div>
+                      <div style={{ fontSize:11 }}>No {label.toLowerCase()} available</div>
+                    </div>
+                  )}
+                  {total > 1 && (<>
+                    <button onClick={e => { e.stopPropagation(); onPrev(); }}
+                      style={{ position:"absolute", left:6, top:"50%", transform:"translateY(-50%)",
+                        background:"rgba(255,255,255,0.88)", border:`1px solid ${T.border}`, color:T.text,
+                        width:28, height:28, borderRadius:"50%", cursor:"pointer", fontSize:16,
+                        display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 1px 4px rgba(0,0,0,0.1)" }}>‹</button>
+                    <button onClick={e => { e.stopPropagation(); onNext(); }}
+                      style={{ position:"absolute", right:6, top:"50%", transform:"translateY(-50%)",
+                        background:"rgba(255,255,255,0.88)", border:`1px solid ${T.border}`, color:T.text,
+                        width:28, height:28, borderRadius:"50%", cursor:"pointer", fontSize:16,
+                        display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 1px 4px rgba(0,0,0,0.1)" }}>›</button>
+                  </>)}
+                  {total > 0 && (
+                    <div style={{ position:"absolute", bottom:0, left:0, right:0,
+                      background:"linear-gradient(transparent, rgba(0,0,0,0.4))",
+                      padding:"14px 10px 8px", display:"flex", alignItems:"center", gap:6 }}>
+                      {total > 1 && (
+                        <span style={{ background:"rgba(0,0,0,0.55)", borderRadius:4,
+                          padding:"1px 7px", fontSize:10, fontWeight:600, color:"#fff" }}>
+                          {idx + 1} / {total}
+                        </span>
+                      )}
+                      {isFloorplan && (
+                        <span style={{ background:"rgba(255,255,255,0.9)", borderRadius:4,
+                          padding:"1px 7px", fontSize:10, fontWeight:700, color:T.navy }}>
+                          {fpScope}
+                        </span>
+                      )}
+                      {!isFloorplan && apt.unit_url && (
+                        <a href={apt.unit_url} target="_blank" rel="noreferrer"
+                          style={{ marginLeft:"auto", background:"rgba(255,255,255,0.92)",
+                            borderRadius:5, padding:"3px 9px", fontSize:11, fontWeight:600,
+                            color:T.navy, textDecoration:"none" }}>↗ Idealista</a>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {/* Thumbnail strip */}
+                {total > 1 && (
+                  <div style={{ display:"flex", gap:5, overflowX:"auto", marginTop:6, paddingBottom:2 }}>
+                    {media.map((url, i) => (
+                      <div key={i} onClick={() => onThumb(i)}
+                        style={{ flexShrink:0, width:52, height:40, borderRadius:6, overflow:"hidden",
+                          border:`2px solid ${idx===i ? T.navy : T.border}`, cursor:"pointer",
+                          opacity: idx===i ? 1 : 0.6, transition:"all 0.15s",
+                          background: isFloorplan ? "#F8F9FF" : "#fff" }}>
+                        <img src={url} alt=""
+                          style={{ width:"100%", height:"100%", objectFit: isFloorplan ? "contain" : "cover" }}
+                          onError={e => { e.target.parentElement.style.display="none"; }} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          };
 
           return (
         <div style={{ background:"#fff", borderBottom:`1px solid ${T.border}`, padding:"24px 28px 20px" }}>
@@ -393,98 +473,10 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
 
             {/* ── LEFT: media + listing details ── */}
             <div>
-              {/* Media area */}
-              <div style={{ position:"relative", borderRadius:12, overflow:"hidden",
-                background:"#F2F4F6", border:`1px solid ${T.border}`, marginBottom:20, height:320 }}>
-                {curMedia ? (
-                  <img src={curMedia.url}
-                    alt={curMedia.type === "floorplan" ? "Floor plan" : "Photo"}
-                    style={{ width:"100%", height:"100%",
-                      objectFit: curMedia.type === "floorplan" ? "contain" : "cover",
-                      display:"block", cursor:"zoom-in" }}
-                    onClick={() => setFpLightbox(true)}
-                    onError={e => { e.target.style.display="none"; }} />
-                ) : (
-                  <div style={{ height:"100%", display:"flex", flexDirection:"column",
-                    alignItems:"center", justifyContent:"center", color:T.textMuted }}>
-                    <div style={{ fontSize:40, marginBottom:8 }}>🏗️</div>
-                    <div style={{ fontSize:12 }}>No media available</div>
-                  </div>
-                )}
-
-                {/* Nav arrows */}
-                {total > 1 && (<>
-                  <button onClick={e => { e.stopPropagation(); prev(); }}
-                    style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)",
-                      background:"rgba(255,255,255,0.88)", border:`1px solid ${T.border}`, color:T.text,
-                      width:32, height:32, borderRadius:"50%", cursor:"pointer", fontSize:18,
-                      display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 2px 6px rgba(0,0,0,0.1)" }}>‹</button>
-                  <button onClick={e => { e.stopPropagation(); next(); }}
-                    style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)",
-                      background:"rgba(255,255,255,0.88)", border:`1px solid ${T.border}`, color:T.text,
-                      width:32, height:32, borderRadius:"50%", cursor:"pointer", fontSize:18,
-                      display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 2px 6px rgba(0,0,0,0.1)" }}>›</button>
-                </>)}
-
-                {/* Bottom overlay: type badge + counter + links */}
-                <div style={{ position:"absolute", bottom:0, left:0, right:0,
-                  background:"linear-gradient(transparent, rgba(0,0,0,0.45))",
-                  padding:"18px 12px 10px", display:"flex", alignItems:"center", gap:6 }}>
-                  {curMedia && (
-                    <span style={{ background:"rgba(255,255,255,0.92)", borderRadius:5,
-                      padding:"2px 8px", fontSize:10, fontWeight:700,
-                      color: curMedia.type === "floorplan" ? T.navy : T.text }}>
-                      {curMedia.type === "floorplan"
-                        ? `🗺 Floor plan · ${curMedia.scope === "apartment" ? "This apartment" : "Development"}`
-                        : "📸 Photo · Development"}
-                    </span>
-                  )}
-                  {total > 1 && (
-                    <span style={{ background:"rgba(0,0,0,0.55)", borderRadius:5,
-                      padding:"2px 8px", fontSize:10, fontWeight:600, color:"#fff" }}>
-                      {fpIdx + 1} / {total}
-                    </span>
-                  )}
-                  {total > 0 && (
-                    <span style={{ background:"rgba(0,0,0,0.45)", borderRadius:5,
-                      padding:"2px 8px", fontSize:10, color:"rgba(255,255,255,0.85)" }}>
-                      {aptFPs.length > 0 ? `🗺 ${aptFPs.length} apt floor plan${aptFPs.length>1?"s":""}  ·  ` : devFPs.length > 0 ? `🗺 ${devFPs.length} floor plan${devFPs.length>1?"s":""}  ·  ` : ""}📸 {devPhotos.length} photos
-                    </span>
-                  )}
-                  {apt.unit_url && (
-                    <a href={apt.unit_url} target="_blank" rel="noreferrer"
-                      style={{ marginLeft:"auto", background:"rgba(255,255,255,0.92)", border:"none",
-                        borderRadius:6, padding:"4px 10px", fontSize:11, fontWeight:600,
-                        color:T.navy, textDecoration:"none" }}>
-                      ↗ Idealista
-                    </a>
-                  )}
-                </div>
-              </div>
-
-              {/* Thumbnail strip */}
-              {total > 1 && (
-                <div style={{ display:"flex", gap:6, overflowX:"auto", marginBottom:16, paddingBottom:4 }}>
-                  {allMedia.map((m, i) => (
-                    <div key={i} onClick={() => setFpIdx(i)}
-                      style={{ flexShrink:0, width:64, height:48, borderRadius:7, overflow:"hidden",
-                        border:`2px solid ${fpIdx===i ? T.navy : m.type==="floorplan" ? T.borderAccent : T.border}`,
-                        cursor:"pointer", opacity: fpIdx===i ? 1 : 0.65, transition:"all 0.15s",
-                        background: m.type==="floorplan" ? T.navyTint : "#fff", position:"relative" }}>
-                      <img src={m.url} alt=""
-                        style={{ width:"100%", height:"100%",
-                          objectFit: m.type === "floorplan" ? "contain" : "cover" }}
-                        onError={e => { e.target.parentElement.style.display="none"; }} />
-                      {m.type === "floorplan" && (
-                        <div style={{ position:"absolute", bottom:1, right:2, fontSize:7, fontWeight:700,
-                          color:T.navy, lineHeight:1 }}>
-                          {m.scope === "apartment" ? "APT" : "DEV"}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+              <Carousel media={fpMedia} idx={fpIdx} onPrev={prevFp} onNext={nextFp}
+                onThumb={setFpIdx} label="Floor Plans" emptyIcon="🗺" height={240} />
+              <Carousel media={photoMedia} idx={photoIdx} onPrev={prevPhoto} onNext={nextPhoto}
+                onThumb={setPhotoIdx} label="Development Photos" emptyIcon="📸" height={220} />
 
               {/* Title + location */}
               <h1 style={{ margin:"0 0 6px", fontSize:22, fontWeight:700, color:T.text, lineHeight:1.3 }}>
@@ -636,28 +628,34 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
         })()}
 
         {/* Lightbox */}
-        {fpLightbox && (devPhotos.length > 0 || floorPlans.length > 0) && (
+        {fpLightbox && (
           <div onClick={() => setFpLightbox(false)}
             style={{ position:"fixed", inset:0, zIndex:9999, background:"rgba(0,0,0,0.92)",
               display:"flex", alignItems:"center", justifyContent:"center" }}>
             {(() => {
-              const allMedia = [...devPhotos.map(u=>({url:u,type:"photo"})), ...floorPlans.map(u=>({url:u,type:"floorplan"}))];
-              const cur = allMedia[fpIdx];
-              const total = allMedia.length;
+              const isFp    = lightboxSrc === "fp";
+              const lbMedia = isFp
+                ? (fpAptSpecific ? floorPlans : (floorPlans.length ? floorPlans : devFloorPlans))
+                : devPhotos;
+              const lbIdx   = isFp ? fpIdx : photoIdx;
+              const setLbIdx = isFp ? setFpIdx : setPhotoIdx;
+              const total   = lbMedia.length;
+              const cur     = lbMedia[lbIdx];
+              if (!cur) return null;
               return <>
-                <img src={cur?.url} alt={`${cur?.type} ${fpIdx+1}`}
+                <img src={cur} alt={`${isFp ? "Floor plan" : "Photo"} ${lbIdx+1}`}
                   onClick={e => e.stopPropagation()}
                   style={{ maxWidth:"90vw", maxHeight:"88vh",
-                    objectFit: cur?.type === "floorplan" ? "contain" : "cover",
+                    objectFit: isFp ? "contain" : "cover",
                     borderRadius:8, boxShadow:"0 8px 40px rgba(0,0,0,0.6)" }}
                   onError={e => { e.target.style.display="none"; }} />
                 {total > 1 && (<>
-                  <button onClick={e => { e.stopPropagation(); setFpIdx(i => (i-1+total)%total); }}
+                  <button onClick={e => { e.stopPropagation(); setLbIdx(i => (i-1+total)%total); }}
                     style={{ position:"fixed", left:24, top:"50%", transform:"translateY(-50%)",
                       background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
                       width:48, height:48, borderRadius:"50%", cursor:"pointer", fontSize:28,
                       display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
-                  <button onClick={e => { e.stopPropagation(); setFpIdx(i => (i+1)%total); }}
+                  <button onClick={e => { e.stopPropagation(); setLbIdx(i => (i+1)%total); }}
                     style={{ position:"fixed", right:24, top:"50%", transform:"translateY(-50%)",
                       background:"rgba(255,255,255,0.15)", border:"none", color:"#fff",
                       width:48, height:48, borderRadius:"50%", cursor:"pointer", fontSize:28,
@@ -671,7 +669,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                 <div style={{ position:"fixed", top:20, left:"50%", transform:"translateX(-50%)",
                   background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:13, fontWeight:600,
                   padding:"6px 16px", borderRadius:20 }}>
-                  {cur?.type === "floorplan" ? "Floor Plan" : "Photo"} {fpIdx+1} / {total}
+                  {isFp ? "Floor Plan" : "Photo"} {lbIdx+1} / {total}
                 </div>
               </>;
             })()}
@@ -717,47 +715,60 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                       ))}
                     </div>
                     {(() => {
-                      // Merge aptTrend + nearbyTrend by period
-                      const allPeriods = [...new Set([...aptTrend.map(p=>p.period), ...nearbyTrend.map(p=>p.period)])].sort((a,b) => {
-                        const MO = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
-                        const [am,ay] = a.split(" "); const [bm,by] = b.split(" ");
-                        return ((parseInt(ay)-2000)*100+(MO[am]||0)) - ((parseInt(by)-2000)*100+(MO[bm]||0));
-                      });
+                      const MO = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+                      const sortP = p => { const [m,y]=p.split(" "); return (parseInt(y)-2000)*100+(MO[m]||0); };
+                      const allPeriods = [...new Set([...aptTrend.map(p=>p.period), ...nearbyTrend.map(p=>p.period)])].sort((a,b)=>sortP(a)-sortP(b));
                       const ntMap = Object.fromEntries(nearbyTrend.map(p=>[p.period, p]));
                       const atMap = Object.fromEntries(aptTrend.map(p=>[p.period, p]));
-                      const chartMerged = allPeriods.map(period => ({
+                      const merged = allPeriods.map(period => ({
                         period,
-                        price:         atMap[period]?.price ?? null,
-                        price_per_m2:  atMap[period]?.price_per_m2 ?? null,
-                        nearby_price:  ntMap[period]?.avg_price ?? null,
-                        nearby_pm2:    ntMap[period]?.avg_price_m2 ?? null,
+                        price:        atMap[period]?.price ?? null,
+                        nearby_price: ntMap[period]?.avg_price ?? null,
+                        pm2:          atMap[period]?.price_per_m2 ?? null,
+                        nearby_pm2:   ntMap[period]?.avg_price_m2 ?? null,
                       }));
+                      const tooltipStyle = { background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 };
+                      const xProps = { dataKey:"period", tick:{ fill:T.textSub, fontSize:11 }, axisLine:false, tickLine:false };
+                      const yProps = { tick:{ fill:T.textSub, fontSize:11 }, axisLine:false, tickLine:false };
                       return (
-                        <ResponsiveContainer width="100%" height={220}>
-                          <LineChart data={chartMerged}>
-                            <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
-                            <XAxis dataKey="period" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}/>
-                            <YAxis yAxisId="p" tickFormatter={v=>`€${(v/1000).toFixed(0)}K`}
-                              tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}/>
-                            <YAxis yAxisId="m" orientation="right" tickFormatter={v=>`€${Math.round(v).toLocaleString("en")}`}
-                              tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}/>
-                            <Tooltip
-                              formatter={(v,name) => [v != null ? fmtFull(v) : "—", name]}
-                              contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }}/>
-                            <Legend wrapperStyle={{ fontSize:11 }}/>
-                            <Line yAxisId="p" type="monotone" dataKey="price" name="Price"
-                              stroke={utColor} strokeWidth={3} dot={{ r:5, fill:utColor, stroke:"#fff", strokeWidth:2 }} connectNulls/>
-                            <Line yAxisId="p" type="monotone" dataKey="nearby_price" name="Avg nearby price"
-                              stroke={utColor} strokeWidth={1.5} strokeDasharray="4 3" strokeOpacity={0.55}
-                              dot={{ r:3, fill:utColor, fillOpacity:0.5 }} connectNulls/>
-                            <Line yAxisId="m" type="monotone" dataKey="price_per_m2" name="€/m²"
-                              stroke={T.navyMid} strokeWidth={2} strokeDasharray="5 3"
-                              dot={{ r:4, fill:T.navyMid }} connectNulls/>
-                            <Line yAxisId="m" type="monotone" dataKey="nearby_pm2" name="Avg nearby €/m²"
-                              stroke={T.navyMid} strokeWidth={1.5} strokeDasharray="2 4" strokeOpacity={0.55}
-                              dot={{ r:3, fill:T.navyMid, fillOpacity:0.5 }} connectNulls/>
-                          </LineChart>
-                        </ResponsiveContainer>
+                        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+                          {/* Chart 1 — Price */}
+                          <div>
+                            <div style={{ fontSize:11, fontWeight:600, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>Price</div>
+                            <ResponsiveContainer width="100%" height={180}>
+                              <LineChart data={merged}>
+                                <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
+                                <XAxis {...xProps}/>
+                                <YAxis {...yProps} tickFormatter={v=>`€${(v/1000).toFixed(0)}K`}/>
+                                <Tooltip formatter={(v,name)=>[v!=null?fmtFull(v):"—",name]} contentStyle={tooltipStyle}/>
+                                <Legend wrapperStyle={{ fontSize:11 }}/>
+                                <Line type="monotone" dataKey="price" name="This apartment"
+                                  stroke={utColor} strokeWidth={3} dot={{ r:5, fill:utColor, stroke:"#fff", strokeWidth:2 }} connectNulls/>
+                                <Line type="monotone" dataKey="nearby_price" name="Avg nearby"
+                                  stroke={utColor} strokeWidth={1.5} strokeDasharray="4 3" strokeOpacity={0.5}
+                                  dot={{ r:3, fill:utColor, fillOpacity:0.5 }} connectNulls/>
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                          {/* Chart 2 — €/m² */}
+                          <div>
+                            <div style={{ fontSize:11, fontWeight:600, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>€/m²</div>
+                            <ResponsiveContainer width="100%" height={180}>
+                              <LineChart data={merged}>
+                                <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
+                                <XAxis {...xProps}/>
+                                <YAxis {...yProps} tickFormatter={v=>`€${Math.round(v).toLocaleString("en")}`}/>
+                                <Tooltip formatter={(v,name)=>[v!=null?`€${Math.round(v).toLocaleString("en")}/m²`:"—",name]} contentStyle={tooltipStyle}/>
+                                <Legend wrapperStyle={{ fontSize:11 }}/>
+                                <Line type="monotone" dataKey="pm2" name="This apartment"
+                                  stroke={T.navyMid} strokeWidth={3} dot={{ r:5, fill:T.navyMid, stroke:"#fff", strokeWidth:2 }} connectNulls/>
+                                <Line type="monotone" dataKey="nearby_pm2" name="Avg nearby"
+                                  stroke={T.navyMid} strokeWidth={1.5} strokeDasharray="4 3" strokeOpacity={0.5}
+                                  dot={{ r:3, fill:T.navyMid, fillOpacity:0.5 }} connectNulls/>
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
                       );
                     })()}
                   </div>
