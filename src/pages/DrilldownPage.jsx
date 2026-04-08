@@ -402,12 +402,40 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
     makeBins(filteredListings.map(l => l.avg_price_m2), 8, false), [filteredListings]);
 
   const filteredUnitStats = useMemo(() => {
-    if (!muniData?.unit_type_mix) return [];
-    const presentTypes = new Set(
-      filteredListings.flatMap(l => (l.unit_types||"").split(", ").filter(Boolean))
-    );
-    const base = muniData.unit_type_stats || muniData.unit_type_mix || [];
-    return base.filter(r => presentTypes.has(r.unit_type));
+    const UT_ORDER = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
+    const groups = {};
+    filteredListings.forEach(l => {
+      const types = (l.unit_types || "").split(", ").filter(Boolean);
+      if (!types.length) return;
+      const counts = l.unit_type_counts || {};
+      const knownTotal = Object.values(counts).reduce((a, b) => a + b, 0);
+      const total = l.units || 1;
+      types.forEach(ut => {
+        const share = knownTotal > 0
+          ? Math.round(total * (counts[ut] || 0) / knownTotal)
+          : Math.round(total / types.length);
+        if (!groups[ut]) groups[ut] = { count: 0, prices: [], pm2s: [], sizes: [] };
+        groups[ut].count += share;
+        if (l.avg_price)    groups[ut].prices.push(l.avg_price);
+        if (l.avg_price_m2) groups[ut].pm2s.push(l.avg_price_m2);
+        if (l.avg_size)     groups[ut].sizes.push(l.avg_size);
+      });
+    });
+    // Fall back to server stats if no per-listing data
+    if (Object.keys(groups).length === 0) {
+      const base = muniData?.unit_type_stats || muniData?.unit_type_mix || [];
+      return base;
+    }
+    const serverSizeMap = Object.fromEntries((muniData?.unit_type_stats||[]).map(r => [r.unit_type, r.avg_size]));
+    return Object.entries(groups).map(([ut, g]) => ({
+      unit_type: ut,
+      count:     g.count,
+      avg_price: g.prices.length ? Math.round(g.prices.reduce((a,b)=>a+b,0)/g.prices.length) : null,
+      min_price: g.prices.length ? Math.min(...g.prices) : null,
+      max_price: g.prices.length ? Math.max(...g.prices) : null,
+      avg_pm2:   g.pm2s.length   ? Math.round(g.pm2s.reduce((a,b)=>a+b,0)/g.pm2s.length)    : null,
+      avg_size:  g.sizes.length  ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length)   : (serverSizeMap[ut] ?? null),
+    })).sort((a,b) => UT_ORDER.indexOf(a.unit_type) - UT_ORDER.indexOf(b.unit_type));
   }, [filteredListings, muniData]);
 
   const filteredHouseStats = useMemo(() => {

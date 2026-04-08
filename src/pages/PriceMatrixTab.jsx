@@ -60,6 +60,7 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
   const [sortDir,           setSortDir]           = useState("asc");
   const [search,            setSearch]            = useState("");
   const [changedOnly,       setChangedOnly]       = useState(false);
+  const [typeChangedOnly,   setTypeChangedOnly]   = useState(false);
   const [minPrice,          setMinPrice]          = useState("");
   const [maxPrice,          setMaxPrice]          = useState("");
 
@@ -79,7 +80,8 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
   const unitTypes = useMemo(() => [...new Set(allRows.map(r => r.unit_type))], [allRows]);
 
   // Detect if any price changes exist in the data at all
-  const anyChanges = useMemo(() => allRows.some(r => r.price_change !== 0), [allRows]);
+  const anyChanges    = useMemo(() => allRows.some(r => r.price_change !== 0), [allRows]);
+  const anyTypeChange = useMemo(() => allRows.some(r => r.unit_type_changed), [allRows]);
 
   const rows = useMemo(() => {
     let r = allRows;
@@ -97,23 +99,25 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
 
     // "Changed only" — only works as a real filter when actual changes exist
     if (changedOnly && anyChanges) r = r.filter(x => x.price_change !== 0);
+    if (typeChangedOnly)           r = r.filter(x => x.unit_type_changed);
 
     return [...r].sort((a, b) => {
       const av = a[sortCol] ?? -Infinity, bv = b[sortCol] ?? -Infinity;
       if (av === bv) return 0;
       return sortDir === "asc" ? av - bv : bv - av;
     });
-  }, [allRows, unitTypeFilter, search, minPrice, maxPrice, changedOnly, anyChanges, sortCol, sortDir]);
+  }, [allRows, unitTypeFilter, search, minPrice, maxPrice, changedOnly, anyChanges, typeChangedOnly, sortCol, sortDir]);
 
   const stats = useMemo(() => {
     if (!rows.length || !periods.length) return null;
     const latest  = periods[periods.length - 1];
     const latestPrices = rows.map(r => r[`price_${latest}`]).filter(Boolean);
     const avgPrice = latestPrices.length ? Math.round(latestPrices.reduce((a,b) => a+b,0) / latestPrices.length) : 0;
-    const changed   = allRows.filter(r => r.price_change !== 0).length;
-    const increased = allRows.filter(r => r.price_change > 0).length;
-    const decreased = allRows.filter(r => r.price_change < 0).length;
-    return { changed, increased, decreased, avgPrice, total: rows.length, totalAll: allRows.length };
+    const changed     = allRows.filter(r => r.price_change !== 0).length;
+    const increased   = allRows.filter(r => r.price_change > 0).length;
+    const decreased   = allRows.filter(r => r.price_change < 0).length;
+    const typeChanged = allRows.filter(r => r.unit_type_changed).length;
+    return { changed, increased, decreased, typeChanged, avgPrice, total: rows.length, totalAll: allRows.length };
   }, [rows, allRows, periods]);
 
   const SortTh = ({ col, children, right=true, style={} }) => (
@@ -133,7 +137,7 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
 
   const latestPeriod    = periods[periods.length - 1];
   const displayPeriods  = [...periods].reverse(); // latest first
-  const hasFilters = unitTypeFilter.length || search || minPrice || maxPrice || (changedOnly && anyChanges);
+  const hasFilters = unitTypeFilter.length || search || minPrice || maxPrice || (changedOnly && anyChanges) || typeChangedOnly;
 
   return (
     <div>
@@ -148,6 +152,7 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
           { label:"Price Changed", value:stats.changed,                              color: stats.changed>0?"#eb652c":"#3a4555" },
           { label:"Increased ▲",  value:stats.increased,                            color:"#E74C3C" },
           { label:"Decreased ▼",  value:stats.decreased,                            color:"#1A4A2A" },
+          ...(stats.typeChanged > 0 ? [{ label:"Type Changed ↕", value:stats.typeChanged, color:"#92400E" }] : []),
           ...(statedTotalUnits ? [{ label:"Per Description", value:`${statedTotalUnits} units`, color:"#6B7A9F" }] : []),
         ].map(s => (
           <div key={s.label} style={{ background:"#fff", border:"1px solid #E4E0D8", borderRadius:12, padding:"12px 18px", minWidth:110 }}>
@@ -211,9 +216,20 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
           </button>
         </div>
 
+        {/* Type changed only */}
+        {anyTypeChange && (
+          <button onClick={() => setTypeChangedOnly(v => !v)}
+            style={{ background:typeChangedOnly?"#FFF7ED":"#F8F9FA",
+              border:`1px solid ${typeChangedOnly?"#FCD34D":"rgba(255,255,255,0.1)"}`,
+              color:typeChangedOnly?"#92400E":T.textSub,
+              padding:"6px 12px", borderRadius:7, cursor:"pointer", fontSize:11 }}>
+            {typeChangedOnly?"✓ ":""}Type changed ↕
+          </button>
+        )}
+
         {/* Clear */}
         {hasFilters && (
-          <button onClick={() => { setUnitTypeFilter([]); setSearch(""); setMinPrice(""); setMaxPrice(""); setChangedOnly(false); }}
+          <button onClick={() => { setUnitTypeFilter([]); setSearch(""); setMinPrice(""); setMaxPrice(""); setChangedOnly(false); setTypeChangedOnly(false); }}
             style={{ background:"#FEF2F2", border:"1px solid #DC2626", color:"#6B2A2A", padding:"6px 12px", borderRadius:7, cursor:"pointer", fontSize:11 }}>
             ✕ Clear
           </button>
@@ -296,6 +312,14 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
                   <td style={{ padding:"10px 14px", whiteSpace:"nowrap" }}>
                     <span style={{ background:UNIT_COLORS[row.unit_type]||"#aaa", color:"#fff",
                       fontWeight:700, fontSize:11, padding:"2px 8px", borderRadius:4 }}>{row.unit_type}</span>
+                    {row.unit_type_changed && (
+                      <span title={`Type changed: ${(row.unit_type_history||[]).join(" → ")}`}
+                        style={{ marginLeft:5, background:"#FFF7ED", border:"1px solid #FCD34D",
+                          color:"#92400E", fontSize:9, fontWeight:700, padding:"1px 5px",
+                          borderRadius:4, cursor:"help", verticalAlign:"middle" }}>
+                        TYPE ↕
+                      </span>
+                    )}
                   </td>
                   <td style={{ padding:"10px 14px", whiteSpace:"nowrap" }}>
                     {row.house_type && row.house_type !== "Not Mentioned"

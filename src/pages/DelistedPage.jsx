@@ -684,8 +684,13 @@ export default function DelistedPage({ onGoListing, onGoDrilldown, selectedId, f
     filtered.forEach(l => {
       const types = (l.unit_types||"").split(", ").filter(Boolean);
       if (!types.length) return;
-      const share = Math.round((l.units || 1) / types.length);
+      const counts = l.unit_type_counts || {};
+      const knownTotal = Object.values(counts).reduce((a, b) => a + b, 0);
+      const total = l.units || 1;
       types.forEach(ut => {
+        const share = knownTotal > 0
+          ? Math.round(total * (counts[ut] || 0) / knownTotal)
+          : Math.round(total / types.length);
         if (!map[ut]) map[ut] = { unit_type: ut, units: 0, prices: [], sizes: [], pm2s: [] };
         map[ut].units += share;
         if (l.avg_price)    map[ut].prices.push(l.avg_price);

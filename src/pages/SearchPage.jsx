@@ -608,9 +608,14 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     chartData.forEach(l => {
       const types = (l.unit_types || "").split(", ").filter(Boolean);
       if (!types.length) return;
-      // Divide units equally across unit types to avoid double-counting
-      const share = Math.round((l.units || 1) / types.length);
+      // Use unit_type_counts proportions scaled to l.units (same total as house type)
+      const counts = l.unit_type_counts || {};
+      const knownTotal = Object.values(counts).reduce((a, b) => a + b, 0);
+      const total = l.units || 1;
       types.forEach(ut => {
+        const share = knownTotal > 0
+          ? Math.round(total * (counts[ut] || 0) / knownTotal)
+          : Math.round(total / types.length);
         if (!groups[ut]) groups[ut] = { units: 0, prices: [], pm2s: [], sizes: [] };
         groups[ut].units += share;
         if (l.avg_price)    groups[ut].prices.push(l.avg_price);
