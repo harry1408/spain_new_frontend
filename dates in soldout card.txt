@@ -1,0 +1,14 @@
+dates in soldout card
+search page map click scroll for sold out cards, max slider option should be 7 km
+search page sold out listing page should reditrect to sold out page
+add delisted dates throughout sold out cards and listing page
+sold out page design same as search page with province and municipality dropdown filters
+filters on sold out page should be same as search page (with month filter)
+analysis page description resize
+revert analysis page design
+market summary - down percentage to negative
+market summary snapshot date - exact date of run
+market summary - check percentage calculations
+Commas should also be added in general numbers
+market summary -  last card total apartments as per description (*where mentioned)
+Excel export - subheading a lighter 2 -3 shades, also lat lon
