@@ -63,6 +63,7 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
   const [typeChangedOnly,   setTypeChangedOnly]   = useState(false);
   const [minPrice,          setMinPrice]          = useState("");
   const [maxPrice,          setMaxPrice]          = useState("");
+  const [statusFilter,      setStatusFilter]      = useState("all"); // "all" | "active" | "sold"
 
   useEffect(() => {
     setLoading(true);
@@ -76,8 +77,13 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
   }, [listingId]);
 
   const periods   = useMemo(() => matrix?.periods || [], [matrix]);
-  const allRows   = useMemo(() => matrix?.rows    || [], [matrix]);
+  const allRows   = useMemo(() => {
+    const rows = matrix?.rows || [];
+    const latest = (matrix?.periods || [])[( matrix?.periods || []).length - 1];
+    return rows.map(r => ({ ...r, _isSold: latest ? r[`price_${latest}`] == null : false }));
+  }, [matrix]);
   const unitTypes = useMemo(() => [...new Set(allRows.map(r => r.unit_type))], [allRows]);
+  const anySold   = useMemo(() => allRows.some(r => r._isSold), [allRows]);
 
   // Detect if any price changes exist in the data at all
   const anyChanges    = useMemo(() => allRows.some(r => r.price_change !== 0), [allRows]);
@@ -97,16 +103,22 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
     if (minPrice !== "") r = r.filter(x => (x.latest_price||0) >= Number(minPrice) * 1000);
     if (maxPrice !== "") r = r.filter(x => (x.latest_price||0) <= Number(maxPrice) * 1000);
 
+    // Status filter
+    if (statusFilter === "active") r = r.filter(x => !x._isSold);
+    if (statusFilter === "sold")   r = r.filter(x => x._isSold);
+
     // "Changed only" — only works as a real filter when actual changes exist
     if (changedOnly && anyChanges) r = r.filter(x => x.price_change !== 0);
     if (typeChangedOnly)           r = r.filter(x => x.unit_type_changed);
 
     return [...r].sort((a, b) => {
+      // Sold rows sort to bottom by default
+      if (a._isSold !== b._isSold) return a._isSold ? 1 : -1;
       const av = a[sortCol] ?? -Infinity, bv = b[sortCol] ?? -Infinity;
       if (av === bv) return 0;
       return sortDir === "asc" ? av - bv : bv - av;
     });
-  }, [allRows, unitTypeFilter, search, minPrice, maxPrice, changedOnly, anyChanges, typeChangedOnly, sortCol, sortDir]);
+  }, [allRows, unitTypeFilter, search, minPrice, maxPrice, changedOnly, anyChanges, typeChangedOnly, statusFilter, sortCol, sortDir]);
 
   const stats = useMemo(() => {
     if (!rows.length || !periods.length) return null;
@@ -117,7 +129,9 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
     const increased   = allRows.filter(r => r.price_change > 0).length;
     const decreased   = allRows.filter(r => r.price_change < 0).length;
     const typeChanged = allRows.filter(r => r.unit_type_changed).length;
-    return { changed, increased, decreased, typeChanged, avgPrice, total: rows.length, totalAll: allRows.length };
+    const soldCount   = allRows.filter(r => r[`price_${latest}`] == null).length;
+    const activeCount = allRows.length - soldCount;
+    return { changed, increased, decreased, typeChanged, avgPrice, total: rows.length, totalAll: allRows.length, soldCount, activeCount };
   }, [rows, allRows, periods]);
 
   const SortTh = ({ col, children, right=true, style={} }) => (
@@ -137,7 +151,7 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
 
   const latestPeriod    = periods[periods.length - 1];
   const displayPeriods  = [...periods].reverse(); // latest first
-  const hasFilters = unitTypeFilter.length || search || minPrice || maxPrice || (changedOnly && anyChanges) || typeChangedOnly;
+  const hasFilters = unitTypeFilter.length || search || minPrice || maxPrice || (changedOnly && anyChanges) || typeChangedOnly || statusFilter !== "all";
 
   return (
     <div>
@@ -148,6 +162,8 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
       <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
         {[
           { label:"Showing",       value:`${stats.total} of ${stats.totalAll} apts`, color:"#0b1239" },
+          { label:"Active",        value:stats.activeCount,                           color:"#16a34a" },
+          ...(stats.soldCount > 0 ? [{ label:"Sold", value:stats.soldCount, color:"#6B2A2A" }] : []),
           { label:"Avg Price",     value:fmtFull(stats.avgPrice),                    color:"#0B1239" },
           { label:"Price Changed", value:stats.changed,                              color: stats.changed>0?"#eb652c":"#3a4555" },
           { label:"Increased ▲",  value:stats.increased,                            color:"#E74C3C" },
@@ -227,9 +243,22 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
           </button>
         )}
 
+        {/* Status filter — only show when there are sold units */}
+        {anySold && (
+          <div style={{ display:"flex", gap:3, background:"#f5f2ed", border:"1px solid #E4E0D8", borderRadius:8, padding:3 }}>
+            {[["all","All"],["active","Active"],["sold","Sold"]].map(([k,lbl]) => (
+              <button key={k} onClick={() => setStatusFilter(k)}
+                style={{ background:statusFilter===k?(k==="sold"?"rgba(107,42,42,0.12)":"rgba(22,163,74,0.1)"):"transparent",
+                  border:`1px solid ${statusFilter===k?(k==="sold"?"rgba(107,42,42,0.4)":"rgba(22,163,74,0.4)"):"transparent"}`,
+                  color:statusFilter===k?(k==="sold"?"#6B2A2A":"#16a34a"):"#8fa0b0",
+                  padding:"5px 11px", borderRadius:6, cursor:"pointer", fontSize:11 }}>{lbl}</button>
+            ))}
+          </div>
+        )}
+
         {/* Clear */}
         {hasFilters && (
-          <button onClick={() => { setUnitTypeFilter([]); setSearch(""); setMinPrice(""); setMaxPrice(""); setChangedOnly(false); setTypeChangedOnly(false); }}
+          <button onClick={() => { setUnitTypeFilter([]); setSearch(""); setMinPrice(""); setMaxPrice(""); setChangedOnly(false); setTypeChangedOnly(false); setStatusFilter("all"); }}
             style={{ background:"#FEF2F2", border:"1px solid #DC2626", color:"#6B2A2A", padding:"6px 12px", borderRadius:7, cursor:"pointer", fontSize:11 }}>
             ✕ Clear
           </button>
@@ -292,26 +321,37 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
           <tbody>
             {rows.map((row, ri) => {
               const hasChange = row.price_change !== 0;
-              const rowBg = hasChange
-                ? (row.price_change > 0 ? "rgba(192,57,43,0.06)" : "rgba(61,170,110,0.06)")
-                : ri%2===0 ? T.bgStripe : "#fff";
+              const isSold = row._isSold;
+              const rowBg = isSold
+                ? "rgba(107,42,42,0.04)"
+                : hasChange
+                  ? (row.price_change > 0 ? "rgba(192,57,43,0.06)" : "rgba(61,170,110,0.06)")
+                  : ri%2===0 ? T.bgStripe : "#fff";
 
               return (
                 <tr key={row.sub_listing_id}
-                  onClick={() => onRowClick?.({
+                  onClick={() => !isSold && onRowClick?.({
                     ...row,
                     price:         row[`price_${latestPeriod}`] ?? null,
                     price_per_m2:  row[`ppm2_${latestPeriod}`]  ?? null,
                   })}
                   style={{ borderBottom:`1px solid ${T.border}`, background:rowBg,
-                    cursor: onRowClick ? "pointer" : "default",
+                    cursor: (!isSold && onRowClick) ? "pointer" : "default",
+                    opacity: isSold ? 0.72 : 1,
                     transition:"background 0.1s" }}
-                  onMouseEnter={e => { if(onRowClick) e.currentTarget.style.background="rgba(235,101,44,0.09)"; }}
+                  onMouseEnter={e => { if(!isSold && onRowClick) e.currentTarget.style.background="rgba(235,101,44,0.09)"; }}
                   onMouseLeave={e => { e.currentTarget.style.background=rowBg; }}>
 
                   <td style={{ padding:"10px 14px", whiteSpace:"nowrap" }}>
                     <span style={{ background:UNIT_COLORS[row.unit_type]||"#aaa", color:"#fff",
                       fontWeight:700, fontSize:11, padding:"2px 8px", borderRadius:4 }}>{row.unit_type}</span>
+                    {isSold && (
+                      <span style={{ marginLeft:5, background:"rgba(107,42,42,0.12)", border:"1px solid rgba(107,42,42,0.35)",
+                        color:"#6B2A2A", fontSize:9, fontWeight:700, padding:"1px 5px",
+                        borderRadius:4, verticalAlign:"middle" }}>
+                        SOLD
+                      </span>
+                    )}
                     {row.unit_type_changed && (
                       <span title={`Type changed: ${(row.unit_type_history||[]).join(" → ")}`}
                         style={{ marginLeft:5, background:"#FFF7ED", border:"1px solid #FCD34D",
@@ -389,7 +429,7 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
             <tfoot>
               <tr style={{ borderTop:`2px solid ${T.border}`, background:T.bgStripe }}>
                 <td colSpan={8} style={{ padding:"9px 14px", color:T.textMuted, fontSize:11, fontWeight:600 }}>
-                  AVG — {rows.length} apartments
+                  AVG — {rows.filter(r=>!r._isSold).length} active{rows.some(r=>r._isSold) ? ` + ${rows.filter(r=>r._isSold).length} sold` : ""} apartments
                 </td>
                 {displayPeriods.map((period) => {
                   const prices = rows.map(r => r[`price_${period}`]).filter(Boolean);
@@ -416,6 +456,7 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
       <div style={{ marginTop:10, color:"#8A96B4", fontSize:11 }}>
         ▲/▼ in cell = change vs prior period &nbsp;·&nbsp;
         Rows tinted <span style={{ color:"#E74C3C" }}>red</span> / <span style={{ color:"#1A4A2A" }}>green</span> if price moved &nbsp;·&nbsp;
+        <span style={{ color:"#6B2A2A" }}>SOLD</span> = not listed in latest period &nbsp;·&nbsp;
         Price range filter uses thousands (e.g. 200 = €200,000)
       </div>
     </div>

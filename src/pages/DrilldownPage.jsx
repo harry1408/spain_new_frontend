@@ -110,13 +110,16 @@ function ListingCard({ l, active, onSelect, onHover }) {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"7px 10px", marginBottom:10 }}>
         <div>
           <div style={{ color:active ? "rgba(255,255,255,0.6)" : T.textMuted, fontSize:10, textTransform:"uppercase", letterSpacing:"0.07em", fontWeight:600 }}>Units</div>
-          <div style={{ color:active ? "#fff" : T.text, fontWeight:600, fontSize:13, marginTop:1 }}>{fmtNum(l.units)}</div>
-          {l.is_partial_delisted && (() => {
-            const activeCount = Object.values(l.unit_type_counts||{}).reduce((s,v)=>s+v,0);
-            const soldCount   = Object.values(l.prev_unit_type_counts||{}).reduce((s,v)=>s+v,0) - activeCount;
+          {(() => {
+            const utCounts   = l.unit_type_counts   || {};
+            const prevCounts = l.prev_unit_type_counts || {};
+            const activeCount = Object.values(utCounts).reduce((s, v) => s + v, 0) || l.units || 0;
+            const soldCount   = Object.values(prevCounts).reduce((s, v) => s + v, 0);
+            const displayTotal = activeCount + soldCount;
             return (<>
-              {activeCount > 0 && <div style={{ fontSize:9, color: active ? "#86efac" : "#16a34a", fontWeight:700 }}>{activeCount} active</div>}
-              {soldCount   > 0 && <div style={{ fontSize:9, color: active ? "#FCA5A5" : "#6B2A2A", fontWeight:700 }}>{soldCount} sold</div>}
+              <div style={{ color:active ? "#fff" : T.text, fontWeight:600, fontSize:13, marginTop:1 }}>{fmtNum(displayTotal)}</div>
+              <div style={{ fontSize:9, color: active ? "#86efac" : "#16a34a", fontWeight:700 }}>{activeCount} active</div>
+              {soldCount > 0 && <div style={{ fontSize:9, color: active ? "#FCA5A5" : "#6B2A2A", fontWeight:700 }}>{soldCount} sold</div>}
             </>);
           })()}
         </div>
@@ -401,7 +404,11 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
     const m2s    = filteredListings.map(l => l.avg_price_m2).filter(Boolean);
     return {
       total_listings: filteredListings.length,
-      total_units:    filteredListings.reduce((s, l) => s + (l.units || 0), 0),
+      total_units:    filteredListings.reduce((s, l) => {
+        const active = Object.values(l.unit_type_counts   || {}).reduce((a, v) => a + v, 0) || l.units || 0;
+        const sold   = Object.values(l.prev_unit_type_counts || {}).reduce((a, v) => a + v, 0);
+        return s + active + sold;
+      }, 0),
       avg_price:      prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : null,
       avg_price_m2:   m2s.length   ? m2s.reduce((a, b) => a + b, 0)   / m2s.length   : null,
       price_range:    prices.length ? [Math.min(...prices), Math.max(...prices)] : [null, null],
@@ -422,45 +429,27 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       const counts     = l.unit_type_counts || {};
       const prevCounts = l.prev_unit_type_counts || {};
       const prevStats  = l.prev_unit_type_stats || {};
-      const isApartmentListing = (l.house_types || "").split(", ").some(ht => ht === "Apartments");
-      const hasAnyCounts = isApartmentListing && (Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0);
-
-      if (!hasAnyCounts) {
-        // No unit type count data (or non-apartment listing) — fall back to house type counts so totals match house type summary
-        const htCounts     = l.house_type_counts || {};
-        const prevHtCounts = l.prev_house_type_counts || {};
-        const houseTypes   = (l.house_types || "").split(", ").filter(Boolean);
-        houseTypes.forEach(ht => {
-          const active = htCounts[ht] != null ? htCounts[ht] : null;
-          const prev   = prevHtCounts[ht] ?? (active ?? 0);
-          const share  = active != null ? active + Math.max(0, prev - active) : prev;
-          if (!share) return;
-          if (!groups[ht]) groups[ht] = { count: 0, prices: [], pm2s: [], sizes: [] };
-          groups[ht].count += share;
-          if (l.avg_price)    groups[ht].prices.push(l.avg_price);
-          if (l.avg_price_m2) groups[ht].pm2s.push(l.avg_price_m2);
-          if (l.avg_size)     groups[ht].sizes.push(l.avg_size);
-        });
-        return;
-      }
-
-      // Mirror house type formula: count = max(active, prev) ensures totals match
+      const isNonApartment = (l.house_types || "").split(", ").filter(Boolean)
+        .every(ht => ht !== "Apartments");
+      const hasAnyCounts = Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0;
+      if (!hasAnyCounts && isNonApartment) return;
       const hasCountData = Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0;
       const allTypes = hasCountData
         ? [...new Set([...Object.keys(counts).filter(ut => counts[ut] > 0), ...Object.keys(prevCounts)])]
         : types;
       allTypes.forEach(ut => {
         const active = counts[ut] || 0;
-        const prev   = prevCounts[ut] || 0;
-        const share  = hasCountData ? Math.max(active, prev) : Math.round((l.units || 1) / allTypes.length);
+        const sold   = prevCounts[ut] || 0;
+        const share  = hasCountData ? active + sold : Math.round((l.units || 1) / allTypes.length);
         if (!share) return;
-        if (!groups[ut]) groups[ut] = { count: 0, prices: [], pm2s: [], sizes: [] };
-        groups[ut].count += share;
-        const isSoldType = !active && prev > 0;
-        const ps = isSoldType ? (prevStats[ut] || {}) : {};
-        const price = isSoldType ? ps.avg_price : l.avg_price;
-        const pm2   = isSoldType ? ps.avg_pm2   : l.avg_price_m2;
-        const size  = isSoldType ? ps.avg_size   : l.avg_size;
+        if (!groups[ut]) groups[ut] = { active: 0, sold: 0, prices: [], pm2s: [], sizes: [] };
+        groups[ut].active += active;
+        groups[ut].sold   += sold;
+        // use prev stats for price if this type only appears as sold
+        const ps = (!active && sold > 0) ? (prevStats[ut] || {}) : {};
+        const price = (!active && sold > 0) ? ps.avg_price : l.avg_price;
+        const pm2   = (!active && sold > 0) ? ps.avg_pm2   : l.avg_price_m2;
+        const size  = (!active && sold > 0) ? ps.avg_size   : l.avg_size;
         if (price) groups[ut].prices.push(price);
         if (pm2)   groups[ut].pm2s.push(pm2);
         if (size)  groups[ut].sizes.push(size);
@@ -474,7 +463,8 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       const directSize = g.sizes.length ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length) : null;
       const derivedSize = (!directSize && avgPrice && avgPm2) ? Math.round(avgPrice / avgPm2) : null;
       return {
-        unit_type: ut, sold: false, count: g.count,
+        unit_type: ut, count: g.active + g.sold,
+        active_count: g.active, sold_count: g.sold,
         avg_price: avgPrice,
         min_price: g.prices.length ? Math.min(...g.prices) : null,
         max_price: g.prices.length ? Math.max(...g.prices) : null,
@@ -488,16 +478,17 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   const filteredHouseStats = useMemo(() => {
     const groups = {};
     filteredListings.forEach(l => {
-      const htCounts    = l.house_type_counts || {};
+      const htCounts     = l.house_type_counts || {};
       const prevHtCounts = l.prev_house_type_counts || {};
-      const houseTypes  = (l.house_types || "").split(", ").filter(Boolean);
+      const houseTypes   = (l.house_types || "").split(", ").filter(Boolean);
       houseTypes.forEach(ht => {
-        const active  = htCounts[ht] != null ? htCounts[ht] : null;
-        const prev    = prevHtCounts[ht] ?? (active ?? 0);
-        const count   = active != null ? active + Math.max(0, prev - active) : prev;
+        const active = htCounts[ht] || 0;
+        const sold   = prevHtCounts[ht] || 0;
+        const count  = active + sold;
         if (!count) return;
-        if (!groups[ht]) groups[ht] = { count: 0, prices: [], pm2s: [], sizes: [] };
-        groups[ht].count += count;
+        if (!groups[ht]) groups[ht] = { active: 0, sold: 0, prices: [], pm2s: [], sizes: [] };
+        groups[ht].active += active;
+        groups[ht].sold   += sold;
         if (l.avg_price)    groups[ht].prices.push(l.avg_price);
         if (l.avg_price_m2) groups[ht].pm2s.push(l.avg_price_m2);
         if (l.avg_size)     groups[ht].sizes.push(l.avg_size);
@@ -506,7 +497,8 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
     if (Object.keys(groups).length === 0) return muniData?.house_type_stats || [];
     const serverSizeMap = Object.fromEntries((muniData?.house_type_stats||[]).map(r => [r.house_type, r.avg_size]));
     return Object.entries(groups).map(([ht, g]) => ({
-      house_type: ht, count: g.count,
+      house_type: ht, count: g.active + g.sold,
+      active_count: g.active, sold_count: g.sold,
       avg_price:  g.prices.length ? Math.round(g.prices.reduce((a,b)=>a+b,0)/g.prices.length) : null,
       min_price:  g.prices.length ? Math.min(...g.prices) : null,
       max_price:  g.prices.length ? Math.max(...g.prices) : null,
@@ -793,7 +785,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                   <thead style={{ position:"sticky", top:0, zIndex:1 }}>
                     <tr style={{ borderBottom:`2px solid ${T.border}`, background:T.bgStripe }}>
-                      {["Type","Units","Avg m²","Min","Avg","Max","€/m²"].map(h=>(
+                      {["Type","Total","Active","Sold","Avg m²","Min","Avg","Max","€/m²"].map(h=>(
                         <th key={h} style={{ padding:"7px 8px", textAlign:h==="Type"?"left":"right",
                           color:T.textMuted, fontSize:10, textTransform:"uppercase",
                           letterSpacing:"0.07em", fontWeight:600, background:T.bgStripe }}>{h}</th>
@@ -810,6 +802,8 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                                 padding:"2px 8px", borderRadius:4, whiteSpace:"nowrap" }}>{row.unit_type}</span>
                           </td>
                           <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
+                          <td style={{ padding:"7px 8px", textAlign:"right", color:"#16a34a", fontSize:11 }}>{fmtNum(row.active_count ?? row.count)}</td>
+                          <td style={{ padding:"7px 8px", textAlign:"right", color:"#6B2A2A", fontSize:11 }}>{row.sold_count > 0 ? fmtNum(row.sold_count) : "—"}</td>
                           <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size!=null?Math.round(row.avg_size):"—"}</td>
                           <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
                           <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
@@ -829,7 +823,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                   <thead style={{ position:"sticky", top:0, zIndex:1 }}>
                     <tr style={{ borderBottom:`2px solid ${T.border}`, background:T.bgStripe }}>
-                      {["Type","Units","Avg m²","Min","Avg","Max","€/m²"].map(h=>(
+                      {["Type","Total","Active","Sold","Avg m²","Min","Avg","Max","€/m²"].map(h=>(
                         <th key={h} style={{ padding:"7px 8px", textAlign:h==="Type"?"left":"right",
                           color:T.textMuted, fontSize:10, textTransform:"uppercase",
                           letterSpacing:"0.07em", fontWeight:600, background:T.bgStripe }}>{h}</th>
@@ -846,6 +840,8 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                             display:"block", whiteSpace:"nowrap" }}>{row.house_type}</span>
                         </td>
                         <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
+                        <td style={{ padding:"7px 8px", textAlign:"right", color:"#16a34a", fontSize:11 }}>{fmtNum(row.active_count ?? row.count)}</td>
+                        <td style={{ padding:"7px 8px", textAlign:"right", color:"#6B2A2A", fontSize:11 }}>{row.sold_count > 0 ? fmtNum(row.sold_count) : "—"}</td>
                         <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size!=null?Math.round(row.avg_size):"—"}</td>
                         <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
                         <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>

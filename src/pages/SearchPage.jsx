@@ -184,13 +184,16 @@ function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect, ma
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Units</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{fmtNum(l.units)}</div>
-          {l.is_partial_delisted && (() => {
-            const active = Object.values(l.unit_type_counts||{}).reduce((s,v)=>s+v,0);
-            const sold   = Object.values(l.prev_unit_type_counts||{}).reduce((s,v)=>s+v,0) - active;
+          {(() => {
+            const utCounts   = l.unit_type_counts   || {};
+            const prevCounts = l.prev_unit_type_counts || {};
+            const activeCount = Object.values(utCounts).reduce((s, v) => s + v, 0) || l.units || 0;
+            const soldCount   = Object.values(prevCounts).reduce((s, v) => s + v, 0);
+            const displayTotal = activeCount + soldCount;
             return (<>
-              {active > 0 && <div style={{ fontSize:9, color:"#16a34a", fontWeight:700 }}>{active} active</div>}
-              {sold   > 0 && <div style={{ fontSize:9, color:"#6B2A2A", fontWeight:700 }}>{sold} sold</div>}
+              <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{fmtNum(displayTotal)}</div>
+              <div style={{ fontSize:9, color:"#16a34a", fontWeight:700 }}>{activeCount} active</div>
+              {soldCount > 0 && <div style={{ fontSize:9, color:"#6B2A2A", fontWeight:700 }}>{soldCount} sold</div>}
             </>);
           })()}
         </div>
@@ -407,8 +410,8 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   const [listingStatus,     setListingStatus]     = useState(_ss?.listingStatus ?? "all"); // "all" | "active" | "sold_out"
   const [newThisMonth,      setNewThisMonth]      = useState(_ss?.newThisMonth ?? false);
   const [newThisMonthIds,   setNewThisMonthIds]   = useState([]);
-  const [gmapsLink,  setGmapsLink]  = useState("");
-  const [gmapsLabel, setGmapsLabel] = useState("");
+  const [gmapsLink,  setGmapsLink]  = useState(_ss?.gmapsLink  ?? "");
+  const [gmapsLabel, setGmapsLabel] = useState(_ss?.gmapsLabel ?? "");
   const [gmapsError, setGmapsError] = useState("");
   const [loading,  setLoading]  = useState(false);
   const [searched, setSearched] = useState(_ss?.searched ?? false);
@@ -432,7 +435,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   useEffect(() => {
     _ss = { selMuni, selStreet, radiusKm, mapMode, selUnit, selEsg, selHouseType,
             minPrice, maxPrice, minM2, maxM2, results, searched, searchCenter, streetCoords,
-            serverUtStats, serverHtStats, listingStatus, newThisMonth };
+            serverUtStats, serverHtStats, listingStatus, newThisMonth, gmapsLink, gmapsLabel };
   });  // runs every render — cheap object assign
   useEffect(() => {
     fetch(`${API}/filters`).then(r => r.json()).then(f => setNewThisMonthIds(f.new_this_month_ids || [])).catch(() => {});
@@ -621,46 +624,26 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
       const counts     = l.unit_type_counts || {};
       const prevCounts = l.prev_unit_type_counts || {};
       const prevStats  = l.prev_unit_type_stats || {};
-      const isApartmentListing = (l.house_types || "").split(", ").some(ht => ht === "Apartments");
-      const hasAnyCounts = isApartmentListing && (Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0);
-
-      if (!hasAnyCounts) {
-        // No unit type count data (or non-apartment listing) — fall back to house type counts so totals match house type summary
-        const htCounts     = l.house_type_counts || {};
-        const prevHtCounts = l.prev_house_type_counts || {};
-        const houseTypes   = (l.house_types || "").split(", ").filter(Boolean);
-        houseTypes.forEach(ht => {
-          const active = htCounts[ht] != null ? htCounts[ht] : null;
-          const prev   = prevHtCounts[ht] ?? (active ?? 0);
-          const share  = active != null ? active + Math.max(0, prev - active) : prev;
-          if (!share) return;
-          if (!groups[ht]) groups[ht] = { units: 0, prices: [], pm2s: [], sizes: [] };
-          groups[ht].units += share;
-          if (l.avg_price)    groups[ht].prices.push(l.avg_price);
-          if (l.avg_price_m2) groups[ht].pm2s.push(l.avg_price_m2);
-          if (l.avg_size)     groups[ht].sizes.push(l.avg_size);
-        });
-        return;
-      }
-
-      // Mirror house type formula: count = max(active, prev) = active + max(0, prev - active)
-      const allTypes = Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0
+      const isNonApartment = (l.house_types || "").split(", ").filter(Boolean)
+        .every(ht => ht !== "Apartments");
+      const hasAnyCounts = Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0;
+      if (!hasAnyCounts && isNonApartment) return;
+      const hasCountData = Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0;
+      const allTypes = hasCountData
         ? [...new Set([...Object.keys(counts).filter(ut => counts[ut] > 0), ...Object.keys(prevCounts)])]
         : types;
       allTypes.forEach(ut => {
         const active = counts[ut] || 0;
-        const prev   = prevCounts[ut] || 0;
-        const share  = (Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0)
-          ? Math.max(active, prev)
-          : Math.round((l.units || 1) / allTypes.length);
+        const sold   = prevCounts[ut] || 0;
+        const share  = hasCountData ? active + sold : Math.round((l.units || 1) / allTypes.length);
         if (!share) return;
-        if (!groups[ut]) groups[ut] = { units: 0, prices: [], pm2s: [], sizes: [] };
-        groups[ut].units += share;
-        const isSoldType = !active && prev > 0;
-        const ps = isSoldType ? (prevStats[ut] || {}) : {};
-        const price = isSoldType ? ps.avg_price : l.avg_price;
-        const pm2   = isSoldType ? ps.avg_pm2   : l.avg_price_m2;
-        const size  = isSoldType ? ps.avg_size   : l.avg_size;
+        if (!groups[ut]) groups[ut] = { active: 0, sold: 0, prices: [], pm2s: [], sizes: [] };
+        groups[ut].active += active;
+        groups[ut].sold   += sold;
+        const ps = (!active && sold > 0) ? (prevStats[ut] || {}) : {};
+        const price = (!active && sold > 0) ? ps.avg_price : l.avg_price;
+        const pm2   = (!active && sold > 0) ? ps.avg_pm2   : l.avg_price_m2;
+        const size  = (!active && sold > 0) ? ps.avg_size   : l.avg_size;
         if (price) groups[ut].prices.push(price);
         if (pm2)   groups[ut].pm2s.push(pm2);
         if (size)  groups[ut].sizes.push(size);
@@ -673,8 +656,8 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
       const directSize = g.sizes.length ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length) : null;
       const derivedSize = (!directSize && avgPrice && avgPm2) ? Math.round(avgPrice / avgPm2) : null;
       return {
-        unit_type: ut,
-        count:     g.units,
+        unit_type: ut, count: g.active + g.sold,
+        active_count: g.active, sold_count: g.sold,
         avg_price: avgPrice,
         min_price: g.prices.length ? Math.min(...g.prices) : null,
         max_price: g.prices.length ? Math.max(...g.prices) : null,
@@ -689,16 +672,17 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   const htStats = useMemo(() => {
     const groups = {};
     chartData.forEach(l => {
-      const htCounts = l.house_type_counts || {};
+      const htCounts     = l.house_type_counts || {};
       const prevHtCounts = l.prev_house_type_counts || {};
-      const houseTypes = (l.house_types || "").split(", ").filter(Boolean);
+      const houseTypes   = (l.house_types || "").split(", ").filter(Boolean);
       houseTypes.forEach(ht => {
-        const active  = htCounts[ht] != null ? htCounts[ht] : null;
-        const prev    = prevHtCounts[ht] ?? (active ?? 0);
-        const count   = active != null ? active + Math.max(0, prev - active) : prev;
+        const active = htCounts[ht] || 0;
+        const sold   = prevHtCounts[ht] || 0;
+        const count  = active + sold;
         if (!count) return;
-        if (!groups[ht]) groups[ht] = { units: 0, prices: [], pm2s: [], sizes: [] };
-        groups[ht].units += count;
+        if (!groups[ht]) groups[ht] = { active: 0, sold: 0, prices: [], pm2s: [], sizes: [] };
+        groups[ht].active += active;
+        groups[ht].sold   += sold;
         if (l.avg_price)    groups[ht].prices.push(l.avg_price);
         if (l.avg_price_m2) groups[ht].pm2s.push(l.avg_price_m2);
         if (l.avg_size)     groups[ht].sizes.push(l.avg_size);
@@ -706,8 +690,8 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     });
     const serverHtSizeMap = Object.fromEntries((serverHtStats||[]).map(r => [r.house_type, r.avg_size]));
     const rows = Object.entries(groups).map(([ht, g]) => ({
-      house_type: ht,
-      count:      g.units,
+      house_type: ht, count: g.active + g.sold,
+      active_count: g.active, sold_count: g.sold,
       avg_price:  g.prices.length ? Math.round(g.prices.reduce((a,b)=>a+b,0)/g.prices.length) : null,
       min_price:  g.prices.length ? Math.min(...g.prices) : null,
       max_price:  g.prices.length ? Math.max(...g.prices) : null,
@@ -753,7 +737,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     })).filter(b => b.count > 0);
   }, [chartData]);
 
-  const hasSelection = selMuni.length > 0 || gmapsLabel !== "";
+  const hasSelection = selMuni.length > 0 || gmapsLabel !== "" || searched || searchCenter != null;
   const canSearch = selMuni.length > 0;
   const [showTip, setShowTip] = useState(false);
   const ALL_UTS = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
@@ -923,6 +907,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     setMinPrice(""); setMaxPrice(""); setMinM2(""); setMaxM2("");
     setListingStatus("all");
     setNewThisMonth(false);
+    setGmapsLink(""); setGmapsLabel(""); setGmapsError("");
     setResults(null); setSearched(false);
     setActivePin(null); setTrend([]); setSearchCenter(null);
     setSelectedIds(new Set());
@@ -931,28 +916,44 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     isAutoRadiusRef.current = false;
   };
 
+  const gmapsActive = gmapsLink.trim() !== "" || gmapsLabel !== "";
+
   return (
     <div style={{ padding: "20px 20px", maxWidth: 1700, margin: "0 auto", background:"#F2F4F6", minHeight:"100vh" }}>
 
       {/* ── Primary search row ── */}
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <MultiSelect
-            label="Municipality"
-            options={opts.municipalities}
-            value={selMuni}
-            onChange={v => setSelMuni(v.length > 1 ? [v[v.length-1]] : v)}
-            placeholder="Select a municipality…"
-            maxDisplay={1}
-          />
-          <MultiSelect
-            label="Area / Street / Locality"
-            options={opts.locations}
-            value={selStreet}
-            onChange={selMuni.length > 0 ? (v => setSelStreet(v.length > 1 ? [v[v.length-1]] : v)) : () => {}}
-            placeholder="Select area or street…"
-            maxDisplay={1}
-          />
+          <div style={{ opacity: gmapsActive ? 0.4 : 1, pointerEvents: gmapsActive ? "none" : "auto",
+            position: "relative" }}>
+            <MultiSelect
+              label="Municipality"
+              options={opts.municipalities}
+              value={selMuni}
+              onChange={v => setSelMuni(v.length > 1 ? [v[v.length-1]] : v)}
+              placeholder="Select a municipality…"
+              maxDisplay={1}
+            />
+            {gmapsActive && (
+              <div style={{ position:"absolute", inset:0, borderRadius:10, cursor:"not-allowed",
+                display:"flex", alignItems:"center", justifyContent:"center" }} title="Clear the Google Maps link to use municipality search" />
+            )}
+          </div>
+          <div style={{ opacity: gmapsActive ? 0.4 : 1, pointerEvents: gmapsActive ? "none" : "auto",
+            position: "relative" }}>
+            <MultiSelect
+              label="Area / Street / Locality"
+              options={opts.locations}
+              value={selStreet}
+              onChange={selMuni.length > 0 ? (v => setSelStreet(v.length > 1 ? [v[v.length-1]] : v)) : () => {}}
+              placeholder="Select area or street…"
+              maxDisplay={1}
+            />
+            {gmapsActive && (
+              <div style={{ position:"absolute", inset:0, borderRadius:10, cursor:"not-allowed",
+                display:"flex", alignItems:"center", justifyContent:"center" }} title="Clear the Google Maps link to use area search" />
+            )}
+          </div>
           {/* Km Radius dropdown */}
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: T.textMuted,
@@ -1024,7 +1025,11 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                 color: T.text, background: "transparent", padding: "10px 0" }}
             />
             {gmapsLink && (
-              <button onClick={() => { setGmapsLink(""); setGmapsError(""); setGmapsLabel(""); }}
+              <button onClick={() => {
+                setGmapsLink(""); setGmapsError(""); setGmapsLabel("");
+                setResults(null); setSearched(false); setSearchCenter(null);
+                searchCenterRef.current = null; isAutoRadiusRef.current = false;
+              }}
                 style={{ background: "none", border: "none", color: T.textMuted,
                   fontSize: 14, cursor: "pointer", padding: "0 2px" }}>✕</button>
             )}
@@ -1478,7 +1483,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                         <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                           <thead style={{ position:"sticky", top:0, zIndex:1 }}>
                             <tr style={{ borderBottom:`2px solid ${T.border}`, background:T.bgStripe }}>
-                              {["Type","Units","Avg m²","Min","Avg","Max","€/m²"].map(h => (
+                              {["Type","Total","Active","Sold","Avg m²","Min","Avg","Max","€/m²"].map(h => (
                                 <th key={h} style={{ padding:"7px 8px", textAlign:h==="Type"?"left":"right",
                                   color:T.textMuted, fontSize:10, textTransform:"uppercase",
                                   letterSpacing:"0.07em", fontWeight:600, background:T.bgStripe }}>{h}</th>
@@ -1493,6 +1498,8 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                                     fontWeight:700, fontSize:11, padding:"2px 7px", borderRadius:4 }}>{row.unit_type}</span>
                                 </td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:"#16a34a", fontSize:11 }}>{fmtNum(row.active_count ?? row.count)}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:"#6B2A2A", fontSize:11 }}>{row.sold_count > 0 ? fmtNum(row.sold_count) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size != null ? Math.round(row.avg_size) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price ? fmt(row.min_price) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price ? fmt(row.avg_price) : "—"}</td>
@@ -1511,7 +1518,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                         <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                           <thead style={{ position:"sticky", top:0, zIndex:1 }}>
                             <tr style={{ borderBottom:`2px solid ${T.border}`, background:T.bgStripe }}>
-                              {["Type","Units","Avg m²","Min","Avg","Max","€/m²"].map(h => (
+                              {["Type","Total","Active","Sold","Avg m²","Min","Avg","Max","€/m²"].map(h => (
                                 <th key={h} style={{ padding:"7px 8px", textAlign:h==="Type"?"left":"right",
                                   color:T.textMuted, fontSize:10, textTransform:"uppercase",
                                   letterSpacing:"0.07em", fontWeight:600, background:T.bgStripe }}>{h}</th>
@@ -1528,6 +1535,8 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                                     display:"block", whiteSpace:"nowrap" }}>{row.house_type}</span>
                                 </td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:"#16a34a", fontSize:11 }}>{fmtNum(row.active_count ?? row.count)}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:"#6B2A2A", fontSize:11 }}>{row.sold_count > 0 ? fmtNum(row.sold_count) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size != null ? Math.round(row.avg_size) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price ? fmt(row.min_price) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price ? fmt(row.avg_price) : "—"}</td>

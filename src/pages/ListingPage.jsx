@@ -378,6 +378,12 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
             {" · "}<span style={{ color:T.navy, fontWeight:600 }}>{data.municipality}</span>
             {" · "}<span>{data.delivery_date?.replace("Delivery : ","")}</span>
             {" · "}<span style={{ color:T.green, fontWeight:600 }}>{fmtNum(data.total_units)} units</span>
+            {data.sold_units > 0 && (
+              <span style={{ marginLeft:4, fontSize:11 }}>
+                (<span style={{ color:"#16a34a" }}>{fmtNum(data.active_units)} active</span>
+                {" + "}<span style={{ color:"#6B2A2A" }}>{fmtNum(data.sold_units)} sold</span>)
+              </span>
+            )}
             {data.stated_total_units && (
               <span style={{ marginLeft:4, color:T.textMuted, fontSize:11 }}>
                 ({fmtNum(data.stated_total_units)} per description)
@@ -659,7 +665,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
             <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
               <thead>
                 <tr style={{ borderBottom:`1px solid ${T.border}`, background:T.bgStripe }}>
-                  {["Type","Count","Min","Avg","Max","m²","€/m²"].map(h=>(
+                  {["Type","Total","Active","Sold","Min","Avg","Max","m²","€/m²"].map(h=>(
                     <th key={h} style={{ padding:"7px 10px", textAlign:h==="Type"?"left":"right",
                       color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>{h}</th>
                   ))}
@@ -672,7 +678,9 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
                       <span style={{ background:UNIT_COLORS[u.unit_type]||"#aaa", color:"#fff",
                         fontWeight:700, fontSize:11, padding:"2px 8px", borderRadius:4 }}>{u.unit_type}</span>
                     </td>
-                    <td style={{ padding:"7px 10px", textAlign:"right" }}>{u.count}</td>
+                    <td style={{ padding:"7px 10px", textAlign:"right", fontWeight:700 }}>{u.count}</td>
+                    <td style={{ padding:"7px 10px", textAlign:"right", color:"#16a34a", fontWeight:600 }}>{u.active_count ?? u.count}</td>
+                    <td style={{ padding:"7px 10px", textAlign:"right", color: (u.sold_count||0)>0?"#6B2A2A":T.textMuted, fontWeight:(u.sold_count||0)>0?600:400 }}>{u.sold_count || 0}</td>
                     <td style={{ padding:"7px 10px", textAlign:"right", color:T.green, fontWeight:600 }}>{fmt(u.min_price)}</td>
                     <td style={{ padding:"7px 10px", textAlign:"right", color:T.navy, fontWeight:700 }}>{fmt(u.avg_price)}</td>
                     <td style={{ padding:"7px 10px", textAlign:"right", color:T.red }}>{fmt(u.max_price)}</td>
