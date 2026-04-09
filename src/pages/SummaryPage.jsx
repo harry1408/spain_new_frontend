@@ -429,7 +429,7 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
             {/* Selected items list */}
             {selectedDots.length > 0 && (
               <div style={{ flex:1, overflowY:"auto", marginTop:12, borderTop:`1px solid ${T.border}`, paddingTop:10 }}>
-                <div style={{ fontSize:10, color:T.textMuted, textTransform:"uppercase", fontWeight:600, marginBottom:8 }}>Selected apartments</div>
+                <div style={{ fontSize:10, color:T.textMuted, textTransform:"uppercase", fontWeight:600, marginBottom:8 }}>Selected units</div>
                 <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                   {selectedDots.map(d => (
                     <div key={d.sub_listing_id}
@@ -461,7 +461,7 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
           {/* Right: map */}
           <div style={{ display:"flex", flexDirection:"column", overflow:"hidden" }}>
             <div style={{ padding:"12px 16px 8px", borderBottom:`1px solid ${T.border}`, fontSize:12, color:T.textSub, flexShrink:0 }}>
-              📍 {selectedIds.size === 0 ? "Select dots on the chart to pin them here" : `${selectedIds.size} apartment${selectedIds.size>1?"s":""} pinned`}
+              📍 {selectedIds.size === 0 ? "Select dots on the chart to pin them here" : `${selectedIds.size} unit${selectedIds.size>1?"s":""} pinned`}
             </div>
             <div style={{ flex:1, minHeight:0 }}>
               {selectedIds.size === 0
@@ -510,7 +510,10 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
     setLoading(true);
     const qs = q();
     try {
-      const [st, byType, dl, distData, muni, esgR, scatter, unitByHouse] = await Promise.all([
+      const muniQsOnly = new URLSearchParams();
+      if (sel.province.length)     sel.province.forEach(v=>muniQsOnly.append("province",v));
+      if (sel.municipality.length) sel.municipality.forEach(v=>muniQsOnly.append("municipality",v));
+      const [st, byType, dl, distData, muni, esgR, scatter, unitByHouse, muniActivity] = await Promise.all([
         fetch(`${API}/stats?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/price-by-unit-type?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/delivery-timeline?${qs}`).then(r=>r.json()),
@@ -519,9 +522,10 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
         fetch(`${API}/charts/esg-breakdown?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/size-vs-price?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/unit-by-house-type?${qs}`).then(r=>r.json()),
+        fetch(`${API}/charts/municipality-activity?${muniQsOnly}`).then(r=>r.json()),
       ]);
       setStats(st);
-      setCharts({ byType, dl, price_dist: distData.price_dist, m2_dist: distData.m2_dist, muni, esgR, scatter, unitByHouse });
+      setCharts({ byType, dl, price_dist: distData.price_dist, m2_dist: distData.m2_dist, muni, esgR, scatter, unitByHouse, muniActivity });
       setChartVer(v => v + 1);
     } catch(e) { console.error(e); }
     setLoading(false);
@@ -600,7 +604,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
       {stats && (
         <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
           {[
-            { label:"Total Apartments", field:"total_units", fmt:v=>v.toLocaleString() },
+            { label:"Total Units", field:"total_units", fmt:v=>v.toLocaleString() },
             { label:"Avg Price",        field:"avg_price",   fmt:fmt },
             { label:"Avg €/m²",         field:"avg_price_m2",fmt:v=>v != null ? `€${Math.round(v).toLocaleString("en")}` : "—" },
             { label:"Avg Size",         field:"avg_size",    fmt:v=>v != null ? `${Math.round(Number(v))}m²` : "—" },
@@ -611,7 +615,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
             </StatCard>
           ))}
           {stats.total_stated_units > 0 && (
-            <StatCard label="Apts per Description" value={stats.total_stated_units}>
+            <StatCard label="Units per Description" value={stats.total_stated_units}>
               <div style={{ color:"#8A96B4", fontSize:10, marginTop:3 }}>
                 *where mentioned ({fmtNum(stats.stated_unit_count)} developments)
               </div>
@@ -663,6 +667,36 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                   <Tooltip formatter={v=>[Number(v).toLocaleString(), "Units"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
                   <Bar dataKey="units" name="Units" radius={[0,5,5,0]} cursor="pointer">
                     {(charts.muni||[]).slice(0,15).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="Top Municipalities — New Listings" animKey={chartVer}>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={(charts.muniActivity?.new_listings||[]).slice(0,15)} layout="vertical" barSize={14}
+                  onClick={d=>d&&d.activePayload&&onDrilldown&&onDrilldown(d.activePayload[0].payload.municipality)}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
+                  <XAxis type="number" allowDecimals={false} tickFormatter={v=>Number(v).toLocaleString()} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="municipality" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} width={120} />
+                  <Tooltip formatter={v=>[Number(v).toLocaleString(), "New Listings"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                  <Bar dataKey="listings" name="New Listings" radius={[0,5,5,0]} cursor="pointer">
+                    {(charts.muniActivity?.new_listings||[]).slice(0,15).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="Top Municipalities — Sold Out" animKey={chartVer}>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={(charts.muniActivity?.sold_out||[]).slice(0,15)} layout="vertical" barSize={14}
+                  onClick={d=>d&&d.activePayload&&onDrilldown&&onDrilldown(d.activePayload[0].payload.municipality)}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
+                  <XAxis type="number" allowDecimals={false} tickFormatter={v=>Number(v).toLocaleString()} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="municipality" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} width={120} />
+                  <Tooltip formatter={v=>[Number(v).toLocaleString(), "Sold Out"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                  <Bar dataKey="listings" name="Sold Out" radius={[0,5,5,0]} cursor="pointer">
+                    {(charts.muniActivity?.sold_out||[]).slice(0,15).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>

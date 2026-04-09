@@ -153,9 +153,11 @@ function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect, ma
             {selected ? "✓" : ""}
           </span>
           <div style={{ minWidth:0, flex:1 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: T.text, marginBottom: 2,
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {l.property_name}
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2, flexWrap:"wrap" }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: T.text,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {l.property_name}
+              </div>
             </div>
             <div style={{ fontSize: 11, color: T.textSub, display:"flex", alignItems:"center", gap:5 }}>
               {l.municipality} · {l.province}
@@ -183,6 +185,14 @@ function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect, ma
         <div>
           <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Units</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{fmtNum(l.units)}</div>
+          {l.is_partial_delisted && (() => {
+            const active = Object.values(l.unit_type_counts||{}).reduce((s,v)=>s+v,0);
+            const sold   = Object.values(l.prev_unit_type_counts||{}).reduce((s,v)=>s+v,0) - active;
+            return (<>
+              {active > 0 && <div style={{ fontSize:9, color:"#16a34a", fontWeight:700 }}>{active} active</div>}
+              {sold   > 0 && <div style={{ fontSize:9, color:"#6B2A2A", fontWeight:700 }}>{sold} sold</div>}
+            </>);
+          })()}
         </div>
         <div>
           <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Avg Price</div>
@@ -220,7 +230,7 @@ function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect, ma
         <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginTop:-2 }}>
           {l.stated_total_units && (
             <span style={{ fontSize: 10, color: T.textMuted }}>
-              📋 <span style={{ fontWeight: 600 }}>{fmtNum(l.stated_total_units)}</span> apts per description
+              📋 <span style={{ fontWeight: 600 }}>{fmtNum(l.stated_total_units)}</span> units per description
             </span>
           )}
           {l.nearest_beach_km && (
@@ -340,7 +350,7 @@ function DelistedSearchCard({ l, onSelect, onHover }) {
         </div>
       )}
       <div style={{ fontSize: 11, color: hov ? borderHov : T.textMuted, fontWeight: 600, marginTop: -4 }}>
-        View apartments →
+        View units →
       </div>
     </div>
   );
@@ -394,8 +404,8 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   const [results,         setResults]         = useState(_ss?.results  ?? null);
   const [delistedResults,   setDelistedResults]   = useState([]);
   const [showSoldOutOnly,   setShowSoldOutOnly]   = useState(false);
-  const [listingStatus,     setListingStatus]     = useState("all"); // "all" | "active" | "sold_out"
-  const [newThisMonth,      setNewThisMonth]      = useState(false);
+  const [listingStatus,     setListingStatus]     = useState(_ss?.listingStatus ?? "all"); // "all" | "active" | "sold_out"
+  const [newThisMonth,      setNewThisMonth]      = useState(_ss?.newThisMonth ?? false);
   const [newThisMonthIds,   setNewThisMonthIds]   = useState([]);
   const [gmapsLink,  setGmapsLink]  = useState("");
   const [gmapsLabel, setGmapsLabel] = useState("");
@@ -422,12 +432,13 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   useEffect(() => {
     _ss = { selMuni, selStreet, radiusKm, mapMode, selUnit, selEsg, selHouseType,
             minPrice, maxPrice, minM2, maxM2, results, searched, searchCenter, streetCoords,
-            serverUtStats, serverHtStats };
+            serverUtStats, serverHtStats, listingStatus, newThisMonth };
   });  // runs every render — cheap object assign
   useEffect(() => {
     fetch(`${API}/filters`).then(r => r.json()).then(f => setNewThisMonthIds(f.new_this_month_ids || [])).catch(() => {});
   }, []);
   const isAutoRadiusRef = React.useRef(false); // flag to skip re-fetch on auto-set
+  const _filterMountRef = React.useRef(true);  // skip secondary-filter effect on first mount
   // Track the last selMuni/selStreet identity that triggered the auto-search effect.
   // On mount (including StrictMode double-invoke), the ref is initialized to the
   // same array reference as the state, so the effect skips. It only fires when
@@ -607,41 +618,87 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     const groups = {};
     chartData.forEach(l => {
       const types = (l.unit_types || "").split(", ").filter(Boolean);
-      if (!types.length) return;
-      // Use unit_type_counts proportions scaled to l.units (same total as house type)
-      const counts = l.unit_type_counts || {};
-      const knownTotal = Object.values(counts).reduce((a, b) => a + b, 0);
-      const total = l.units || 1;
-      types.forEach(ut => {
-        const share = knownTotal > 0
-          ? Math.round(total * (counts[ut] || 0) / knownTotal)
-          : Math.round(total / types.length);
+      const counts     = l.unit_type_counts || {};
+      const prevCounts = l.prev_unit_type_counts || {};
+      const prevStats  = l.prev_unit_type_stats || {};
+      const isApartmentListing = (l.house_types || "").split(", ").some(ht => ht === "Apartments");
+      const hasAnyCounts = isApartmentListing && (Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0);
+
+      if (!hasAnyCounts) {
+        // No unit type count data (or non-apartment listing) — fall back to house type counts so totals match house type summary
+        const htCounts     = l.house_type_counts || {};
+        const prevHtCounts = l.prev_house_type_counts || {};
+        const houseTypes   = (l.house_types || "").split(", ").filter(Boolean);
+        houseTypes.forEach(ht => {
+          const active = htCounts[ht] != null ? htCounts[ht] : null;
+          const prev   = prevHtCounts[ht] ?? (active ?? 0);
+          const share  = active != null ? active + Math.max(0, prev - active) : prev;
+          if (!share) return;
+          if (!groups[ht]) groups[ht] = { units: 0, prices: [], pm2s: [], sizes: [] };
+          groups[ht].units += share;
+          if (l.avg_price)    groups[ht].prices.push(l.avg_price);
+          if (l.avg_price_m2) groups[ht].pm2s.push(l.avg_price_m2);
+          if (l.avg_size)     groups[ht].sizes.push(l.avg_size);
+        });
+        return;
+      }
+
+      // Mirror house type formula: count = max(active, prev) = active + max(0, prev - active)
+      const allTypes = Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0
+        ? [...new Set([...Object.keys(counts).filter(ut => counts[ut] > 0), ...Object.keys(prevCounts)])]
+        : types;
+      allTypes.forEach(ut => {
+        const active = counts[ut] || 0;
+        const prev   = prevCounts[ut] || 0;
+        const share  = (Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0)
+          ? Math.max(active, prev)
+          : Math.round((l.units || 1) / allTypes.length);
+        if (!share) return;
         if (!groups[ut]) groups[ut] = { units: 0, prices: [], pm2s: [], sizes: [] };
         groups[ut].units += share;
-        if (l.avg_price)    groups[ut].prices.push(l.avg_price);
-        if (l.avg_price_m2) groups[ut].pm2s.push(l.avg_price_m2);
-        if (l.avg_size)     groups[ut].sizes.push(l.avg_size);
+        const isSoldType = !active && prev > 0;
+        const ps = isSoldType ? (prevStats[ut] || {}) : {};
+        const price = isSoldType ? ps.avg_price : l.avg_price;
+        const pm2   = isSoldType ? ps.avg_pm2   : l.avg_price_m2;
+        const size  = isSoldType ? ps.avg_size   : l.avg_size;
+        if (price) groups[ut].prices.push(price);
+        if (pm2)   groups[ut].pm2s.push(pm2);
+        if (size)  groups[ut].sizes.push(size);
       });
     });
     const serverSizeMap = Object.fromEntries((serverUtStats||[]).map(r => [r.unit_type, r.avg_size]));
-    const rows = Object.entries(groups).map(([ut, g]) => ({
-      unit_type: ut,
-      count:     g.units,
-      avg_price: g.prices.length ? Math.round(g.prices.reduce((a,b)=>a+b,0)/g.prices.length) : null,
-      min_price: g.prices.length ? Math.min(...g.prices) : null,
-      max_price: g.prices.length ? Math.max(...g.prices) : null,
-      avg_pm2:   g.pm2s.length   ? Math.round(g.pm2s.reduce((a,b)=>a+b,0)/g.pm2s.length)    : null,
-      avg_size:  g.sizes.length  ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length)   : (serverSizeMap[ut] ?? null),
-    })).sort((a,b) => UT_ORDER.indexOf(a.unit_type) - UT_ORDER.indexOf(b.unit_type));
-    return rows.length > 0 ? rows : serverUtStats;
-  }, [chartData, serverUtStats]);
+    const rows = Object.entries(groups).map(([ut, g]) => {
+      const avgPrice = g.prices.length ? Math.round(g.prices.reduce((a,b)=>a+b,0)/g.prices.length) : null;
+      const avgPm2   = g.pm2s.length   ? Math.round(g.pm2s.reduce((a,b)=>a+b,0)/g.pm2s.length)    : null;
+      const directSize = g.sizes.length ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length) : null;
+      const derivedSize = (!directSize && avgPrice && avgPm2) ? Math.round(avgPrice / avgPm2) : null;
+      return {
+        unit_type: ut,
+        count:     g.units,
+        avg_price: avgPrice,
+        min_price: g.prices.length ? Math.min(...g.prices) : null,
+        max_price: g.prices.length ? Math.max(...g.prices) : null,
+        avg_pm2:   avgPm2,
+        avg_size:  directSize ?? serverSizeMap[ut] ?? derivedSize,
+      };
+    });
+    rows.sort((a,b) => UT_ORDER.indexOf(a.unit_type) - UT_ORDER.indexOf(b.unit_type));
+    return rows.length > 0 ? rows : (chartData.length === 0 && !searched ? serverUtStats : []);
+  }, [chartData, serverUtStats, searched]);
 
   const htStats = useMemo(() => {
     const groups = {};
     chartData.forEach(l => {
-      (l.house_types || "").split(", ").filter(Boolean).forEach(ht => {
+      const htCounts = l.house_type_counts || {};
+      const prevHtCounts = l.prev_house_type_counts || {};
+      const houseTypes = (l.house_types || "").split(", ").filter(Boolean);
+      houseTypes.forEach(ht => {
+        const active  = htCounts[ht] != null ? htCounts[ht] : null;
+        const prev    = prevHtCounts[ht] ?? (active ?? 0);
+        const count   = active != null ? active + Math.max(0, prev - active) : prev;
+        if (!count) return;
         if (!groups[ht]) groups[ht] = { units: 0, prices: [], pm2s: [], sizes: [] };
-        groups[ht].units += (l.units || 1);
+        groups[ht].units += count;
         if (l.avg_price)    groups[ht].prices.push(l.avg_price);
         if (l.avg_price_m2) groups[ht].pm2s.push(l.avg_price_m2);
         if (l.avg_size)     groups[ht].sizes.push(l.avg_size);
@@ -657,8 +714,8 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
       avg_pm2:    g.pm2s.length   ? Math.round(g.pm2s.reduce((a,b)=>a+b,0)/g.pm2s.length)    : null,
       avg_size:   g.sizes.length  ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length)   : (serverHtSizeMap[ht] ?? null),
     })).sort((a,b) => a.house_type.localeCompare(b.house_type));
-    return rows.length > 0 ? rows : serverHtStats;
-  }, [chartData, serverHtStats]);
+    return rows.length > 0 ? rows : (chartData.length === 0 && !searched ? serverHtStats : []);
+  }, [chartData, serverHtStats, searched]);
 
   const priceDist = useMemo(() => {
     const bins = [
@@ -816,6 +873,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
 
   // Auto-apply secondary filters without resetting center/radius
   useEffect(() => {
+    if (_filterMountRef.current) { _filterMountRef.current = false; return; }
     if (!selMuni.length && !gmapsLabel) return;
     const timer = setTimeout(() => {
       setResults(null);
@@ -1429,7 +1487,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                           </thead>
                           <tbody>
                             {utStats.map((row, i) => (
-                              <tr key={row.unit_type} style={{ borderBottom:`1px solid ${T.border}`, background:i%2===0?T.bgStripe:"#fff" }}>
+                              <tr key={row.unit_type} style={{ borderBottom:`1px solid ${T.border}`, background: i%2===0?T.bgStripe:"#fff" }}>
                                 <td style={{ padding:"7px 8px" }}>
                                   <span style={{ background:UNIT_COLORS[row.unit_type]||"#8A96B4", color:"#fff",
                                     fontWeight:700, fontSize:11, padding:"2px 7px", borderRadius:4 }}>{row.unit_type}</span>

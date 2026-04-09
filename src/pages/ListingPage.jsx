@@ -230,7 +230,7 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
                 <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginTop:-2 }}>
                   {l.stated_total_units && (
                     <span style={{ fontSize:10, color:T.textMuted }}>
-                      📋 <span style={{ fontWeight:600 }}>{fmtNum(l.stated_total_units)}</span> apts per description
+                      📋 <span style={{ fontWeight:600 }}>{fmtNum(l.stated_total_units)}</span> units per description
                     </span>
                   )}
                   {l.nearest_beach_km && (
@@ -377,7 +377,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
             by <strong style={{ color:T.text }}>{data.developer}</strong>
             {" · "}<span style={{ color:T.navy, fontWeight:600 }}>{data.municipality}</span>
             {" · "}<span>{data.delivery_date?.replace("Delivery : ","")}</span>
-            {" · "}<span style={{ color:T.green, fontWeight:600 }}>{fmtNum(data.total_units)} apartments</span>
+            {" · "}<span style={{ color:T.green, fontWeight:600 }}>{fmtNum(data.total_units)} units</span>
             {data.stated_total_units && (
               <span style={{ marginLeft:4, color:T.textMuted, fontSize:11 }}>
                 ({fmtNum(data.stated_total_units)} per description)

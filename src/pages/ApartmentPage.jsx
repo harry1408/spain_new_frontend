@@ -371,7 +371,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
         {(() => {
           // Floor plans: apt-specific takes priority; suppress dev floor plans if apt ones exist
           const fpMedia   = fpAptSpecific ? floorPlans : (floorPlans.length ? floorPlans : devFloorPlans);
-          const fpScope   = fpAptSpecific ? "This apartment" : "Development";
+          const fpScope   = fpAptSpecific ? "This unit" : "Development";
           const fpTotal   = fpMedia.length;
           const prevFp    = () => setFpIdx(i => (i - 1 + fpTotal) % fpTotal);
           const nextFp    = () => setFpIdx(i => (i + 1) % fpTotal);
@@ -742,7 +742,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                                 <YAxis {...yProps} tickFormatter={v=>`€${(v/1000).toFixed(0)}K`}/>
                                 <Tooltip formatter={(v,name)=>[v!=null?fmtFull(v):"—",name]} contentStyle={tooltipStyle}/>
                                 <Legend wrapperStyle={{ fontSize:11 }}/>
-                                <Line type="monotone" dataKey="price" name="This apartment"
+                                <Line type="monotone" dataKey="price" name="This unit"
                                   stroke={utColor} strokeWidth={3} dot={{ r:5, fill:utColor, stroke:"#fff", strokeWidth:2 }} connectNulls/>
                                 <Line type="monotone" dataKey="nearby_price" name="Avg nearby"
                                   stroke={utColor} strokeWidth={1.5} strokeDasharray="4 3" strokeOpacity={0.5}
@@ -760,7 +760,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                                 <YAxis {...yProps} tickFormatter={v=>`€${Math.round(v).toLocaleString("en")}`}/>
                                 <Tooltip formatter={(v,name)=>[v!=null?`€${Math.round(v).toLocaleString("en")}/m²`:"—",name]} contentStyle={tooltipStyle}/>
                                 <Legend wrapperStyle={{ fontSize:11 }}/>
-                                <Line type="monotone" dataKey="pm2" name="This apartment"
+                                <Line type="monotone" dataKey="pm2" name="This unit"
                                   stroke={T.navyMid} strokeWidth={3} dot={{ r:5, fill:T.navyMid, stroke:"#fff", strokeWidth:2 }} connectNulls/>
                                 <Line type="monotone" dataKey="nearby_pm2" name="Avg nearby"
                                   stroke={T.navyMid} strokeWidth={1.5} strokeDasharray="4 3" strokeOpacity={0.5}
@@ -813,7 +813,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                         <SortBtn key={k} col={k} label={l}/>
                       ))}
                       <span style={{ marginLeft:"auto", color:T.textMuted, fontSize:11 }}>
-                        {sortedApts.length} apartments
+                        {sortedApts.length} units
                       </span>
                     </div>
                     <div style={{ overflowX:"auto" }}>

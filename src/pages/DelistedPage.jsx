@@ -226,7 +226,7 @@ function DelistedCard({ l, onClick }) {
         </div>
       )}
       <div style={{ marginTop:6, color: hov ? borderHov : T.textMuted, fontSize:11, fontWeight:600 }}>
-        View apartments →
+        View units →
       </div>
     </div>
   );
@@ -310,7 +310,7 @@ function DelistedApartments({ listingId, listingName, onBack, backLabel = "All S
             {data.sold_date && <> · <span style={{ fontWeight:700, color:"#6B2A2A", background:"#FEF2F2",
               border:"1px solid #FCA5A5", borderRadius:4, padding:"1px 7px", fontSize:11 }}>Sold: {data.sold_date}</span></>}
             {" · "}
-            <span style={{ color:T.green, fontWeight:600 }}>{fmtNum(apts.length)} apartments</span>
+            <span style={{ color:T.green, fontWeight:600 }}>{fmtNum(apts.length)} units</span>
           </div>
           {data.city_area && (
             <div style={{ position:"relative", display:"inline-block" }}>
@@ -347,7 +347,7 @@ function DelistedApartments({ listingId, listingName, onBack, backLabel = "All S
 
       {/* Stats row */}
       <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
-        <StatCard label="Total Apartments" value={fmtNum(apts.length)} />
+        <StatCard label="Total Units" value={fmtNum(apts.length)} />
         <StatCard label="Avg Price (last)" value={fmt(apts.length ? apts.reduce((s,a)=>s+a.price,0)/apts.length : 0)} />
         <StatCard label="Avg €/m² (last)"  value={`€${Math.round(apts.length ? apts.reduce((s,a)=>s+(a.price_per_m2||0),0)/apts.length : 0).toLocaleString("en")}`} accent={M2_COLOR} />
         <StatCard label="Avg Size"          value={`${Math.round(apts.length ? apts.reduce((s,a)=>s+(a.size||0),0)/apts.length : 0)}m²`} accent={T.textSub} />
@@ -687,10 +687,11 @@ export default function DelistedPage({ onGoListing, onGoDrilldown, selectedId, f
       const counts = l.unit_type_counts || {};
       const knownTotal = Object.values(counts).reduce((a, b) => a + b, 0);
       const total = l.units || 1;
-      types.forEach(ut => {
+      const activeTypes = knownTotal > 0 ? types.filter(ut => counts[ut] > 0) : types;
+      activeTypes.forEach(ut => {
         const share = knownTotal > 0
-          ? Math.round(total * (counts[ut] || 0) / knownTotal)
-          : Math.round(total / types.length);
+          ? Math.round(total * counts[ut] / knownTotal)
+          : Math.round(total / activeTypes.length);
         if (!map[ut]) map[ut] = { unit_type: ut, units: 0, prices: [], sizes: [], pm2s: [] };
         map[ut].units += share;
         if (l.avg_price)    map[ut].prices.push(l.avg_price);
@@ -821,7 +822,7 @@ export default function DelistedPage({ onGoListing, onGoDrilldown, selectedId, f
       {summary.count > 0 && (
         <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
           <StatCard label="Sold Out Developments" value={fmtNum(summary.count)} accent="#6B2A2A" />
-          <StatCard label="Total Apartments"       value={(summary.units||0).toLocaleString()} />
+          <StatCard label="Total Units"       value={(summary.units||0).toLocaleString()} />
           <StatCard label="Avg Last Price"         value={fmt(summary.avg_price)} />
           <StatCard label="Avg Last €/m²"          value={summary.avg_price_m2 != null ? `€${Math.round(summary.avg_price_m2).toLocaleString("en")}` : "—"} accent={M2_COLOR} />
         </div>

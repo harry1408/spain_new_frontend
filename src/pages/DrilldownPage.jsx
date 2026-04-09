@@ -63,9 +63,11 @@ function ListingCard({ l, active, onSelect, onHover }) {
         borderRadius:12, padding:"16px 18px", cursor:"pointer",
         transition:"all 0.15s", boxShadow:lit ? T.shadowMd : T.shadow }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
-        <div>
-          <div style={{ fontWeight:700, fontSize:14, color:active ? "#fff" : T.text }}>{l.property_name}</div>
-          <div style={{ color:active ? "rgba(255,255,255,0.75)" : T.textSub, fontSize:11, marginTop:2, display:"flex", alignItems:"center", gap:5 }}>
+        <div style={{ minWidth:0, flex:1 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap", marginBottom:2 }}>
+            <div style={{ fontWeight:700, fontSize:14, color:active ? "#fff" : T.text }}>{l.property_name}</div>
+          </div>
+          <div style={{ color:active ? "rgba(255,255,255,0.75)" : T.textSub, fontSize:11, display:"flex", alignItems:"center", gap:5 }}>
             {l.developer}
             <MapPinPopup lat={l.lat} lng={l.lng} name={l.property_name} />
           </div>
@@ -106,7 +108,18 @@ function ListingCard({ l, active, onSelect, onHover }) {
         </div>
       )}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"7px 10px", marginBottom:10 }}>
-        <Metric label="Apts"     value={fmtNum(l.units)}        active={active} />
+        <div>
+          <div style={{ color:active ? "rgba(255,255,255,0.6)" : T.textMuted, fontSize:10, textTransform:"uppercase", letterSpacing:"0.07em", fontWeight:600 }}>Units</div>
+          <div style={{ color:active ? "#fff" : T.text, fontWeight:600, fontSize:13, marginTop:1 }}>{fmtNum(l.units)}</div>
+          {l.is_partial_delisted && (() => {
+            const activeCount = Object.values(l.unit_type_counts||{}).reduce((s,v)=>s+v,0);
+            const soldCount   = Object.values(l.prev_unit_type_counts||{}).reduce((s,v)=>s+v,0) - activeCount;
+            return (<>
+              {activeCount > 0 && <div style={{ fontSize:9, color: active ? "#86efac" : "#16a34a", fontWeight:700 }}>{activeCount} active</div>}
+              {soldCount   > 0 && <div style={{ fontSize:9, color: active ? "#FCA5A5" : "#6B2A2A", fontWeight:700 }}>{soldCount} sold</div>}
+            </>);
+          })()}
+        </div>
         <Metric label="Avg"      value={fmt(l.avg_price)}      color={T.navy}    active={active} />
         <Metric label="€/m²"     value={l.avg_price_m2 != null ? `€${Math.round(l.avg_price_m2).toLocaleString("en")}` : "—"}  color={T.textSub} active={active} />
         <Metric label="From"     value={fmt(l.min_price)}      color={T.green}   active={active} />
@@ -121,7 +134,7 @@ function ListingCard({ l, active, onSelect, onHover }) {
         <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginTop:4 }}>
           {l.stated_total_units && (
             <span style={{ fontSize:10, color: active ? "rgba(255,255,255,0.55)" : T.textMuted }}>
-              📋 <span style={{ fontWeight:600 }}>{fmtNum(l.stated_total_units)}</span> apts per description
+              📋 <span style={{ fontWeight:600 }}>{fmtNum(l.stated_total_units)}</span> units per description
             </span>
           )}
           {l.nearest_beach_km && (
@@ -133,7 +146,7 @@ function ListingCard({ l, active, onSelect, onHover }) {
           )}
         </div>
       )}
-      <div style={{ marginTop:8, color:active ? "rgba(255,255,255,0.8)" : T.textMuted, fontSize:11, fontWeight:600 }}>View apartments →</div>
+      <div style={{ marginTop:8, color:active ? "rgba(255,255,255,0.8)" : T.textMuted, fontSize:11, fontWeight:600 }}>View units →</div>
     </div>
   );
 }
@@ -406,44 +419,100 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
     const groups = {};
     filteredListings.forEach(l => {
       const types = (l.unit_types || "").split(", ").filter(Boolean);
-      if (!types.length) return;
-      const counts = l.unit_type_counts || {};
-      const knownTotal = Object.values(counts).reduce((a, b) => a + b, 0);
-      const total = l.units || 1;
-      types.forEach(ut => {
-        const share = knownTotal > 0
-          ? Math.round(total * (counts[ut] || 0) / knownTotal)
-          : Math.round(total / types.length);
+      const counts     = l.unit_type_counts || {};
+      const prevCounts = l.prev_unit_type_counts || {};
+      const prevStats  = l.prev_unit_type_stats || {};
+      const isApartmentListing = (l.house_types || "").split(", ").some(ht => ht === "Apartments");
+      const hasAnyCounts = isApartmentListing && (Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0);
+
+      if (!hasAnyCounts) {
+        // No unit type count data (or non-apartment listing) — fall back to house type counts so totals match house type summary
+        const htCounts     = l.house_type_counts || {};
+        const prevHtCounts = l.prev_house_type_counts || {};
+        const houseTypes   = (l.house_types || "").split(", ").filter(Boolean);
+        houseTypes.forEach(ht => {
+          const active = htCounts[ht] != null ? htCounts[ht] : null;
+          const prev   = prevHtCounts[ht] ?? (active ?? 0);
+          const share  = active != null ? active + Math.max(0, prev - active) : prev;
+          if (!share) return;
+          if (!groups[ht]) groups[ht] = { count: 0, prices: [], pm2s: [], sizes: [] };
+          groups[ht].count += share;
+          if (l.avg_price)    groups[ht].prices.push(l.avg_price);
+          if (l.avg_price_m2) groups[ht].pm2s.push(l.avg_price_m2);
+          if (l.avg_size)     groups[ht].sizes.push(l.avg_size);
+        });
+        return;
+      }
+
+      // Mirror house type formula: count = max(active, prev) ensures totals match
+      const hasCountData = Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0;
+      const allTypes = hasCountData
+        ? [...new Set([...Object.keys(counts).filter(ut => counts[ut] > 0), ...Object.keys(prevCounts)])]
+        : types;
+      allTypes.forEach(ut => {
+        const active = counts[ut] || 0;
+        const prev   = prevCounts[ut] || 0;
+        const share  = hasCountData ? Math.max(active, prev) : Math.round((l.units || 1) / allTypes.length);
+        if (!share) return;
         if (!groups[ut]) groups[ut] = { count: 0, prices: [], pm2s: [], sizes: [] };
         groups[ut].count += share;
-        if (l.avg_price)    groups[ut].prices.push(l.avg_price);
-        if (l.avg_price_m2) groups[ut].pm2s.push(l.avg_price_m2);
-        if (l.avg_size)     groups[ut].sizes.push(l.avg_size);
+        const isSoldType = !active && prev > 0;
+        const ps = isSoldType ? (prevStats[ut] || {}) : {};
+        const price = isSoldType ? ps.avg_price : l.avg_price;
+        const pm2   = isSoldType ? ps.avg_pm2   : l.avg_price_m2;
+        const size  = isSoldType ? ps.avg_size   : l.avg_size;
+        if (price) groups[ut].prices.push(price);
+        if (pm2)   groups[ut].pm2s.push(pm2);
+        if (size)  groups[ut].sizes.push(size);
       });
     });
-    // Fall back to server stats if no per-listing data
-    if (Object.keys(groups).length === 0) {
-      const base = muniData?.unit_type_stats || muniData?.unit_type_mix || [];
-      return base;
-    }
+    if (Object.keys(groups).length === 0) return muniData?.unit_type_stats || muniData?.unit_type_mix || [];
     const serverSizeMap = Object.fromEntries((muniData?.unit_type_stats||[]).map(r => [r.unit_type, r.avg_size]));
-    return Object.entries(groups).map(([ut, g]) => ({
-      unit_type: ut,
-      count:     g.count,
-      avg_price: g.prices.length ? Math.round(g.prices.reduce((a,b)=>a+b,0)/g.prices.length) : null,
-      min_price: g.prices.length ? Math.min(...g.prices) : null,
-      max_price: g.prices.length ? Math.max(...g.prices) : null,
-      avg_pm2:   g.pm2s.length   ? Math.round(g.pm2s.reduce((a,b)=>a+b,0)/g.pm2s.length)    : null,
-      avg_size:  g.sizes.length  ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length)   : (serverSizeMap[ut] ?? null),
-    })).sort((a,b) => UT_ORDER.indexOf(a.unit_type) - UT_ORDER.indexOf(b.unit_type));
+    const rows = Object.entries(groups).map(([ut, g]) => {
+      const avgPrice = g.prices.length ? Math.round(g.prices.reduce((a,b)=>a+b,0)/g.prices.length) : null;
+      const avgPm2   = g.pm2s.length   ? Math.round(g.pm2s.reduce((a,b)=>a+b,0)/g.pm2s.length)    : null;
+      const directSize = g.sizes.length ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length) : null;
+      const derivedSize = (!directSize && avgPrice && avgPm2) ? Math.round(avgPrice / avgPm2) : null;
+      return {
+        unit_type: ut, sold: false, count: g.count,
+        avg_price: avgPrice,
+        min_price: g.prices.length ? Math.min(...g.prices) : null,
+        max_price: g.prices.length ? Math.max(...g.prices) : null,
+        avg_pm2:   avgPm2,
+        avg_size:  directSize ?? serverSizeMap[ut] ?? derivedSize,
+      };
+    });
+    return rows.sort((a,b) => UT_ORDER.indexOf(a.unit_type) - UT_ORDER.indexOf(b.unit_type));
   }, [filteredListings, muniData]);
 
   const filteredHouseStats = useMemo(() => {
-    if (!muniData?.house_type_stats) return [];
-    const presentTypes = new Set(
-      filteredListings.flatMap(l => (l.house_types||"").split(", ").filter(Boolean))
-    );
-    return muniData.house_type_stats.filter(r => presentTypes.has(r.house_type));
+    const groups = {};
+    filteredListings.forEach(l => {
+      const htCounts    = l.house_type_counts || {};
+      const prevHtCounts = l.prev_house_type_counts || {};
+      const houseTypes  = (l.house_types || "").split(", ").filter(Boolean);
+      houseTypes.forEach(ht => {
+        const active  = htCounts[ht] != null ? htCounts[ht] : null;
+        const prev    = prevHtCounts[ht] ?? (active ?? 0);
+        const count   = active != null ? active + Math.max(0, prev - active) : prev;
+        if (!count) return;
+        if (!groups[ht]) groups[ht] = { count: 0, prices: [], pm2s: [], sizes: [] };
+        groups[ht].count += count;
+        if (l.avg_price)    groups[ht].prices.push(l.avg_price);
+        if (l.avg_price_m2) groups[ht].pm2s.push(l.avg_price_m2);
+        if (l.avg_size)     groups[ht].sizes.push(l.avg_size);
+      });
+    });
+    if (Object.keys(groups).length === 0) return muniData?.house_type_stats || [];
+    const serverSizeMap = Object.fromEntries((muniData?.house_type_stats||[]).map(r => [r.house_type, r.avg_size]));
+    return Object.entries(groups).map(([ht, g]) => ({
+      house_type: ht, count: g.count,
+      avg_price:  g.prices.length ? Math.round(g.prices.reduce((a,b)=>a+b,0)/g.prices.length) : null,
+      min_price:  g.prices.length ? Math.min(...g.prices) : null,
+      max_price:  g.prices.length ? Math.max(...g.prices) : null,
+      avg_pm2:    g.pm2s.length   ? Math.round(g.pm2s.reduce((a,b)=>a+b,0)/g.pm2s.length)    : null,
+      avg_size:   g.sizes.length  ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length)   : (serverSizeMap[ht] ?? null),
+    })).sort((a,b) => b.count - a.count);
   }, [filteredListings, muniData]);
 
   // ── Municipality selector view ────────────────────────────────────────
@@ -576,7 +645,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
         {((_s => [
           <StatCard key="dev"   label="Developments"     value={fmtNum(_s.total_listings)} accent={T.text} />,
-          <StatCard key="apts"  label="Total Apartments" value={fmtNum(_s.total_units)} />,
+          <StatCard key="apts"  label="Total Units" value={fmtNum(_s.total_units)} />,
           <StatCard key="avg"   label="Avg Price"        value={fmt(_s.avg_price)} />,
           <StatCard key="m2"    label="Avg €/m²"         value={_s.avg_price_m2 != null ? `€${Math.round(_s.avg_price_m2).toLocaleString("en")}` : "—"} accent={T.navyMid} />,
           <StatCard key="range" label="Price Range"      value={`${fmt(_s.price_range?.[0])} – ${fmt(_s.price_range?.[1])}`} accent={T.textSub} />,
@@ -735,10 +804,10 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                     {filteredUnitStats.map((row,i)=>{
                       const uc = UNIT_COLORS[row.unit_type]||COLORS[i%COLORS.length];
                       return (
-                        <tr key={row.unit_type} style={{ borderBottom:`1px solid ${T.border}`, background:i%2===0?T.bgStripe:"#fff" }}>
+                        <tr key={row.unit_type} style={{ borderBottom:`1px solid ${T.border}`, background: i%2===0?T.bgStripe:"#fff" }}>
                           <td style={{ padding:"7px 8px" }}>
-                            <span style={{ background:uc, color:"#fff", fontWeight:700, fontSize:11,
-                              padding:"2px 8px", borderRadius:4, display:"block", whiteSpace:"nowrap" }}>{row.unit_type}</span>
+                              <span style={{ background:uc, color:"#fff", fontWeight:700, fontSize:11,
+                                padding:"2px 8px", borderRadius:4, whiteSpace:"nowrap" }}>{row.unit_type}</span>
                           </td>
                           <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
                           <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size!=null?Math.round(row.avg_size):"—"}</td>
