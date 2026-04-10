@@ -84,14 +84,18 @@ function ListingCard({ l, active, onSelect, onHover, selUnit, selHouseType }) {
       <AddressBreadcrumb cityArea={l.city_area} municipality={l.municipality} style={{ marginBottom:10 }} />
       {(l.unit_types || l.house_types || l.is_tourist) && (
         <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:10 }}>
-          {l.unit_types && l.unit_types.split(", ").filter(Boolean).map(ut => (
+          {l.unit_types && l.unit_types.split(", ").filter(Boolean)
+            .filter(ut => !selUnit?.length || selUnit.includes(ut))
+            .map(ut => (
             <span key={ut} style={{ fontSize:10, padding:"2px 7px", borderRadius:4, fontWeight:700,
               background: active ? "rgba(255,255,255,0.18)" : `${UNIT_COLORS[ut]||"#aaa"}20`,
               color:      active ? "#fff"                    : UNIT_COLORS[ut]||"#aaa",
               border:     active ? "1px solid rgba(255,255,255,0.35)" : `1px solid ${UNIT_COLORS[ut]||"#aaa"}55`,
             }}>{ut}</span>
           ))}
-          {l.house_types && l.house_types.split(", ").filter(Boolean).map(ht => (
+          {l.house_types && l.house_types.split(", ").filter(Boolean)
+            .filter(ht => !selHouseType?.length || selHouseType.includes(ht))
+            .map(ht => (
             <span key={ht} style={{ fontSize:10, padding:"2px 7px", borderRadius:4, fontWeight:700,
               background: active ? "rgba(255,255,255,0.12)" : "rgba(100,100,140,0.10)",
               color:      active ? "rgba(255,255,255,0.85)" : T.textSub,
@@ -429,7 +433,13 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
 
   // ── Stats derived from filteredListings (drive whole right panel) ────────
   const filteredStats = useMemo(() => {
-    if (!filteredListings.length) return null;
+    const anyFilterActive = fSelUnit.length || fSelHouseType.length || fSelEsg.length ||
+      fMinPrice || fMaxPrice || fMinM2 || fMaxM2 || fNewThisMonth || unitFilter.length;
+    if (!filteredListings.length) {
+      // When a filter is active but no listings match, show zeros so KPIs reflect the filter
+      if (anyFilterActive) return { total_listings: 0, total_units: 0, avg_price: null, avg_price_m2: null, price_range: [null, null] };
+      return null;
+    }
     const utPriceMap = Object.fromEntries((muniData?.unit_type_stats||[]).map(r => [r.unit_type, r]));
     const htPriceMap = Object.fromEntries((muniData?.house_type_stats||[]).map(r => [r.house_type, r]));
 
@@ -493,9 +503,23 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
 
   const filteredUnitStats = useMemo(() => {
     const UT_ORDER = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
+    const activeHtFilter = fSelHouseType.length > 0;
     // Compute total (active + sold) counts per unit type from filtered listings
     const counts = {};
     filteredListings.forEach(l => {
+      if (activeHtFilter) {
+        // Use cross-reference: only count unit types belonging to the selected house types
+        fSelHouseType.forEach(ht => {
+          const xref     = (l.house_type_unit_counts      || {})[ht] || {};
+          const prevXref = (l.prev_house_type_unit_counts || {})[ht] || {};
+          const allUts = new Set([...Object.keys(xref), ...Object.keys(prevXref)]);
+          allUts.forEach(ut => {
+            const total = (xref[ut] || 0) + (prevXref[ut] || 0);
+            if (total > 0) counts[ut] = (counts[ut] || 0) + total;
+          });
+        });
+        return;
+      }
       const utCounts     = l.unit_type_counts      || {};
       const prevUtCounts = l.prev_unit_type_counts  || {};
       const hasCountData = Object.keys(utCounts).length > 0 || Object.keys(prevUtCounts).length > 0;
@@ -513,7 +537,9 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
         types.forEach(ut => { counts[ut] = (counts[ut] || 0) + share; });
       }
     });
-    if (Object.keys(counts).length === 0) return muniData?.unit_type_stats || [];
+    const anyFilterActive = fSelUnit.length || fSelHouseType.length || fSelEsg.length ||
+      fMinPrice || fMaxPrice || fMinM2 || fMaxM2 || fNewThisMonth || unitFilter.length;
+    if (Object.keys(counts).length === 0) return anyFilterActive ? [] : (muniData?.unit_type_stats || []);
     // helper: pick first source that has a non-null avg_price
     const pickUT = (...srcs) => srcs.find(s => s?.avg_price != null) || srcs.find(Boolean) || {};
     // Active price map (server, latest period)
@@ -548,7 +574,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       };
     });
     return rows.sort((a,b) => UT_ORDER.indexOf(a.unit_type) - UT_ORDER.indexOf(b.unit_type));
-  }, [filteredListings, muniData]);
+  }, [filteredListings, muniData, fSelUnit, fSelHouseType, fSelEsg, fMinPrice, fMaxPrice, fMinM2, fMaxM2, fNewThisMonth, unitFilter]);
 
   const filteredHouseStats = useMemo(() => {
     const groups = {};
@@ -566,10 +592,12 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
         ...houseTypes,
       ])];
       allHt.forEach(ht => {
-        // When unit type filter active, count = selected unit types (active + sold) in this listing
+        // When unit type filter active, use cross-reference for accurate per-house-type unit count
         let count;
         if (activeUnitFilter) {
-          count = effectiveUnitFilter.reduce((s, ut) => s + (utCounts[ut] || 0) + (prevUtCounts[ut] || 0), 0);
+          const xref     = (l.house_type_unit_counts      || {})[ht] || {};
+          const prevXref = (l.prev_house_type_unit_counts || {})[ht] || {};
+          count = effectiveUnitFilter.reduce((s, ut) => s + (xref[ut] || 0) + (prevXref[ut] || 0), 0);
         } else {
           count = (htCounts[ht] || 0) + (prevHtCounts[ht] || 0) || (houseTypes.includes(ht) ? 1 : 0);
         }
@@ -581,7 +609,9 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
         if (l.avg_size)     groups[ht].sizes.push(l.avg_size);
       });
     });
-    if (Object.keys(groups).length === 0) return muniData?.house_type_stats || [];
+    const anyFilterActive = fSelUnit.length || fSelHouseType.length || fSelEsg.length ||
+      fMinPrice || fMaxPrice || fMinM2 || fMaxM2 || fNewThisMonth || unitFilter.length;
+    if (Object.keys(groups).length === 0) return anyFilterActive ? [] : (muniData?.house_type_stats || []);
     const pickHT = (...srcs) => srcs.find(s => s?.avg_price != null) || srcs.find(Boolean) || {};
     const priceMap     = Object.fromEntries((muniData?.house_type_stats      || []).map(r => [r.house_type, r]));
     const prevPriceMap = Object.fromEntries((muniData?.prev_house_type_stats || []).map(r => [r.house_type, r]));
@@ -594,7 +624,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
         avg_size:  ps.avg_size ?? (g.sizes.length ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length) : null),
       };
     }).sort((a,b) => b.count - a.count);
-  }, [filteredListings, muniData, fSelUnit, unitFilter]);
+  }, [filteredListings, muniData, fSelUnit, fSelHouseType, fSelEsg, fMinPrice, fMaxPrice, fMinM2, fMaxM2, fNewThisMonth, unitFilter]);
 
   // ── Municipality selector view ────────────────────────────────────────
   if (!municipality) {

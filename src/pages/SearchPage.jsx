@@ -239,15 +239,15 @@ function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect, ma
         );
       })()}
 
-      {/* Unit type + house type tags */}
+      {/* Unit type + house type tags — filtered to active selection */}
       {(unitTypes.length > 0 || houseTypes.length > 0) && (
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-          {unitTypes.map(ut => (
+          {unitTypes.filter(ut => !selUnit?.length || selUnit.includes(ut)).map(ut => (
             <span key={ut} style={{ background: UNIT_COLORS[ut] || "#8A96B4",
               color: "#fff", borderRadius: 4, padding: "2px 7px",
               fontSize: 10, fontWeight: 700 }}>{ut}</span>
           ))}
-          {houseTypes.map(ht => (
+          {houseTypes.filter(ht => !selHouseType?.length || selHouseType.includes(ht)).map(ht => (
             <span key={ht} style={{ background:"rgba(100,100,140,0.10)", color:T.textSub,
               border:`1px solid ${T.border}`, borderRadius:4, padding:"2px 7px",
               fontSize:10, fontWeight:700 }}>{ht}</span>
@@ -708,8 +708,6 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     chartData.forEach(l => {
       const htCounts     = l.house_type_counts      || {};
       const prevHtCounts = l.prev_house_type_counts  || {};
-      const utCounts     = l.unit_type_counts        || {};
-      const prevUtCounts = l.prev_unit_type_counts   || {};
       const houseTypes   = (l.house_types || "").split(", ").filter(Boolean);
       const allHt = [...new Set([
         ...Object.keys(htCounts).filter(h => htCounts[h] > 0),
@@ -717,9 +715,15 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
         ...houseTypes,
       ])];
       allHt.forEach(ht => {
-        const count = activeUnitFilter
-          ? selUnit.reduce((s, ut) => s + (utCounts[ut] || 0) + (prevUtCounts[ut] || 0), 0)
-          : (htCounts[ht] || 0) + (prevHtCounts[ht] || 0) || (houseTypes.includes(ht) ? 1 : 0);
+        let count;
+        if (activeUnitFilter) {
+          // Use cross-reference for accurate per-house-type count of selected unit types
+          const xref     = (l.house_type_unit_counts      || {})[ht] || {};
+          const prevXref = (l.prev_house_type_unit_counts || {})[ht] || {};
+          count = selUnit.reduce((s, ut) => s + (xref[ut] || 0) + (prevXref[ut] || 0), 0);
+        } else {
+          count = (htCounts[ht] || 0) + (prevHtCounts[ht] || 0) || (houseTypes.includes(ht) ? 1 : 0);
+        }
         if (!count) return;
         counts[ht] = (counts[ht] || 0) + count;
       });
