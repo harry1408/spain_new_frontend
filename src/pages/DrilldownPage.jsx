@@ -41,7 +41,7 @@ function MuniCard({ m, onClick }) {
         <Metric label="Devel."    value={m.listings||"—"} />
         <Metric label="Apts"      value={fmtNum(m.units)} />
         <Metric label="Avg Price" value={fmt(m.avg_price)} color={T.navy} />
-        <Metric label="€/m²"      value={m.avg_price_m2 != null ? `€${Math.round(m.avg_price_m2).toLocaleString("en")}` : "—"} color={T.textSub} />
+        <Metric label="€/m²"      value={m.avg_price_m2 != null ? `€${Math.round(m.avg_price_m2).toLocaleString("en-US")}` : "—"} color={T.textSub} />
       </div>
       <div style={{ marginTop:8, color:hov ? T.navy : T.textMuted, fontSize:11, fontWeight:600 }}>Explore →</div>
     </div>
@@ -49,7 +49,7 @@ function MuniCard({ m, onClick }) {
 }
 
 // ── listing card ────────────────────────────────────────────────────────
-function ListingCard({ l, active, onSelect, onHover }) {
+function ListingCard({ l, active, onSelect, onHover, selUnit, selHouseType }) {
   const [hov, setHov] = useState(false);
   const lit = active || hov;
   const esgColor = ESG_COLORS[l.esg_grade] || "#999";
@@ -107,28 +107,58 @@ function ListingCard({ l, active, onSelect, onHover }) {
           )}
         </div>
       )}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"7px 10px", marginBottom:10 }}>
-        <div>
-          <div style={{ color:active ? "rgba(255,255,255,0.6)" : T.textMuted, fontSize:10, textTransform:"uppercase", letterSpacing:"0.07em", fontWeight:600 }}>Units</div>
-          {(() => {
-            const utCounts   = l.unit_type_counts   || {};
-            const prevCounts = l.prev_unit_type_counts || {};
-            const activeCount = Object.values(utCounts).reduce((s, v) => s + v, 0) || l.units || 0;
-            const soldCount   = Object.values(prevCounts).reduce((s, v) => s + v, 0);
-            const displayTotal = activeCount + soldCount;
-            return (<>
-              <div style={{ color:active ? "#fff" : T.text, fontWeight:600, fontSize:13, marginTop:1 }}>{fmtNum(displayTotal)}</div>
-              <div style={{ fontSize:9, color: active ? "#86efac" : "#16a34a", fontWeight:700 }}>{activeCount} active</div>
-              {soldCount > 0 && <div style={{ fontSize:9, color: active ? "#FCA5A5" : "#6B2A2A", fontWeight:700 }}>{soldCount} sold</div>}
-            </>);
-          })()}
-        </div>
-        <Metric label="Avg"      value={fmt(l.avg_price)}      color={T.navy}    active={active} />
-        <Metric label="€/m²"     value={l.avg_price_m2 != null ? `€${Math.round(l.avg_price_m2).toLocaleString("en")}` : "—"}  color={T.textSub} active={active} />
-        <Metric label="From"     value={fmt(l.min_price)}      color={T.green}   active={active} />
-        <Metric label="To"       value={fmt(l.max_price)}      color={T.red}     active={active} />
-        <Metric label="Avg Size" value={`${Math.round(l.avg_size)}m²`}                       active={active} />
-      </div>
+      {(() => {
+        const utCounts     = l.unit_type_counts      || {};
+        const prevUtCounts = l.prev_unit_type_counts  || {};
+        const htCounts     = l.house_type_counts      || {};
+        const prevHtCounts = l.prev_house_type_counts || {};
+        const utStats      = l.unit_type_stats        || {};
+        let totalCount, activeOnly, ps = null;
+        if (selUnit && selUnit.length > 0) {
+          activeOnly  = selUnit.reduce((s, ut) => s + (utCounts[ut]     || 0), 0);
+          const sold  = selUnit.reduce((s, ut) => s + (prevUtCounts[ut] || 0), 0);
+          totalCount  = activeOnly + sold;
+          const sel = selUnit.map(ut => utStats[ut]).filter(Boolean);
+          if (sel.length === 1) {
+            ps = sel[0];
+          } else if (sel.length > 1) {
+            ps = {
+              avg_price: Math.round(sel.reduce((s,r)=>s+(r.avg_price||0),0)/sel.length),
+              min_price: Math.min(...sel.map(r=>r.min_price||Infinity)),
+              max_price: Math.max(...sel.map(r=>r.max_price||0)),
+              avg_pm2:   Math.round(sel.reduce((s,r)=>s+(r.avg_pm2||0),0)/sel.length),
+              avg_size:  Math.round(sel.reduce((s,r)=>s+(r.avg_size||0),0)/sel.length),
+            };
+          }
+        } else if (selHouseType && selHouseType.length > 0) {
+          activeOnly = selHouseType.reduce((s, ht) => s + (htCounts[ht]     || 0), 0);
+          const sold = selHouseType.reduce((s, ht) => s + (prevHtCounts[ht] || 0), 0);
+          totalCount = activeOnly + sold;
+        } else {
+          activeOnly = Object.values(utCounts).reduce((s, v) => s + v, 0);
+          totalCount = l.units || activeOnly;
+          activeOnly = activeOnly || totalCount;
+        }
+        const avgPrice = ps?.avg_price ?? l.avg_price;
+        const minPrice = ps?.min_price ?? l.min_price;
+        const maxPrice = ps?.max_price ?? l.max_price;
+        const avgPm2   = ps?.avg_pm2   ?? l.avg_price_m2;
+        const avgSize  = ps?.avg_size  ?? l.avg_size;
+        return (
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"7px 10px", marginBottom:10 }}>
+            <div>
+              <div style={{ color:active ? "rgba(255,255,255,0.6)" : T.textMuted, fontSize:10, textTransform:"uppercase", letterSpacing:"0.07em", fontWeight:600 }}>Units</div>
+              <div style={{ color:active ? "#fff" : T.text, fontWeight:600, fontSize:13, marginTop:1 }}>{fmtNum(totalCount)}</div>
+              <div style={{ fontSize:9, color: active ? "#86efac" : "#16a34a", fontWeight:700 }}>{activeOnly} active</div>
+            </div>
+            <Metric label="Avg"      value={fmt(avgPrice)}     color={T.navy}    active={active} />
+            <Metric label="€/m²"     value={avgPm2 != null ? `€${Math.round(avgPm2).toLocaleString("en-US")}` : "—"} color={T.textSub} active={active} />
+            <Metric label="From"     value={fmt(minPrice)}     color={T.green}   active={active} />
+            <Metric label="To"       value={fmt(maxPrice)}     color={T.red}     active={active} />
+            <Metric label="Avg Size" value={avgSize != null ? `${Math.round(avgSize)}m²` : "—"} active={active} />
+          </div>
+        );
+      })()}
       <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
         <Pill on={l.has_pool} label="Pool"/><Pill on={l.has_parking} label="Parking"/>
         <Pill on={l.has_terrace} label="Terrace"/><Pill on={l.has_lift} label="Lift"/>
@@ -204,12 +234,12 @@ function makeBins(values, numBins = 8, fmt1000 = true) {
   const vals = values.filter(v => v != null && isFinite(v));
   if (!vals.length) return [];
   const mn = Math.min(...vals), mx = Math.max(...vals);
-  if (mn === mx) return [{ bin: fmt1000 ? `€${Math.round(mn/1000)}K` : `€${Math.round(mn).toLocaleString()}`, count: vals.length }];
+  if (mn === mx) return [{ bin: fmt1000 ? `€${Math.round(mn/1000)}K` : `€${Math.round(mn).toLocaleString("en-US")}`, count: vals.length }];
   const step = (mx - mn) / numBins;
   return Array.from({ length: numBins }, (_, i) => {
     const lo = mn + i * step, hi = mn + (i + 1) * step;
     const count = vals.filter(v => v >= lo && (i === numBins - 1 ? v <= hi : v < hi)).length;
-    const label = fmt1000 ? `€${Math.round(lo/1000)}K` : `€${Math.round(lo).toLocaleString()}`;
+    const label = fmt1000 ? `€${Math.round(lo/1000)}K` : `€${Math.round(lo).toLocaleString("en-US")}`;
     return { bin: label, count };
   }).filter(b => b.count > 0);
 }
@@ -400,20 +430,56 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   // ── Stats derived from filteredListings (drive whole right panel) ────────
   const filteredStats = useMemo(() => {
     if (!filteredListings.length) return null;
+    const utPriceMap = Object.fromEntries((muniData?.unit_type_stats||[]).map(r => [r.unit_type, r]));
+    const htPriceMap = Object.fromEntries((muniData?.house_type_stats||[]).map(r => [r.house_type, r]));
+
+    let total_units = 0;
+    let priceOverride = null;
+
+    if (fSelUnit.length > 0) {
+      // Count only selected unit types; use server per-unit-type price stats
+      filteredListings.forEach(l => {
+        const utCounts = l.unit_type_counts || {};
+        fSelUnit.forEach(ut => { total_units += utCounts[ut] || 0; });
+      });
+      const selStats = fSelUnit.map(ut => utPriceMap[ut]).filter(Boolean);
+      if (selStats.length) {
+        priceOverride = {
+          avg_price:    Math.round(selStats.reduce((s,r)=>s+(r.avg_price||0),0)/selStats.length),
+          avg_price_m2: Math.round(selStats.reduce((s,r)=>s+(r.avg_pm2||0),0)/selStats.length),
+          price_range:  [Math.min(...selStats.map(r=>r.min_price||Infinity)), Math.max(...selStats.map(r=>r.max_price||0))],
+        };
+      }
+    } else if (fSelHouseType.length > 0) {
+      // Count only selected house types; use server per-house-type price stats
+      filteredListings.forEach(l => {
+        const htCounts = l.house_type_counts || {};
+        fSelHouseType.forEach(ht => { total_units += htCounts[ht] || 0; });
+      });
+      const selStats = fSelHouseType.map(ht => htPriceMap[ht]).filter(Boolean);
+      if (selStats.length) {
+        priceOverride = {
+          avg_price:    Math.round(selStats.reduce((s,r)=>s+(r.avg_price||0),0)/selStats.length),
+          avg_price_m2: Math.round(selStats.reduce((s,r)=>s+(r.avg_pm2||0),0)/selStats.length),
+          price_range:  [Math.min(...selStats.map(r=>r.min_price||Infinity)), Math.max(...selStats.map(r=>r.max_price||0))],
+        };
+      }
+    } else {
+      filteredListings.forEach(l => {
+        total_units += Object.values(l.unit_type_counts||{}).reduce((a,v)=>a+v,0) || l.units || 0;
+      });
+    }
+
     const prices = filteredListings.map(l => l.avg_price).filter(Boolean);
     const m2s    = filteredListings.map(l => l.avg_price_m2).filter(Boolean);
     return {
       total_listings: filteredListings.length,
-      total_units:    filteredListings.reduce((s, l) => {
-        const active = Object.values(l.unit_type_counts   || {}).reduce((a, v) => a + v, 0) || l.units || 0;
-        const sold   = Object.values(l.prev_unit_type_counts || {}).reduce((a, v) => a + v, 0);
-        return s + active + sold;
-      }, 0),
-      avg_price:      prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : null,
-      avg_price_m2:   m2s.length   ? m2s.reduce((a, b) => a + b, 0)   / m2s.length   : null,
-      price_range:    prices.length ? [Math.min(...prices), Math.max(...prices)] : [null, null],
+      total_units,
+      avg_price:    priceOverride?.avg_price    ?? (prices.length ? Math.round(prices.reduce((a,b)=>a+b,0)/prices.length) : null),
+      avg_price_m2: priceOverride?.avg_price_m2 ?? (m2s.length   ? m2s.reduce((a,b)=>a+b,0)/m2s.length                   : null),
+      price_range:  priceOverride?.price_range  ?? (prices.length ? [Math.min(...prices), Math.max(...prices)]            : [null, null]),
     };
-  }, [filteredListings]);
+  }, [filteredListings, fSelUnit, fSelHouseType, muniData]);
 
   const filteredPriceDist = useMemo(() =>
     makeBins(filteredListings.map(l => l.avg_price)), [filteredListings]);
@@ -423,53 +489,35 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
 
   const filteredUnitStats = useMemo(() => {
     const UT_ORDER = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
-    const groups = {};
+    // Compute total (active + sold) counts per unit type from filtered listings
+    const counts = {};
     filteredListings.forEach(l => {
-      const types = (l.unit_types || "").split(", ").filter(Boolean);
-      const counts     = l.unit_type_counts || {};
-      const prevCounts = l.prev_unit_type_counts || {};
-      const prevStats  = l.prev_unit_type_stats || {};
-      const isNonApartment = (l.house_types || "").split(", ").filter(Boolean)
-        .every(ht => ht !== "Apartments");
-      const hasAnyCounts = Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0;
-      if (!hasAnyCounts && isNonApartment) return;
-      const hasCountData = Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0;
-      const allTypes = hasCountData
-        ? [...new Set([...Object.keys(counts).filter(ut => counts[ut] > 0), ...Object.keys(prevCounts)])]
-        : types;
-      allTypes.forEach(ut => {
-        const active = counts[ut] || 0;
-        const sold   = prevCounts[ut] || 0;
-        const share  = hasCountData ? active + sold : Math.round((l.units || 1) / allTypes.length);
-        if (!share) return;
-        if (!groups[ut]) groups[ut] = { active: 0, sold: 0, prices: [], pm2s: [], sizes: [] };
-        groups[ut].active += active;
-        groups[ut].sold   += sold;
-        // use prev stats for price if this type only appears as sold
-        const ps = (!active && sold > 0) ? (prevStats[ut] || {}) : {};
-        const price = (!active && sold > 0) ? ps.avg_price : l.avg_price;
-        const pm2   = (!active && sold > 0) ? ps.avg_pm2   : l.avg_price_m2;
-        const size  = (!active && sold > 0) ? ps.avg_size   : l.avg_size;
-        if (price) groups[ut].prices.push(price);
-        if (pm2)   groups[ut].pm2s.push(pm2);
-        if (size)  groups[ut].sizes.push(size);
-      });
+      const utCounts     = l.unit_type_counts      || {};
+      const prevUtCounts = l.prev_unit_type_counts  || {};
+      const hasCountData = Object.keys(utCounts).length > 0 || Object.keys(prevUtCounts).length > 0;
+      if (hasCountData) {
+        const allUts = new Set([...Object.keys(utCounts), ...Object.keys(prevUtCounts)]);
+        allUts.forEach(ut => {
+          const total = (utCounts[ut] || 0) + (prevUtCounts[ut] || 0);
+          if (total > 0) counts[ut] = (counts[ut] || 0) + total;
+        });
+      } else {
+        const types = (l.unit_types || "").split(", ").filter(Boolean);
+        const isNonApartment = (l.house_types || "").split(", ").filter(Boolean).every(ht => ht !== "Apartments");
+        if (!isNonApartment || types.length === 0) return;
+        const share = Math.round((l.units || 1) / Math.max(types.length, 1));
+        types.forEach(ut => { counts[ut] = (counts[ut] || 0) + share; });
+      }
     });
-    if (Object.keys(groups).length === 0) return muniData?.unit_type_stats || muniData?.unit_type_mix || [];
-    const serverSizeMap = Object.fromEntries((muniData?.unit_type_stats||[]).map(r => [r.unit_type, r.avg_size]));
-    const rows = Object.entries(groups).map(([ut, g]) => {
-      const avgPrice = g.prices.length ? Math.round(g.prices.reduce((a,b)=>a+b,0)/g.prices.length) : null;
-      const avgPm2   = g.pm2s.length   ? Math.round(g.pm2s.reduce((a,b)=>a+b,0)/g.pm2s.length)    : null;
-      const directSize = g.sizes.length ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length) : null;
-      const derivedSize = (!directSize && avgPrice && avgPm2) ? Math.round(avgPrice / avgPm2) : null;
+    if (Object.keys(counts).length === 0) return muniData?.unit_type_stats || [];
+    // Use server-computed price stats (from actual sub-listing data, not listing averages)
+    const priceMap = Object.fromEntries((muniData?.unit_type_stats || []).map(r => [r.unit_type, r]));
+    const rows = Object.keys(counts).map(ut => {
+      const ps = priceMap[ut] || {};
       return {
-        unit_type: ut, count: g.active + g.sold,
-        active_count: g.active, sold_count: g.sold,
-        avg_price: avgPrice,
-        min_price: g.prices.length ? Math.min(...g.prices) : null,
-        max_price: g.prices.length ? Math.max(...g.prices) : null,
-        avg_pm2:   avgPm2,
-        avg_size:  directSize ?? serverSizeMap[ut] ?? derivedSize,
+        unit_type: ut, count: counts[ut],
+        avg_price: ps.avg_price ?? null, min_price: ps.min_price ?? null,
+        max_price: ps.max_price ?? null, avg_pm2: ps.avg_pm2 ?? null, avg_size: ps.avg_size ?? null,
       };
     });
     return rows.sort((a,b) => UT_ORDER.indexOf(a.unit_type) - UT_ORDER.indexOf(b.unit_type));
@@ -477,36 +525,48 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
 
   const filteredHouseStats = useMemo(() => {
     const groups = {};
+    const activeUnitFilter = fSelUnit.length > 0 || unitFilter.length > 0;
+    const effectiveUnitFilter = fSelUnit.length > 0 ? fSelUnit : unitFilter;
     filteredListings.forEach(l => {
-      const htCounts     = l.house_type_counts || {};
-      const prevHtCounts = l.prev_house_type_counts || {};
+      const htCounts     = l.house_type_counts      || {};
+      const prevHtCounts = l.prev_house_type_counts  || {};
+      const utCounts     = l.unit_type_counts        || {};
+      const prevUtCounts = l.prev_unit_type_counts   || {};
       const houseTypes   = (l.house_types || "").split(", ").filter(Boolean);
-      const allHt = [...new Set([...houseTypes, ...Object.keys(prevHtCounts)])];
+      const allHt = [...new Set([
+        ...Object.keys(htCounts).filter(h => htCounts[h] > 0),
+        ...Object.keys(prevHtCounts).filter(h => prevHtCounts[h] > 0),
+        ...houseTypes,
+      ])];
       allHt.forEach(ht => {
-        const active = htCounts[ht] || 0;
-        const sold   = prevHtCounts[ht] || 0;
-        const count  = active + sold;
+        // When unit type filter active, count = selected unit types (active + sold) in this listing
+        let count;
+        if (activeUnitFilter) {
+          count = effectiveUnitFilter.reduce((s, ut) => s + (utCounts[ut] || 0) + (prevUtCounts[ut] || 0), 0);
+        } else {
+          count = (htCounts[ht] || 0) + (prevHtCounts[ht] || 0) || (houseTypes.includes(ht) ? 1 : 0);
+        }
         if (!count) return;
-        if (!groups[ht]) groups[ht] = { active: 0, sold: 0, prices: [], pm2s: [], sizes: [] };
-        groups[ht].active += active;
-        groups[ht].sold   += sold;
+        if (!groups[ht]) groups[ht] = { count: 0, prices: [], pm2s: [], sizes: [] };
+        groups[ht].count += count;
         if (l.avg_price)    groups[ht].prices.push(l.avg_price);
         if (l.avg_price_m2) groups[ht].pm2s.push(l.avg_price_m2);
         if (l.avg_size)     groups[ht].sizes.push(l.avg_size);
       });
     });
     if (Object.keys(groups).length === 0) return muniData?.house_type_stats || [];
-    const serverSizeMap = Object.fromEntries((muniData?.house_type_stats||[]).map(r => [r.house_type, r.avg_size]));
-    return Object.entries(groups).map(([ht, g]) => ({
-      house_type: ht, count: g.active + g.sold,
-      active_count: g.active, sold_count: g.sold,
-      avg_price:  g.prices.length ? Math.round(g.prices.reduce((a,b)=>a+b,0)/g.prices.length) : null,
-      min_price:  g.prices.length ? Math.min(...g.prices) : null,
-      max_price:  g.prices.length ? Math.max(...g.prices) : null,
-      avg_pm2:    g.pm2s.length   ? Math.round(g.pm2s.reduce((a,b)=>a+b,0)/g.pm2s.length)    : null,
-      avg_size:   g.sizes.length  ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length)   : (serverSizeMap[ht] ?? null),
-    })).sort((a,b) => b.count - a.count);
-  }, [filteredListings, muniData]);
+    // Use server-computed price stats (from actual sub-listing data, not listing averages)
+    const priceMap = Object.fromEntries((muniData?.house_type_stats || []).map(r => [r.house_type, r]));
+    return Object.entries(groups).map(([ht, g]) => {
+      const ps = priceMap[ht] || {};
+      return {
+        house_type: ht, count: g.count,
+        avg_price: ps.avg_price ?? null, min_price: ps.min_price ?? null,
+        max_price: ps.max_price ?? null, avg_pm2: ps.avg_pm2 ?? null,
+        avg_size:  ps.avg_size ?? (g.sizes.length ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length) : null),
+      };
+    }).sort((a,b) => b.count - a.count);
+  }, [filteredListings, muniData, fSelUnit, unitFilter]);
 
   // ── Municipality selector view ────────────────────────────────────────
   if (!municipality) {
@@ -641,7 +701,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
           <StatCard key="dev"   label="Developments"     value={fmtNum(_s.total_listings)} accent={T.text} />,
           <StatCard key="apts"  label="Total Units" value={fmtNum(_s.total_units)} />,
           <StatCard key="avg"   label="Avg Price"        value={fmt(_s.avg_price)} />,
-          <StatCard key="m2"    label="Avg €/m²"         value={_s.avg_price_m2 != null ? `€${Math.round(_s.avg_price_m2).toLocaleString("en")}` : "—"} accent={T.navyMid} />,
+          <StatCard key="m2"    label="Avg €/m²"         value={_s.avg_price_m2 != null ? `€${Math.round(_s.avg_price_m2).toLocaleString("en-US")}` : "—"} accent={T.navyMid} />,
           <StatCard key="range" label="Price Range"      value={`${fmt(_s.price_range?.[0])} – ${fmt(_s.price_range?.[1])}`} accent={T.textSub} />,
         ].filter(Boolean)))(filteredStats || stats)}
       </div>
@@ -722,6 +782,8 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                 active={l.listing_id === activePin}
                 onSelect={() => onSelectListing(l.listing_id, l.property_name, municipality)}
                 onHover={id => setActivePin(id)}
+                selUnit={fSelUnit}
+                selHouseType={fSelHouseType}
               />
             ))}
           </div>
@@ -795,7 +857,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredUnitStats.map((row,i)=>{
+                    {filteredUnitStats.filter(row => fSelUnit.length === 0 || fSelUnit.includes(row.unit_type)).map((row,i)=>{
                       const uc = UNIT_COLORS[row.unit_type]||COLORS[i%COLORS.length];
                       return (
                         <tr key={row.unit_type} style={{ borderBottom:`1px solid ${T.border}`, background: i%2===0?T.bgStripe:"#fff" }}>
@@ -805,10 +867,10 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                           </td>
                           <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
                           <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size!=null?Math.round(row.avg_size):"—"}</td>
-                          <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
-                          <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
-                          <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price!=null?`€${Math.round(row.max_price).toLocaleString()}`:"—"}</td>
-                          <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2).toLocaleString("en")}`:"—"}</td>
+                          <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString("en-US")}`:"—"}</td>
+                          <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString("en-US")}`:"—"}</td>
+                          <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price!=null?`€${Math.round(row.max_price).toLocaleString("en-US")}`:"—"}</td>
+                          <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2).toLocaleString("en-US")}`:"—"}</td>
                         </tr>
                       );
                     })}
@@ -831,7 +893,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredHouseStats.map((row,i)=>(
+                    {filteredHouseStats.filter(row => fSelHouseType.length === 0 || fSelHouseType.includes(row.house_type)).map((row,i)=>(
                       <tr key={row.house_type} style={{ borderBottom:`1px solid ${T.border}`, background:i%2===0?T.bgStripe:"#fff" }}>
                         <td style={{ padding:"7px 8px", whiteSpace:"nowrap" }}>
                           <span style={{ background:"rgba(100,100,140,0.10)", color:"#6B7A9F",
@@ -841,10 +903,10 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                         </td>
                         <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
                         <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size!=null?Math.round(row.avg_size):"—"}</td>
-                        <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
-                        <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
-                        <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price!=null?`€${Math.round(row.max_price).toLocaleString()}`:"—"}</td>
-                        <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2).toLocaleString("en")}`:"—"}</td>
+                        <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString("en-US")}`:"—"}</td>
+                        <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString("en-US")}`:"—"}</td>
+                        <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price!=null?`€${Math.round(row.max_price).toLocaleString("en-US")}`:"—"}</td>
+                        <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2).toLocaleString("en-US")}`:"—"}</td>
                       </tr>
                     ))}
                   </tbody>

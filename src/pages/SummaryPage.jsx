@@ -139,44 +139,42 @@ function Delta({ cur, prev, field, format, prevPeriod }) {
   );
 }
 
-// ── Price by Unit Type — two separate charts ─────────────────────────────
+// ── Unit Type Summary table ───────────────────────────────────────────────
 function PriceByUnitTypeChart({ data, animKey }) {
-  const safe = (data||[]).map(d=>({ ...d, avg_price_m2: Number(d.avg_price_m2)||0 }));
-  const maxM2    = safe.length ? Math.max(...safe.map(d=>d.avg_price_m2||0)) : 1;
-  const maxPrice = safe.length ? Math.max(...safe.map(d=>d.avg_price||0)) : 1;
+  const rows = data || [];
+  if (rows.length === 0) return null;
   return (
-    <>
-      <ChartCard title="€/m² by Unit Type" animKey={animKey}>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={safe} barSize={30}>
-            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-            <XAxis dataKey="unit_type" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={v=>`€${Math.round(v).toLocaleString()}`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}
-              domain={[0, Math.ceil(maxM2 * 1.15)]} />
-            <Tooltip formatter={v=>[`€${Math.round(Number(v)).toLocaleString()}/m²`, "Avg €/m²"]}
-              contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
-            <Bar dataKey="avg_price_m2" name="Avg €/m²" radius={[5,5,0,0]} isAnimationActive={false}>
-              {safe.map((_,i)=><Cell key={i} fill={M2_COLOR}/>)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </ChartCard>
-      <ChartCard title="Price by Unit Type" animKey={animKey}>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={safe} barSize={30}>
-            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-            <XAxis dataKey="unit_type" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={v=>`€${Math.round(v/1000).toLocaleString()}K`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}
-              domain={[0, Math.ceil(maxPrice * 1.15)]} />
-            <Tooltip formatter={v=>[fmtFull(v), "Avg Price"]}
-              contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
-            <Bar dataKey="avg_price" name="Avg Price" radius={[5,5,0,0]} isAnimationActive={false}>
-              {safe.map((e,i)=><Cell key={i} fill={UNIT_COLORS[e.unit_type]||COLORS[i]}/>)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </ChartCard>
-    </>
+    <ChartCard title="Unit Type Summary" span={2} animKey={animKey}>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <thead>
+            <tr style={{ borderBottom: `2px solid ${T.border}`, background: T.bgStripe }}>
+              {["Type","Units","Avg m²","Min","Avg","Max","€/m²"].map(h => (
+                <th key={h} style={{ padding: "7px 8px", textAlign: h === "Type" ? "left" : "right",
+                  color: T.textMuted, fontSize: 10, textTransform: "uppercase",
+                  letterSpacing: "0.07em", fontWeight: 600, background: T.bgStripe }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={row.unit_type} style={{ borderBottom: `1px solid ${T.border}`, background: i % 2 === 0 ? T.bgStripe : "#fff" }}>
+                <td style={{ padding: "7px 8px" }}>
+                  <span style={{ background: UNIT_COLORS[row.unit_type] || "#8A96B4", color: "#fff",
+                    fontWeight: 700, fontSize: 11, padding: "2px 7px", borderRadius: 4 }}>{row.unit_type}</span>
+                </td>
+                <td style={{ padding: "7px 8px", textAlign: "right", color: T.text, fontWeight: 600 }}>{fmtNum(row.count)}</td>
+                <td style={{ padding: "7px 8px", textAlign: "right", color: T.textSub, fontSize: 11 }}>{row.avg_size != null ? Math.round(row.avg_size) : "—"}</td>
+                <td style={{ padding: "7px 8px", textAlign: "right", color: T.green, fontSize: 11 }}>{row.min_price ? fmt(row.min_price) : "—"}</td>
+                <td style={{ padding: "7px 8px", textAlign: "right", color: T.navy, fontWeight: 700 }}>{row.avg_price ? fmt(row.avg_price) : "—"}</td>
+                <td style={{ padding: "7px 8px", textAlign: "right", color: T.red, fontSize: 11 }}>{row.max_price ? fmt(row.max_price) : "—"}</td>
+                <td style={{ padding: "7px 8px", textAlign: "right", color: T.navyMid, fontWeight: 600 }}>{row.avg_price_m2 ? `€${Math.round(row.avg_price_m2).toLocaleString("en-US")}` : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </ChartCard>
   );
 }
 
@@ -194,9 +192,9 @@ function PriceDistributionChart({ data, m2data, height=220, animKey }) {
           <BarChart data={safeM2} barSize={26}>
             <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
             <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={v=>Number(v).toLocaleString()} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
+            <YAxis tickFormatter={v=>Number(v).toLocaleString("en-US")} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
               domain={[0, Math.ceil(maxM2 * 1.15)]} />
-            <Tooltip formatter={v=>[`${Number(v).toLocaleString()} units`, "Units (by €/m²)"]}
+            <Tooltip formatter={v=>[`${Number(v).toLocaleString("en-US")} units`, "Units (by €/m²)"]}
               contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
             <Bar dataKey="count" name="Units (by €/m²)" radius={[4,4,0,0]} isAnimationActive={false}>
               {safeM2.map((_,i)=><Cell key={i} fill={M2_COLOR} fillOpacity={0.35 + (i / Math.max(safeM2.length-1,1)) * 0.65}/>)}
@@ -209,9 +207,9 @@ function PriceDistributionChart({ data, m2data, height=220, animKey }) {
           <BarChart data={safePrice} barSize={26}>
             <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
             <XAxis dataKey="bin" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={v=>Number(v).toLocaleString()} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
+            <YAxis tickFormatter={v=>Number(v).toLocaleString("en-US")} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
               domain={[0, Math.ceil(maxPrice * 1.15)]} />
-            <Tooltip formatter={v=>[`${Number(v).toLocaleString()} units`, "Units (by price)"]}
+            <Tooltip formatter={v=>[`${Number(v).toLocaleString("en-US")} units`, "Units (by price)"]}
               contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
             <Bar dataKey="count" name="Units (by price)" radius={[4,4,0,0]} isAnimationActive={false}>
               {safePrice.map((_,i)=><Cell key={i} fill={PRICE_COLOR} fillOpacity={0.35 + (i / Math.max(safePrice.length-1,1)) * 0.65}/>)}
@@ -250,7 +248,7 @@ function UnitByHouseTypeChart({ data, animKey }) {
           <XAxis dataKey="house_type" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
           <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }}
-            formatter={(v, name) => [`${Number(v).toLocaleString()} units`, name]} />
+            formatter={(v, name) => [`${Number(v).toLocaleString("en-US")} units`, name]} />
           <Legend wrapperStyle={{ fontSize:10, paddingTop:6 }} />
           {unitTypes.map((ut, i) => (
             <Bar key={ut} dataKey={ut} stackId="a" fill={utColors[i]}
@@ -293,7 +291,7 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
   const mapMarkers = selectedDots.filter(d => d.lat && d.lng && !(Math.abs(d.lat - 39.47) < 0.001 && Math.abs(d.lng + 0.38) < 0.001)).map(d => ({
     id: d.sub_listing_id, lat: d.lat, lng: d.lng,
     label: d.property_name,
-    sublabel: `${d.unit_type} · ${fmtFull(d.price)} · ${d.size}m²${d.price_per_m2 ? ` · €${Math.round(d.price_per_m2).toLocaleString("en")}/m²` : ""}`,
+    sublabel: `${d.unit_type} · ${fmtFull(d.price)} · ${d.size}m²${d.price_per_m2 ? ` · €${Math.round(d.price_per_m2).toLocaleString("en-US")}/m²` : ""}`,
     active: true,
     color: UNIT_COLORS[d.unit_type] || T.navy,
   }));
@@ -358,7 +356,7 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
                 <XAxis type="number" dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
                   domain={[0, 500]} ticks={Array.from({length:26}, (_,i)=>i*20)}
                   label={{ value:"Size (m²)", position:"insideBottom", fill:T.textSub, fontSize:10, dy:16 }}/>
-                <YAxis type="number" dataKey="price_per_m2" name="€/m²" tickFormatter={v=>`€${Math.round(v).toLocaleString()}`}
+                <YAxis type="number" dataKey="price_per_m2" name="€/m²" tickFormatter={v=>`€${Math.round(v).toLocaleString("en-US")}`}
                   tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}/>
                 <Tooltip cursor={{ strokeDasharray:"3 3" }}
                   content={({ active, payload }) => {
@@ -367,7 +365,7 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
                     return (
                       <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, padding:"9px 12px", fontSize:11, boxShadow:T.shadowMd }}>
                         <div style={{ fontWeight:700, color:UNIT_COLORS[d.unit_type]||T.navy }}>{d.unit_type} — {d.property_name}</div>
-                        <div>{d.price_per_m2 ? `€${Math.round(d.price_per_m2).toLocaleString()}/m²` : "—"} · {d.size}m²</div>
+                        <div>{d.price_per_m2 ? `€${Math.round(d.price_per_m2).toLocaleString("en-US")}/m²` : "—"} · {d.size}m²</div>
                         <div style={{ color:T.textMuted }}>{d.municipality}</div>
                         <div style={{ color:T.navyMid, marginTop:3 }}>Click to {selectedIds.has(d.sub_listing_id)?"deselect":"select"}</div>
                       </div>
@@ -396,7 +394,7 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
                 <XAxis type="number" dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
                   domain={[0, 500]} ticks={Array.from({length:26}, (_,i)=>i*20)}
                   label={{ value:"Size (m²)", position:"insideBottom", fill:T.textSub, fontSize:10, dy:16 }}/>
-                <YAxis type="number" dataKey="price" name="Price" tickFormatter={v=>`€${Math.round(v/1000).toLocaleString()}K`}
+                <YAxis type="number" dataKey="price" name="Price" tickFormatter={v=>`€${Math.round(v/1000).toLocaleString("en-US")}K`}
                   tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}/>
                 <Tooltip cursor={{ strokeDasharray:"3 3" }}
                   content={({ active, payload }) => {
@@ -438,7 +436,7 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
                         borderLeft:`3px solid ${UNIT_COLORS[d.unit_type]||T.navy}` }}>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontWeight:600, color:T.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.property_name}</div>
-                        <div style={{ color:T.textMuted }}>{d.unit_type} · {fmtFull(d.price)}{d.price_per_m2 ? ` · €${Math.round(d.price_per_m2).toLocaleString("en")}/m²` : ""} · {d.size}m² · {d.municipality}</div>
+                        <div style={{ color:T.textMuted }}>{d.unit_type} · {fmtFull(d.price)}{d.price_per_m2 ? ` · €${Math.round(d.price_per_m2).toLocaleString("en-US")}/m²` : ""} · {d.size}m² · {d.municipality}</div>
                       </div>
                       {onGoListing && (
                         <button
@@ -607,9 +605,9 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
             <StatCard label="New This Month" value={fmtNum(stats.new_this_month)} accent="#16a34a" />
           )}
           {[
-            { label:"Total Units", field:"total_units", fmt:v=>v.toLocaleString() },
+            { label:"Total Units", field:"total_units", fmt:v=>v.toLocaleString("en-US") },
             { label:"Avg Price",        field:"avg_price",   fmt:fmt },
-            { label:"Avg €/m²",         field:"avg_price_m2",fmt:v=>v != null ? `€${Math.round(v).toLocaleString("en")}` : "—" },
+            { label:"Avg €/m²",         field:"avg_price_m2",fmt:v=>v != null ? `€${Math.round(v).toLocaleString("en-US")}` : "—" },
             { label:"Avg Size",         field:"avg_size",    fmt:v=>v != null ? `${Math.round(Number(v))}m²` : "—" },
             { label:"Developments",     field:"total_developments", fmt:v=>v },
           ].map(({ label, field, fmt:f }) => (
@@ -652,8 +650,8 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                 <BarChart data={charts.dl||[]} barSize={22}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
                   <XAxis dataKey="delivery_quarter" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={v=>Number(v).toLocaleString()} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
-                  <Tooltip formatter={v=>[Number(v).toLocaleString(), "Units"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                  <YAxis tickFormatter={v=>Number(v).toLocaleString("en-US")} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={v=>[Number(v).toLocaleString("en-US"), "Units"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
                   <Bar dataKey="count" name="Units" fill={T.navyMid} radius={[4,4,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -665,9 +663,9 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                 <BarChart data={(charts.muni||[]).slice(0,15)} layout="vertical" barSize={14}
                   onClick={d=>d&&d.activePayload&&onDrilldown&&onDrilldown(d.activePayload[0].payload.municipality)}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
-                  <XAxis type="number" tickFormatter={v=>Number(v).toLocaleString()} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+                  <XAxis type="number" tickFormatter={v=>Number(v).toLocaleString("en-US")} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
                   <YAxis type="category" dataKey="municipality" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} width={120} />
-                  <Tooltip formatter={v=>[Number(v).toLocaleString(), "Units"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                  <Tooltip formatter={v=>[Number(v).toLocaleString("en-US"), "Units"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
                   <Bar dataKey="units" name="Units" radius={[0,5,5,0]} cursor="pointer">
                     {(charts.muni||[]).slice(0,15).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
                   </Bar>
@@ -680,9 +678,9 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                 <BarChart data={(charts.muniActivity?.new_listings||[]).slice(0,15)} layout="vertical" barSize={14}
                   onClick={d=>d&&d.activePayload&&onDrilldown&&onDrilldown(d.activePayload[0].payload.municipality)}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
-                  <XAxis type="number" allowDecimals={false} tickFormatter={v=>Number(v).toLocaleString()} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+                  <XAxis type="number" allowDecimals={false} tickFormatter={v=>Number(v).toLocaleString("en-US")} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
                   <YAxis type="category" dataKey="municipality" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} width={120} />
-                  <Tooltip formatter={v=>[Number(v).toLocaleString(), "New Listings"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                  <Tooltip formatter={v=>[Number(v).toLocaleString("en-US"), "New Listings"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
                   <Bar dataKey="listings" name="New Listings" radius={[0,5,5,0]} cursor="pointer">
                     {(charts.muniActivity?.new_listings||[]).slice(0,15).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
                   </Bar>
@@ -695,9 +693,9 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                 <BarChart data={(charts.muniActivity?.sold_out||[]).slice(0,15)} layout="vertical" barSize={14}
                   onClick={d=>d&&d.activePayload&&onDrilldown&&onDrilldown(d.activePayload[0].payload.municipality)}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
-                  <XAxis type="number" allowDecimals={false} tickFormatter={v=>Number(v).toLocaleString()} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+                  <XAxis type="number" allowDecimals={false} tickFormatter={v=>Number(v).toLocaleString("en-US")} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
                   <YAxis type="category" dataKey="municipality" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} width={120} />
-                  <Tooltip formatter={v=>[Number(v).toLocaleString(), "Sold Out"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                  <Tooltip formatter={v=>[Number(v).toLocaleString("en-US"), "Sold Out"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
                   <Bar dataKey="listings" name="Sold Out" radius={[0,5,5,0]} cursor="pointer">
                     {(charts.muniActivity?.sold_out||[]).slice(0,15).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
                   </Bar>
@@ -713,7 +711,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                   <XAxis type="number" dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}
                     domain={[0, 500]} ticks={Array.from({length:26}, (_,i)=>i*20)}
                     label={{ value:"Size (m²)", position:"insideBottom", fill:T.textSub, fontSize:11, dy:16 }} />
-                  <YAxis type="number" dataKey="price_per_m2" name="€/m²" tickFormatter={v=>`€${Math.round(v).toLocaleString()}`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
+                  <YAxis type="number" dataKey="price_per_m2" name="€/m²" tickFormatter={v=>`€${Math.round(v).toLocaleString("en-US")}`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
                   <Tooltip cursor={{ strokeDasharray:"3 3" }}
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null;
@@ -721,7 +719,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                       return (
                         <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:10, padding:"10px 14px", boxShadow:T.shadowMd, fontSize:12, pointerEvents:"none" }}>
                           <div style={{ fontWeight:700, color:UNIT_COLORS[d.unit_type]||T.navy, marginBottom:4 }}>{d.unit_type} — {d.property_name}</div>
-                          <div style={{ color:T.text }}>€/m²: <strong style={{ color:T.navy }}>{d.price_per_m2 ? `€${Math.round(d.price_per_m2).toLocaleString("en")}` : "—"}</strong></div>
+                          <div style={{ color:T.text }}>€/m²: <strong style={{ color:T.navy }}>{d.price_per_m2 ? `€${Math.round(d.price_per_m2).toLocaleString("en-US")}` : "—"}</strong></div>
                           <div style={{ color:T.text }}>Size: <strong>{d.size} m²</strong></div>
                           <div style={{ color:T.textMuted, marginTop:4, fontSize:11 }}>{d.municipality} · {d.floor||"—"}</div>
                           <div style={{ color:T.navyMid, fontSize:11, marginTop:3 }}>Click to open details ↗</div>
@@ -762,7 +760,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                   <XAxis type="number" dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}
                     domain={[0, 500]} ticks={Array.from({length:26}, (_,i)=>i*20)}
                     label={{ value:"Size (m²)", position:"insideBottom", fill:T.textSub, fontSize:11, dy:16 }} />
-                  <YAxis type="number" dataKey="price" name="Price" tickFormatter={v=>`€${Math.round(v/1000).toLocaleString()}K`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
+                  <YAxis type="number" dataKey="price" name="Price" tickFormatter={v=>`€${Math.round(v/1000).toLocaleString("en-US")}K`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
                   <Tooltip cursor={{ strokeDasharray:"3 3" }}
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null;
@@ -770,7 +768,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                       return (
                         <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:10, padding:"10px 14px", boxShadow:T.shadowMd, fontSize:12, pointerEvents:"none" }}>
                           <div style={{ fontWeight:700, color:UNIT_COLORS[d.unit_type]||T.navy, marginBottom:4 }}>{d.unit_type} — {d.property_name}</div>
-                          <div style={{ color:T.text }}>Price: <strong style={{ color:T.navy }}>{fmtFull(d.price)}</strong>{d.price_per_m2 ? <span style={{ color:T.textSub, fontSize:11 }}> · €{Math.round(d.price_per_m2).toLocaleString("en")}/m²</span> : ""}</div>
+                          <div style={{ color:T.text }}>Price: <strong style={{ color:T.navy }}>{fmtFull(d.price)}</strong>{d.price_per_m2 ? <span style={{ color:T.textSub, fontSize:11 }}> · €{Math.round(d.price_per_m2).toLocaleString("en-US")}/m²</span> : ""}</div>
                           <div style={{ color:T.text }}>Size: <strong>{d.size} m²</strong></div>
                           <div style={{ color:T.textMuted, marginTop:4, fontSize:11 }}>{d.municipality} · {d.floor||"—"}</div>
                           <div style={{ color:T.navyMid, fontSize:11, marginTop:3 }}>Click to open details ↗</div>
@@ -862,9 +860,9 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                   <LineChart data={trend.mkt||[]}>
                     <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
                     <XAxis dataKey="period" tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="price" tickFormatter={v=>`€${Math.round(v/1000).toLocaleString()}K`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="m2" orientation="right" tickFormatter={v=>`€${Number(v).toLocaleString()}`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <Tooltip formatter={(v,n)=>n==="Avg Price"?[fmtFull(v),n]:[`€${Number(v).toLocaleString()}/m²`,n]} contentStyle={{ background:"#fff", border:"1px solid #0B1239", borderRadius:8, fontSize:12 }} />
+                    <YAxis yAxisId="price" tickFormatter={v=>`€${Math.round(v/1000).toLocaleString("en-US")}K`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <YAxis yAxisId="m2" orientation="right" tickFormatter={v=>`€${Number(v).toLocaleString("en-US")}`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <Tooltip formatter={(v,n)=>n==="Avg Price"?[fmtFull(v),n]:[`€${Number(v).toLocaleString("en-US")}/m²`,n]} contentStyle={{ background:"#fff", border:"1px solid #0B1239", borderRadius:8, fontSize:12 }} />
                     <Legend wrapperStyle={{ fontSize:11, color:"#6B7A9F" }} />
                     <Line yAxisId="price" type="monotone" dataKey="avg_price" name="Avg Price" stroke={T.navy} strokeWidth={2.5} dot={{ r:5, fill:T.navy }} />
                     <Line yAxisId="m2" type="monotone" dataKey="avg_price_m2" name="Avg €/m²" stroke={M2_COLOR} strokeWidth={2.5} dot={{ r:5, fill:M2_COLOR }} strokeDasharray="5 3" />
@@ -898,7 +896,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                   <LineChart data={Object.values(utByPeriod)}>
                     <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
                     <XAxis dataKey="period" tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis tickFormatter={v=>`€${Math.round(v/1000).toLocaleString()}K`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={v=>`€${Math.round(v/1000).toLocaleString("en-US")}K`} tick={{ fill:"#6B7A9F", fontSize:11 }} axisLine={false} tickLine={false} />
                     <Tooltip formatter={(v)=>[fmtFull(v)]} contentStyle={{ background:"#fff", border:"1px solid #0B1239", borderRadius:8, fontSize:12 }} />
                     <Legend wrapperStyle={{ fontSize:11 }} />
                     {ut_lines.map(ut=>(
@@ -924,8 +922,8 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                     <tr key={i} style={{ borderBottom:"1px solid "+T.border, background: row.period===filters.latest_period?"rgba(235,101,44,0.09)":"transparent" }}>
                       <td style={{ padding:"7px 10px", textAlign:"right", color: row.period===filters.latest_period?"#eb652c":T.text, fontWeight: row.period===filters.latest_period?700:400 }}>{row.period}</td>
                       <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{fmt(row.avg_price)}</td>
-                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.avg_price_m2 != null ? `€${Math.round(row.avg_price_m2).toLocaleString("en")}` : "—"}</td>
-                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.total_units?.toLocaleString()}</td>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.avg_price_m2 != null ? `€${Math.round(row.avg_price_m2).toLocaleString("en-US")}` : "—"}</td>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.total_units?.toLocaleString("en-US")}</td>
                       <td style={{ padding:"7px 10px", textAlign:"right", color:"#0b1239" }}>{row.avg_size != null ? `${Math.round(Number(row.avg_size))}m²` : "—"}</td>
                     </tr>
                   ))}

@@ -120,7 +120,7 @@ function AVMSection({ apt, comparables, utColor }) {
                       <td style={{ padding:"8px 10px", textAlign:"right" }}>{a.size ? `${a.size}m²` : "—"}</td>
                       <td style={{ padding:"8px 10px", textAlign:"right", fontWeight:600,
                         color: checked && !isThis ? T.navyMid : T.textSub }}>
-                        {a.price_per_m2 ? `€${Math.round(a.price_per_m2).toLocaleString("en")}` : "—"}
+                        {a.price_per_m2 ? `€${Math.round(a.price_per_m2).toLocaleString("en-US")}` : "—"}
                       </td>
                       <td style={{ padding:"8px 10px", textAlign:"right", color: isThis?T.navy:T.text,
                         fontWeight: isThis?700:500 }}>{fmtFull(a.price)}</td>
@@ -158,7 +158,7 @@ function AVMSection({ apt, comparables, utColor }) {
                 </div>
                 <div style={{ color:"#8A96B4", fontSize:11, marginBottom:16 }}>
                   {selected.size} comparable{selected.size!==1?"s":""} ·
-                  median €{Math.round(median).toLocaleString("en")}/m² × {apt.size}m²
+                  median €{Math.round(median).toLocaleString("en-US")}/m² × {apt.size}m²
                 </div>
 
                 {/* vs listed price */}
@@ -188,7 +188,7 @@ function AVMSection({ apt, comparables, utColor }) {
                 {/* Breakdown */}
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
                   {[
-                    ["Median €/m²", `€${Math.round(median).toLocaleString("en")}`, T.navyMid],
+                    ["Median €/m²", `€${Math.round(median).toLocaleString("en-US")}`, T.navyMid],
                     ["Your size", `${apt.size} m²`, "#8A96B4"],
                     ["Listed at", fmtFull(listed), T.navy],
                     ["Estimate", fmtFull(estimate), "#0B1239"],
@@ -225,7 +225,7 @@ function AVMSection({ apt, comparables, utColor }) {
                     const isMedian = Math.abs(v-median) === Math.min(...buckets.map(x=>Math.abs(x-median)));
                     const h = Math.max(5, Math.round(((v-mn)/range)*30)+5);
                     return (
-                      <div key={i} title={`€${Math.round(v).toLocaleString("en")}/m²`}
+                      <div key={i} title={`€${Math.round(v).toLocaleString("en-US")}/m²`}
                         style={{ flex:1, height:h, borderRadius:"2px 2px 0 0",
                           background: isMedian ? T.navyMid : "#C5CBE9",
                           transition:"height 0.3s" }} />
@@ -235,9 +235,9 @@ function AVMSection({ apt, comparables, utColor }) {
               </div>
               <div style={{ display:"flex", justifyContent:"space-between",
                 color:T.textMuted, fontSize:9, marginTop:3 }}>
-                <span>€{Math.round(Math.min(...selComps.map(a=>a.price_per_m2))).toLocaleString("en")}</span>
-                <span style={{ color:T.navyMid, fontWeight:700 }}>med €{Math.round(median).toLocaleString("en")}</span>
-                <span>€{Math.round(Math.max(...selComps.map(a=>a.price_per_m2))).toLocaleString("en")}</span>
+                <span>€{Math.round(Math.min(...selComps.map(a=>a.price_per_m2))).toLocaleString("en-US")}</span>
+                <span style={{ color:T.navyMid, fontWeight:700 }}>med €{Math.round(median).toLocaleString("en-US")}</span>
+                <span>€{Math.round(Math.max(...selComps.map(a=>a.price_per_m2))).toLocaleString("en-US")}</span>
               </div>
             </div>
           )}
@@ -522,7 +522,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                   {fmtFull(apt.price)}
                 </div>
                 <div style={{ color:T.textSub, fontSize:13, marginTop:4, display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-                  {apt.price_per_m2 ? `€${Math.round(apt.price_per_m2).toLocaleString("en")}/m²` : ""}
+                  {apt.price_per_m2 ? `€${Math.round(apt.price_per_m2).toLocaleString("en-US")}/m²` : ""}
                   {priceStats && priceStats.diff !== 0 && (
                     <span style={{ fontWeight:600,
                       color: priceStats.diff > 0 ? T.red : T.green }}>
@@ -808,7 +808,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                           <div style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>{pt.period}</div>
                           <div style={{ color: i===aptTrend.length-1 ? T.navy : T.text,
                             fontWeight: i===aptTrend.length-1 ? 700 : 600, fontSize:14 }}>{fmtFull(pt.price)}</div>
-                          <div style={{ color:T.textSub, fontSize:10 }}>€{pt.price_per_m2 ? Math.round(pt.price_per_m2).toLocaleString("en") : "—"}/m²</div>
+                          <div style={{ color:T.textSub, fontSize:10 }}>€{pt.price_per_m2 ? Math.round(pt.price_per_m2).toLocaleString("en-US") : "—"}/m²</div>
                         </div>
                       ))}
                     </div>
@@ -855,8 +855,8 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                               <LineChart data={merged}>
                                 <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
                                 <XAxis {...xProps}/>
-                                <YAxis {...yProps} tickFormatter={v=>`€${Math.round(v).toLocaleString("en")}`}/>
-                                <Tooltip formatter={(v,name)=>[v!=null?`€${Math.round(v).toLocaleString("en")}/m²`:"—",name]} contentStyle={tooltipStyle}/>
+                                <YAxis {...yProps} tickFormatter={v=>`€${Math.round(v).toLocaleString("en-US")}`}/>
+                                <Tooltip formatter={(v,name)=>[v!=null?`€${Math.round(v).toLocaleString("en-US")}/m²`:"—",name]} contentStyle={tooltipStyle}/>
                                 <Legend wrapperStyle={{ fontSize:11 }}/>
                                 <Line type="monotone" dataKey="pm2" name="This unit"
                                   stroke={T.navyMid} strokeWidth={3} dot={{ r:5, fill:T.navyMid, stroke:"#fff", strokeWidth:2 }} connectNulls/>
@@ -973,7 +973,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                                     <DiffTag d={pDiff} isEur={false}/>
                                   </td>
                                   <td style={{ padding:"8px 10px", textAlign:"right", whiteSpace:"nowrap" }}>
-                                    <div style={{ color:T.textSub }}>{a.price_per_m2?`€${Math.round(a.price_per_m2).toLocaleString("en")}`:"—"}</div>
+                                    <div style={{ color:T.textSub }}>{a.price_per_m2?`€${Math.round(a.price_per_m2).toLocaleString("en-US")}`:"—"}</div>
                                     <DiffTag d={mDiff} isEur={true}/>
                                   </td>
                                   <td style={{ padding:"8px 10px", textAlign:"right" }}>{a.bedrooms??"—"}</td>

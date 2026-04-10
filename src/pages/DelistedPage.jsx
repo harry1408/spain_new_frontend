@@ -10,12 +10,12 @@ function makeBins(values, numBins = 8, fmt1000 = true) {
   const vals = values.filter(v => v != null && isFinite(v));
   if (!vals.length) return [];
   const mn = Math.min(...vals), mx = Math.max(...vals);
-  if (mn === mx) return [{ bin: fmt1000 ? `€${Math.round(mn/1000)}K` : `€${Math.round(mn).toLocaleString()}`, count: vals.length }];
+  if (mn === mx) return [{ bin: fmt1000 ? `€${Math.round(mn/1000)}K` : `€${Math.round(mn).toLocaleString("en-US")}`, count: vals.length }];
   const step = (mx - mn) / numBins;
   return Array.from({ length: numBins }, (_, i) => {
     const lo = mn + i * step, hi = mn + (i + 1) * step;
     const count = vals.filter(v => v >= lo && (i === numBins - 1 ? v <= hi : v < hi)).length;
-    const label = fmt1000 ? `€${Math.round(lo/1000)}K` : `€${Math.round(lo).toLocaleString()}`;
+    const label = fmt1000 ? `€${Math.round(lo/1000)}K` : `€${Math.round(lo).toLocaleString("en-US")}`;
     return { bin: label, count };
   }).filter(b => b.count > 0);
 }
@@ -207,7 +207,7 @@ function DelistedCard({ l, onClick }) {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"7px 10px" }}>
         {[["Apts", l.units, T.text],
           ["Last Avg", fmt(l.avg_price), PRICE_COLOR],
-          ["€/m²", l.avg_price_m2 ? `€${Math.round(l.avg_price_m2).toLocaleString("en")}` : "—", M2_COLOR],
+          ["€/m²", l.avg_price_m2 ? `€${Math.round(l.avg_price_m2).toLocaleString("en-US")}` : "—", M2_COLOR],
           ["From", fmt(l.min_price), T.green],
           ["To", fmt(l.max_price), T.red],
           ["Avg Size", `${l.avg_size}m²`, T.textSub],
@@ -349,7 +349,7 @@ function DelistedApartments({ listingId, listingName, onBack, backLabel = "All S
       <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
         <StatCard label="Total Units" value={fmtNum(apts.length)} />
         <StatCard label="Avg Price (last)" value={fmt(apts.length ? apts.reduce((s,a)=>s+a.price,0)/apts.length : 0)} />
-        <StatCard label="Avg €/m² (last)"  value={`€${Math.round(apts.length ? apts.reduce((s,a)=>s+(a.price_per_m2||0),0)/apts.length : 0).toLocaleString("en")}`} accent={M2_COLOR} />
+        <StatCard label="Avg €/m² (last)"  value={`€${Math.round(apts.length ? apts.reduce((s,a)=>s+(a.price_per_m2||0),0)/apts.length : 0).toLocaleString("en-US")}`} accent={M2_COLOR} />
         <StatCard label="Avg Size"          value={`${Math.round(apts.length ? apts.reduce((s,a)=>s+(a.size||0),0)/apts.length : 0)}m²`} accent={T.textSub} />
       </div>
 
@@ -562,7 +562,7 @@ function DelistedApartments({ listingId, listingName, onBack, backLabel = "All S
                     <td style={{ padding:"9px 12px", textAlign:"right" }}>{a.bathrooms ?? "—"}</td>
                     <td style={{ padding:"9px 12px", textAlign:"right", color:PRICE_COLOR, fontWeight:700 }}>{fmtFull(a.price)}</td>
                     <td style={{ padding:"9px 12px", textAlign:"right", color:M2_COLOR, fontWeight:600 }}>
-                      {a.price_per_m2 ? `€${Math.round(a.price_per_m2).toLocaleString("en")}` : "—"}
+                      {a.price_per_m2 ? `€${Math.round(a.price_per_m2).toLocaleString("en-US")}` : "—"}
                     </td>
                     <td style={{ padding:"9px 12px" }}>
                       <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
@@ -822,9 +822,9 @@ export default function DelistedPage({ onGoListing, onGoDrilldown, selectedId, f
       {summary.count > 0 && (
         <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
           <StatCard label="Sold Out Developments" value={fmtNum(summary.count)} accent="#6B2A2A" />
-          <StatCard label="Total Units"       value={(summary.units||0).toLocaleString()} />
+          <StatCard label="Total Units"       value={(summary.units||0).toLocaleString("en-US")} />
           <StatCard label="Avg Last Price"         value={fmt(summary.avg_price)} />
-          <StatCard label="Avg Last €/m²"          value={summary.avg_price_m2 != null ? `€${Math.round(summary.avg_price_m2).toLocaleString("en")}` : "—"} accent={M2_COLOR} />
+          <StatCard label="Avg Last €/m²"          value={summary.avg_price_m2 != null ? `€${Math.round(summary.avg_price_m2).toLocaleString("en-US")}` : "—"} accent={M2_COLOR} />
         </div>
       )}
 
@@ -890,7 +890,7 @@ export default function DelistedPage({ onGoListing, onGoDrilldown, selectedId, f
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                   <span style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Price Range</span>
                   <span style={{ fontSize:10, fontWeight:700, color:PRICE_COLOR }}>
-                    {minPrice ? `€${Number(minPrice).toLocaleString()}` : "Any"} – {maxPrice ? `€${Number(maxPrice).toLocaleString()}` : "Any"}
+                    {minPrice ? `€${Number(minPrice).toLocaleString("en-US")}` : "Any"} – {maxPrice ? `€${Number(maxPrice).toLocaleString("en-US")}` : "Any"}
                   </span>
                 </div>
                 <div style={{ display:"flex", gap:3, flexWrap:"wrap" }}>
@@ -924,7 +924,7 @@ export default function DelistedPage({ onGoListing, onGoDrilldown, selectedId, f
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                   <span style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>€/m²</span>
                   <span style={{ fontSize:10, fontWeight:700, color:M2_COLOR }}>
-                    {minM2 ? `€${Number(minM2).toLocaleString()}` : "Any"} – {maxM2 ? `€${Number(maxM2).toLocaleString()}` : "Any"}
+                    {minM2 ? `€${Number(minM2).toLocaleString("en-US")}` : "Any"} – {maxM2 ? `€${Number(maxM2).toLocaleString("en-US")}` : "Any"}
                   </span>
                 </div>
                 <div style={{ display:"flex", gap:3, flexWrap:"wrap" }}>
@@ -1072,10 +1072,10 @@ export default function DelistedPage({ onGoListing, onGoDrilldown, selectedId, f
                               </td>
                               <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
                               <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size ?? "—"}</td>
-                              <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
-                              <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
-                              <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price!=null?`€${Math.round(row.max_price).toLocaleString()}`:"—"}</td>
-                              <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2).toLocaleString("en")}`:"—"}</td>
+                              <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString("en-US")}`:"—"}</td>
+                              <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString("en-US")}`:"—"}</td>
+                              <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price!=null?`€${Math.round(row.max_price).toLocaleString("en-US")}`:"—"}</td>
+                              <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2).toLocaleString("en-US")}`:"—"}</td>
                             </tr>
                           );
                         })}
@@ -1107,10 +1107,10 @@ export default function DelistedPage({ onGoListing, onGoDrilldown, selectedId, f
                             </td>
                             <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
                             <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size ?? "—"}</td>
-                            <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
-                            <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
-                            <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price!=null?`€${Math.round(row.max_price).toLocaleString()}`:"—"}</td>
-                            <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2).toLocaleString("en")}`:"—"}</td>
+                            <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString("en-US")}`:"—"}</td>
+                            <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString("en-US")}`:"—"}</td>
+                            <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price!=null?`€${Math.round(row.max_price).toLocaleString("en-US")}`:"—"}</td>
+                            <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2!=null?`€${Math.round(row.avg_pm2).toLocaleString("en-US")}`:"—"}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1162,8 +1162,8 @@ export default function DelistedPage({ onGoListing, onGoDrilldown, selectedId, f
                       <BarChart data={deliveryTimeline} barSize={20}>
                         <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
                         <XAxis dataKey="quarter" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} tickFormatter={v=>v.toLocaleString()} />
-                        <Tooltip formatter={v=>[`${v.toLocaleString()} units`, "Units"]}
+                        <YAxis tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} tickFormatter={v=>v.toLocaleString("en-US")} />
+                        <Tooltip formatter={v=>[`${v.toLocaleString("en-US")} units`, "Units"]}
                           contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
                         <Bar dataKey="count" radius={[4,4,0,0]} isAnimationActive={false}>
                           {deliveryTimeline.map((_,i) => <Cell key={i} fill={T.navy} fillOpacity={0.4+(i/Math.max(deliveryTimeline.length-1,1))*0.6} />)}
@@ -1181,9 +1181,9 @@ export default function DelistedPage({ onGoListing, onGoDrilldown, selectedId, f
                       <BarChart data={topMunis} layout="vertical" barSize={12}
                         onClick={d => d?.activePayload?.[0] && onGoDrilldown && onGoDrilldown(d.activePayload[0].payload.municipality)}>
                         <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
-                        <XAxis type="number" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} tickFormatter={v=>v.toLocaleString()} />
+                        <XAxis type="number" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} tickFormatter={v=>v.toLocaleString("en-US")} />
                         <YAxis type="category" dataKey="municipality" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} width={100} />
-                        <Tooltip formatter={(v,name) => [v.toLocaleString(), name === "units" ? "Units" : name]}
+                        <Tooltip formatter={(v,name) => [v.toLocaleString("en-US"), name === "units" ? "Units" : name]}
                           contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:11 }} />
                         <Bar dataKey="units" name="Units" radius={[0,4,4,0]} cursor="pointer" isAnimationActive={false}>
                           {topMunis.map((_,i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}

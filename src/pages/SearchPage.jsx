@@ -125,7 +125,7 @@ function MultiSelect({ label, options, value, onChange, placeholder = "All", max
 
 
 // ── Result card ────────────────────────────────────────────────────────────
-function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect, mapType }) {
+function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect, mapType, selUnit, selHouseType }) {
   const [hov, setHov] = useState(false);
   const isHighlighted = active || hov;
   const unitTypes  = (l.unit_types  || "").split(", ").filter(Boolean);
@@ -181,37 +181,63 @@ function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect, ma
       </div>
 
       {/* Stats row */}
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Units</div>
-          {(() => {
-            const utCounts   = l.unit_type_counts   || {};
-            const prevCounts = l.prev_unit_type_counts || {};
-            const activeCount = Object.values(utCounts).reduce((s, v) => s + v, 0) || l.units || 0;
-            const soldCount   = Object.values(prevCounts).reduce((s, v) => s + v, 0);
-            const displayTotal = activeCount + soldCount;
-            return (<>
-              <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{fmtNum(displayTotal)}</div>
-              <div style={{ fontSize:9, color:"#16a34a", fontWeight:700 }}>{activeCount} active</div>
-              {soldCount > 0 && <div style={{ fontSize:9, color:"#6B2A2A", fontWeight:700 }}>{soldCount} sold</div>}
-            </>);
-          })()}
-        </div>
-        <div>
-          <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Avg Price</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: PRICE_COLOR }}>{fmt(l.avg_price)}</div>
-        </div>
-        <div>
-          <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>€/m²</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: M2_COLOR }}>€{Math.round(l.avg_price_m2).toLocaleString()}</div>
-        </div>
-        <div>
-          <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Range</div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: T.textSub }}>
-            {fmt(l.min_price)} – {fmt(l.max_price)}
+      {(() => {
+        const utCounts     = l.unit_type_counts      || {};
+        const prevUtCounts = l.prev_unit_type_counts || {};
+        const htCounts     = l.house_type_counts     || {};
+        const prevHtCounts = l.prev_house_type_counts|| {};
+        const utStats      = l.unit_type_stats       || {};
+        let totalCount, activeOnly, ps = null;
+        if (selUnit && selUnit.length > 0) {
+          activeOnly  = selUnit.reduce((s, ut) => s + (utCounts[ut]     || 0), 0);
+          const sold  = selUnit.reduce((s, ut) => s + (prevUtCounts[ut] || 0), 0);
+          totalCount  = activeOnly + sold;
+          const sel = selUnit.map(ut => utStats[ut]).filter(Boolean);
+          if (sel.length === 1) {
+            ps = sel[0];
+          } else if (sel.length > 1) {
+            ps = {
+              avg_price: Math.round(sel.reduce((s,r)=>s+(r.avg_price||0),0)/sel.length),
+              min_price: Math.min(...sel.map(r=>r.min_price||Infinity)),
+              max_price: Math.max(...sel.map(r=>r.max_price||0)),
+              avg_pm2:   Math.round(sel.reduce((s,r)=>s+(r.avg_pm2||0),0)/sel.length),
+            };
+          }
+        } else if (selHouseType && selHouseType.length > 0) {
+          activeOnly = selHouseType.reduce((s, ht) => s + (htCounts[ht]     || 0), 0);
+          const sold = selHouseType.reduce((s, ht) => s + (prevHtCounts[ht] || 0), 0);
+          totalCount = activeOnly + sold;
+        } else {
+          activeOnly = Object.values(utCounts).reduce((s, v) => s + v, 0);
+          totalCount = l.units || activeOnly;
+          activeOnly = activeOnly || totalCount;
+        }
+        const avgPrice = ps?.avg_price ?? l.avg_price;
+        const minPrice = ps?.min_price ?? l.min_price;
+        const maxPrice = ps?.max_price ?? l.max_price;
+        const avgPm2   = ps?.avg_pm2   ?? l.avg_price_m2;
+        return (
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Units</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{fmtNum(totalCount)}</div>
+              <div style={{ fontSize:9, color:"#16a34a", fontWeight:700 }}>{activeOnly} active</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Avg Price</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: PRICE_COLOR }}>{fmt(avgPrice)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>€/m²</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: M2_COLOR }}>€{Math.round(avgPm2||0).toLocaleString("en-US")}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Range</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: T.textSub }}>{fmt(minPrice)} – {fmt(maxPrice)}</div>
+            </div>
           </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Unit type + house type tags */}
       {(unitTypes.length > 0 || houseTypes.length > 0) && (
@@ -322,7 +348,7 @@ function DelistedSearchCard({ l, onSelect, onHover }) {
         </div>
         <div>
           <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>€/m²</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: M2_COLOR }}>€{Math.round(l.avg_price_m2 || 0).toLocaleString()}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: M2_COLOR }}>€{Math.round(l.avg_price_m2 || 0).toLocaleString("en-US")}</div>
         </div>
         <div>
           <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Range</div>
@@ -618,13 +644,17 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   const UT_ORDER = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
 
   const utStats = useMemo(() => {
-    // Count active units per unit type from frontend-filtered chartData
     const counts = {};
     chartData.forEach(l => {
-      const utCounts = l.unit_type_counts || {};
-      const hasCountData = Object.keys(utCounts).length > 0;
+      const utCounts     = l.unit_type_counts      || {};
+      const prevUtCounts = l.prev_unit_type_counts  || {};
+      const hasCountData = Object.keys(utCounts).length > 0 || Object.keys(prevUtCounts).length > 0;
       if (hasCountData) {
-        Object.entries(utCounts).forEach(([ut, c]) => { if (c > 0) counts[ut] = (counts[ut] || 0) + c; });
+        const allUts = new Set([...Object.keys(utCounts), ...Object.keys(prevUtCounts)]);
+        allUts.forEach(ut => {
+          const total = (utCounts[ut] || 0) + (prevUtCounts[ut] || 0);
+          if (total > 0) counts[ut] = (counts[ut] || 0) + total;
+        });
       } else {
         const types = (l.unit_types || "").split(", ").filter(Boolean);
         const isNonApartment = (l.house_types || "").split(", ").filter(Boolean).every(ht => ht !== "Apartments");
@@ -633,45 +663,50 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
         types.forEach(ut => { counts[ut] = (counts[ut] || 0) + share; });
       }
     });
-    // Use server-computed stats for accurate per-unit-type prices (from actual sub-listing data)
     const priceMap = Object.fromEntries((serverUtStats||[]).map(r => [r.unit_type, r]));
-    const rows = Object.keys(counts).map(ut => {
+    const allRows = Object.keys(counts).map(ut => {
       const ps = priceMap[ut] || {};
-      return {
-        unit_type: ut, count: counts[ut],
+      return { unit_type: ut, count: counts[ut],
         avg_price: ps.avg_price ?? null, min_price: ps.min_price ?? null,
-        max_price: ps.max_price ?? null, avg_pm2: ps.avg_pm2 ?? null, avg_size: ps.avg_size ?? null,
-      };
+        max_price: ps.max_price ?? null, avg_pm2: ps.avg_pm2 ?? null, avg_size: ps.avg_size ?? null };
     });
-    rows.sort((a,b) => UT_ORDER.indexOf(a.unit_type) - UT_ORDER.indexOf(b.unit_type));
+    allRows.sort((a,b) => UT_ORDER.indexOf(a.unit_type) - UT_ORDER.indexOf(b.unit_type));
+    const rows = selUnit.length > 0 ? allRows.filter(r => selUnit.includes(r.unit_type)) : allRows;
     return rows.length > 0 ? rows : (chartData.length === 0 && !searched ? serverUtStats : []);
-  }, [chartData, serverUtStats, searched]);
+  }, [chartData, serverUtStats, searched, selUnit]);
 
   const htStats = useMemo(() => {
-    // Count active units per house type from frontend-filtered chartData
     const counts = {};
+    const activeUnitFilter = selUnit.length > 0;
     chartData.forEach(l => {
-      const htCounts = l.house_type_counts || {};
-      const hasCountData = Object.keys(htCounts).length > 0;
-      if (hasCountData) {
-        Object.entries(htCounts).forEach(([ht, c]) => { if (c > 0) counts[ht] = (counts[ht] || 0) + c; });
-      } else {
-        const houseTypes = (l.house_types || "").split(", ").filter(Boolean);
-        houseTypes.forEach(ht => { counts[ht] = (counts[ht] || 0) + 1; });
-      }
+      const htCounts     = l.house_type_counts      || {};
+      const prevHtCounts = l.prev_house_type_counts  || {};
+      const utCounts     = l.unit_type_counts        || {};
+      const prevUtCounts = l.prev_unit_type_counts   || {};
+      const houseTypes   = (l.house_types || "").split(", ").filter(Boolean);
+      const allHt = [...new Set([
+        ...Object.keys(htCounts).filter(h => htCounts[h] > 0),
+        ...Object.keys(prevHtCounts).filter(h => prevHtCounts[h] > 0),
+        ...houseTypes,
+      ])];
+      allHt.forEach(ht => {
+        const count = activeUnitFilter
+          ? selUnit.reduce((s, ut) => s + (utCounts[ut] || 0) + (prevUtCounts[ut] || 0), 0)
+          : (htCounts[ht] || 0) + (prevHtCounts[ht] || 0) || (houseTypes.includes(ht) ? 1 : 0);
+        if (!count) return;
+        counts[ht] = (counts[ht] || 0) + count;
+      });
     });
-    // Use server-computed stats for accurate per-house-type prices (from actual sub-listing data)
     const priceMap = Object.fromEntries((serverHtStats||[]).map(r => [r.house_type, r]));
-    const rows = Object.keys(counts).map(ht => {
+    const allRows = Object.keys(counts).map(ht => {
       const ps = priceMap[ht] || {};
-      return {
-        house_type: ht, count: counts[ht],
+      return { house_type: ht, count: counts[ht],
         avg_price: ps.avg_price ?? null, min_price: ps.min_price ?? null,
-        max_price: ps.max_price ?? null, avg_pm2: ps.avg_pm2 ?? null, avg_size: ps.avg_size ?? null,
-      };
+        max_price: ps.max_price ?? null, avg_pm2: ps.avg_pm2 ?? null, avg_size: ps.avg_size ?? null };
     }).sort((a,b) => a.house_type.localeCompare(b.house_type));
+    const rows = selHouseType.length > 0 ? allRows.filter(r => selHouseType.includes(r.house_type)) : allRows;
     return rows.length > 0 ? rows : (chartData.length === 0 && !searched ? serverHtStats : []);
-  }, [chartData, serverHtStats, searched]);
+  }, [chartData, serverHtStats, searched, selUnit, selHouseType]);
 
   const priceDist = useMemo(() => {
     const bins = [
@@ -1153,7 +1188,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <span style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Price Range</span>
                 <span style={{ fontSize:10, fontWeight:700, color:PRICE_COLOR }}>
-                  {minPrice ? `€${Number(minPrice).toLocaleString()}` : "Any"} – {maxPrice ? `€${Number(maxPrice).toLocaleString()}` : "Any"}
+                  {minPrice ? `€${Number(minPrice).toLocaleString("en-US")}` : "Any"} – {maxPrice ? `€${Number(maxPrice).toLocaleString("en-US")}` : "Any"}
                 </span>
               </div>
               {/* Preset buckets */}
@@ -1193,7 +1228,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <span style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>€/m²</span>
                 <span style={{ fontSize:10, fontWeight:700, color:M2_COLOR }}>
-                  {minM2 ? `€${Number(minM2).toLocaleString()}` : "Any"} – {maxM2 ? `€${Number(maxM2).toLocaleString()}` : "Any"}
+                  {minM2 ? `€${Number(minM2).toLocaleString("en-US")}` : "Any"} – {maxM2 ? `€${Number(maxM2).toLocaleString("en-US")}` : "Any"}
                 </span>
               </div>
               <div style={{ display:"flex", gap:3, flexWrap:"wrap" }}>
@@ -1355,6 +1390,8 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                         })}
                         onSelect={l => onSelectListing(l.listing_id, l.property_name, l.municipality)}
                         onHover={id => { setActivePin(id); if (id) lastHoveredPin.current = id; }}
+                        selUnit={selUnit}
+                        selHouseType={selHouseType}
                       />
                     ))}
 
@@ -1474,7 +1511,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price ? fmt(row.min_price) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price ? fmt(row.avg_price) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price ? fmt(row.max_price) : "—"}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2 ? `€${Math.round(row.avg_pm2).toLocaleString("en")}` : "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2 ? `€${Math.round(row.avg_pm2).toLocaleString("en-US")}` : "—"}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -1509,7 +1546,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price ? fmt(row.min_price) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price ? fmt(row.avg_price) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price ? fmt(row.max_price) : "—"}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2 ? `€${Math.round(row.avg_pm2).toLocaleString("en")}` : "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2 ? `€${Math.round(row.avg_pm2).toLocaleString("en-US")}` : "—"}</td>
                               </tr>
                             ))}
                           </tbody>

@@ -84,9 +84,9 @@ export const ESG_COLORS = {
   G: "#2A0B0B",
 };
 
-export const fmt     = v => v == null ? "—" : `€${Number(v).toLocaleString("en",{maximumFractionDigits:0})}`;
-export const fmtFull = v => v == null ? "—" : `€${Number(v).toLocaleString("en",{maximumFractionDigits:0})}`;
-export const fmtNum  = v => v == null ? "—" : Number(v).toLocaleString("en",{maximumFractionDigits:0});
+export const fmt     = v => v == null ? "—" : `€${Number(v).toLocaleString("en-US",{maximumFractionDigits:0})}`;
+export const fmtFull = v => v == null ? "—" : `€${Number(v).toLocaleString("en-US",{maximumFractionDigits:0})}`;
+export const fmtNum  = v => v == null ? "—" : Number(v).toLocaleString("en-US",{maximumFractionDigits:0});
 
 import React from "react";
 
@@ -103,7 +103,7 @@ if (typeof document !== "undefined" && !document.getElementById("_chart-anim-sty
 
 export function StatCard({ label, value, sub, accent, children }) {
   const displayValue = typeof value === "number"
-    ? Number(value).toLocaleString("en", { maximumFractionDigits: 0 })
+    ? Number(value).toLocaleString("en-US", { maximumFractionDigits: 0 })
     : value;
   return (
     <div style={{

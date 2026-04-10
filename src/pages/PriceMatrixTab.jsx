@@ -43,7 +43,7 @@ function Pm2Cell({ value, prevValue, isLatest }) {
   return (
     <td style={{ padding:"10px 14px", textAlign:"right", background: isLatest?"rgba(235,101,44,0.06)":"transparent" }}>
       <div style={{ color: isLatest?"#4a80b0":"#4a6070", fontWeight: isLatest?600:500, fontSize:12 }}>
-        €{Math.round(value).toLocaleString("en")}
+        €{Math.round(value).toLocaleString("en-US")}
       </div>
       {changed && <div style={{ fontSize:10, color: up?"#E74C3C":"#3DAA6E", marginTop:1 }}>{up?"▲":"▼"} €{Math.abs(value - prevValue).toFixed(1)}</div>}
     </td>
@@ -438,11 +438,11 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
                   const avgM   = ppm2s.length  ? Math.round(ppm2s.reduce((a,b)=>a+b,0)/ppm2s.length)  : null;
                   const isL    = period === latestPeriod;
                   if (showMetric==="price") return <td key={period} style={{ padding:"9px 14px", textAlign:"right", color:isL?T.navy:T.textSub, fontWeight:600, borderLeft:`1px solid ${T.border}` }}>{fmtFull(avgP)}</td>;
-                  if (showMetric==="ppm2")  return <td key={period} style={{ padding:"9px 14px", textAlign:"right", color:isL?T.blue:T.textSub, fontWeight:600, borderLeft:`1px solid ${T.border}` }}>{avgM != null ? `€${avgM.toLocaleString("en")}` : "—"}</td>;
+                  if (showMetric==="ppm2")  return <td key={period} style={{ padding:"9px 14px", textAlign:"right", color:isL?T.blue:T.textSub, fontWeight:600, borderLeft:`1px solid ${T.border}` }}>{avgM != null ? `€${avgM.toLocaleString("en-US")}` : "—"}</td>;
                   return (
                     <React.Fragment key={period}>
                       <td style={{ padding:"9px 14px", textAlign:"right", color:isL?T.navy:T.textSub, fontWeight:600, borderLeft:`1px solid ${T.border}` }}>{fmtFull(avgP)}</td>
-                      <td style={{ padding:"9px 14px", textAlign:"right", color:isL?T.blue:T.textSub, fontWeight:600 }}>{avgM != null ? `€${avgM.toLocaleString("en")}` : "—"}</td>
+                      <td style={{ padding:"9px 14px", textAlign:"right", color:isL?T.blue:T.textSub, fontWeight:600 }}>{avgM != null ? `€${avgM.toLocaleString("en-US")}` : "—"}</td>
                     </React.Fragment>
                   );
                 })}

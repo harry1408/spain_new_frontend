@@ -28,7 +28,7 @@ function PriceByUnitChart({ data }) {
   const [showM2, setShowM2] = usePriceToggle();
   const dataKey = showM2 ? "avg_price_m2" : "avg_price";
   const yFmt = showM2 ? v=>`€${Number(v/1000).toFixed(1)}K` : v=>`€${Number(v/1000).toFixed(0)}K`;
-  const ttFmt = showM2 ? v=>`€${Math.round(Number(v)).toLocaleString()}/m²` : v=>fmtFull(v);
+  const ttFmt = showM2 ? v=>`€${Math.round(Number(v)).toLocaleString("en-US")}/m²` : v=>fmtFull(v);
   const safe = (data||[]).map(d=>({ ...d, avg_price_m2: Number(d.avg_price_m2)||0 }));
   const maxVal = safe.length ? Math.max(...safe.map(d=>d[dataKey]||0)) : 1;
   return (
@@ -97,7 +97,7 @@ function ComparePanel({ listing, current, onGoListing, onClose }) {
             {[
               ["Avg Price",  fmt(listing.avg_price),   pd],
               ["Min Price",  fmt(listing.min_price),   null],
-              ["€/m²",       listing.avg_price_m2 ? `€${Math.round(listing.avg_price_m2).toLocaleString("en")}` : "—", md],
+              ["€/m²",       listing.avg_price_m2 ? `€${Math.round(listing.avg_price_m2).toLocaleString("en-US")}` : "—", md],
               ["Apartments", listing.units,            null],
               ["Avg Size",   `${listing.avg_size}m²`,  null],
               ["Unit Types", listing.unit_types||"—",  null],
@@ -202,7 +202,7 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
                 </div>
                 <div>
                   <div style={{ fontSize:9, color:T.textMuted, fontWeight:700, textTransform:"uppercase" }}>€/m²</div>
-                  <div style={{ fontSize:15, fontWeight:700, color:M2_COLOR }}>€{Math.round(l.avg_price_m2||0).toLocaleString()}</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:M2_COLOR }}>€{Math.round(l.avg_price_m2||0).toLocaleString("en-US")}</div>
                 </div>
                 <div>
                   <div style={{ fontSize:9, color:T.textMuted, fontWeight:700, textTransform:"uppercase" }}>Range</div>

@@ -115,7 +115,7 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
             <div style={{ textAlign:"right" }}>
               <div style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>Latest Price</div>
               <div style={{ color:T.navy, fontWeight:800, fontSize:22 }}>{fmtFull(apt.price)}</div>
-              <div style={{ color:T.textSub, fontSize:11 }}>€{apt.price_per_m2 ? Math.round(apt.price_per_m2).toLocaleString("en") : "—"}/m²</div>
+              <div style={{ color:T.textSub, fontSize:11 }}>€{apt.price_per_m2 ? Math.round(apt.price_per_m2).toLocaleString("en-US") : "—"}/m²</div>
             </div>
             {priceStats && (
               <div style={{ textAlign:"right" }}>
@@ -182,7 +182,7 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
                           <div style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase" }}>{pt.period}</div>
                           <div style={{ color: i===aptTrend.length-1 ? T.navy : T.text,
                             fontWeight: i===aptTrend.length-1 ? 700 : 600, fontSize:14 }}>{fmtFull(pt.price)}</div>
-                          <div style={{ color:T.textSub, fontSize:10 }}>€{pt.price_per_m2 ? Math.round(pt.price_per_m2).toLocaleString("en") : "—"}/m²</div>
+                          <div style={{ color:T.textSub, fontSize:10 }}>€{pt.price_per_m2 ? Math.round(pt.price_per_m2).toLocaleString("en-US") : "—"}/m²</div>
                         </div>
                       ))}
                     </div>
@@ -293,7 +293,7 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
                                     <DiffTag d={pDiff} isEur={false}/>
                                   </td>
                                   <td style={{ padding:"8px 10px", textAlign:"right", whiteSpace:"nowrap" }}>
-                                    <div style={{ color:T.textSub }}>{a.price_per_m2?`€${Math.round(a.price_per_m2).toLocaleString("en")}`:"—"}</div>
+                                    <div style={{ color:T.textSub }}>{a.price_per_m2?`€${Math.round(a.price_per_m2).toLocaleString("en-US")}`:"—"}</div>
                                     <DiffTag d={mDiff} isEur={true}/>
                                   </td>
                                   <td style={{ padding:"8px 10px", textAlign:"right" }}>{a.bedrooms??"—"}</td>
