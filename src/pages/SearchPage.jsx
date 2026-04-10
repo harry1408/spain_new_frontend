@@ -675,7 +675,8 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
       const htCounts     = l.house_type_counts || {};
       const prevHtCounts = l.prev_house_type_counts || {};
       const houseTypes   = (l.house_types || "").split(", ").filter(Boolean);
-      houseTypes.forEach(ht => {
+      const allHt = [...new Set([...houseTypes, ...Object.keys(prevHtCounts)])];
+      allHt.forEach(ht => {
         const active = htCounts[ht] || 0;
         const sold   = prevHtCounts[ht] || 0;
         const count  = active + sold;

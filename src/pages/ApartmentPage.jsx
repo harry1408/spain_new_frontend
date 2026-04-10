@@ -46,7 +46,7 @@ function AVMSection({ apt, comparables, utColor }) {
       <div style={{ fontWeight:700, fontSize:15, color:T.text, marginBottom:16,
         display:"flex", alignItems:"center", gap:8 }}>
         <span style={{ background:utColor, color:"#fff", width:24, height:24, borderRadius:"50%",
-          display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:800 }}>3</span>
+          display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:800 }}>4</span>
         Automatic Valuation (AVM)
         <span style={{ color:T.textMuted, fontWeight:400, fontSize:12 }}>
           · select comparables to include
@@ -253,6 +253,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
   const [nearbyTrend,   setNearbyTrend]   = useState([]);
   const [nearbyApts,    setNearbyApts]    = useState(null);
   const [nearbyListings,setNearbyListings]= useState(null);
+  const [listingDetail, setListingDetail] = useState(null);
   const [activePin,     setActivePin]     = useState(null);
   const [sortCol,       setSortCol]       = useState("price");
   const [radiusKm,      setRadiusKm]      = useState(null); // null = comarca mode
@@ -303,6 +304,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
         .filter(r => r.sub_listing_id === apt.sub_listing_id)
         .sort((a,b) => periodSort(a.period) - periodSort(b.period));
       setAptTrend(history);
+      setListingDetail(detail);
       setNearbyApts(nbApts);
       setNearbyListings(nbListings);
       setNearbyTrend(nbTrend?.trend || []);
@@ -472,20 +474,47 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
           <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) 300px", gap:24, alignItems:"start", maxWidth:1000, margin:"0 auto" }}>
 
             {/* ── LEFT: media + listing details ── */}
-            <div>
-              <Carousel media={fpMedia} idx={fpIdx} onPrev={prevFp} onNext={nextFp}
-                onThumb={setFpIdx} label="Floor Plans" emptyIcon="🗺" height={240} />
-              <Carousel media={photoMedia} idx={photoIdx} onPrev={prevPhoto} onNext={nextPhoto}
-                onThumb={setPhotoIdx} label="Development Photos" emptyIcon="📸" height={220} />
+            <div style={{ minWidth:0 }}>
+              {/* Both carousels side by side */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:4, alignItems:"start", minWidth:0 }}>
+                <div style={{ minWidth:0 }}>
+                  <Carousel media={fpMedia} idx={fpIdx} onPrev={prevFp} onNext={nextFp}
+                    onThumb={setFpIdx} label="Floor Plans" emptyIcon="🗺" height={280} />
+                </div>
+                <div style={{ minWidth:0 }}>
+                  <Carousel media={photoMedia} idx={photoIdx} onPrev={prevPhoto} onNext={nextPhoto}
+                    onThumb={setPhotoIdx} label="Development Photos" emptyIcon="📸" height={280} />
+                </div>
+              </div>
 
               {/* Title + location */}
               <h1 style={{ margin:"0 0 6px", fontSize:22, fontWeight:700, color:T.text, lineHeight:1.3 }}>
                 {apt.unit_type} for sale — {listingName}
               </h1>
-              <div style={{ color:T.textSub, fontSize:13, marginBottom:16, display:"flex", alignItems:"center", gap:6 }}>
+              <div style={{ color:T.textSub, fontSize:13, marginBottom:10, display:"flex", alignItems:"center", gap:6 }}>
                 📍 {municipality}
                 {apt.floor && <span style={{ color:T.textMuted }}>· Floor {apt.floor}</span>}
               </div>
+
+              {/* Unit type + House type badges */}
+              {(apt.unit_type || apt.house_type) && (
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:14 }}>
+                  {apt.unit_type && (
+                    <span style={{ display:"inline-flex", alignItems:"center", gap:5,
+                      background:utColor, borderRadius:6,
+                      padding:"4px 10px", fontSize:12, color:"#fff", fontWeight:700 }}>
+                      🏠 {apt.unit_type}
+                    </span>
+                  )}
+                  {apt.house_type && (
+                    <span style={{ display:"inline-flex", alignItems:"center", gap:5,
+                      background:"#F3F4F6", border:"1px solid #D1D5DB", borderRadius:6,
+                      padding:"4px 10px", fontSize:12, color:"#374151", fontWeight:600 }}>
+                      🏡 {apt.house_type}
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Price */}
               <div style={{ marginBottom:16 }}>
@@ -527,10 +556,60 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
               </div>
 
               {apt.last_updated && (
-                <div style={{ color:T.textMuted, fontSize:11, marginBottom:8 }}>
+                <div style={{ color:T.textMuted, fontSize:11, marginBottom:12 }}>
                   🕒 {apt.last_updated.replace("Listing updated on ","").replace("listing updated on ","")}
                 </div>
               )}
+
+              {/* ── Other Information ── */}
+              {(() => {
+                const beach = listingDetail?.nearest_beach_km;
+                const beachName = listingDetail?.nearest_beach_name;
+                const delivery = listingDetail?.delivery_date || apt.delivery_date;
+                const _dc = delivery ? String(delivery).replace("Delivery : ","").replace("delivery : ","").trim() : null;
+                const deliveryClean = _dc && _dc !== "nan" && _dc !== "" ? _dc : null;
+                const extras = [
+                  apt.has_garden    && ["🌿", "Garden"],
+                  apt.has_storage   && ["📦", "Storage room"],
+                  apt.has_wardrobes && ["🚪", "Fitted wardrobes"],
+                  apt.has_pool      && ["🏊", "Swimming pool"],
+                  apt.has_ac        && ["❄️", "Air conditioning"],
+                  apt.has_lift      && ["🛗", "Lift"],
+                  apt.has_parking   && ["🚗", "Parking"],
+                  apt.has_terrace   && ["🌅", "Terrace"],
+                ].filter(Boolean);
+                const hasAnything = beach || deliveryClean || extras.length > 0;
+                if (!hasAnything) return null;
+                return (
+                  <div style={{ borderTop:`1px solid ${T.border}`, paddingTop:14, marginTop:4 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:T.textMuted, textTransform:"uppercase",
+                      letterSpacing:"0.07em", marginBottom:10 }}>Other Information</div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                      {beach && (
+                        <span style={{ display:"inline-flex", alignItems:"center", gap:5,
+                          background:"#EFF6FF", border:"1px solid #BFDBFE", borderRadius:6,
+                          padding:"5px 10px", fontSize:12, color:"#1D4ED8", fontWeight:600 }}>
+                          🏖 {beach} km to {beachName || "beach"}
+                        </span>
+                      )}
+                      {deliveryClean && (
+                        <span style={{ display:"inline-flex", alignItems:"center", gap:5,
+                          background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:6,
+                          padding:"5px 10px", fontSize:12, color:T.text, fontWeight:500 }}>
+                          📅 Delivery: {deliveryClean}
+                        </span>
+                      )}
+                      {extras.map(([icon, label]) => (
+                        <span key={label} style={{ display:"inline-flex", alignItems:"center", gap:5,
+                          background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:6,
+                          padding:"5px 10px", fontSize:12, color:T.text }}>
+                          {icon} {label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* ── RIGHT: sidebar ── */}
@@ -590,6 +669,25 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                     <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
                       <span style={{ color:T.textMuted, fontSize:11 }}>Floor</span>
                       <span style={{ color:T.text, fontSize:11, fontWeight:600 }}>{apt.floor}</span>
+                    </div>
+                  )}
+                  {(() => {
+                    const delivery = listingDetail?.delivery_date || apt.delivery_date;
+                    const dc = delivery ? String(delivery).replace("Delivery : ","").replace("delivery : ","").trim() : null;
+                    const dcClean = dc && dc !== "nan" && dc !== "" ? dc : null;
+                    return dcClean ? (
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                        <span style={{ color:T.textMuted, fontSize:11 }}>Delivery</span>
+                        <span style={{ color:T.text, fontSize:11, fontWeight:600 }}>{dcClean}</span>
+                      </div>
+                    ) : null;
+                  })()}
+                  {listingDetail?.nearest_beach_km && (
+                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                      <span style={{ color:T.textMuted, fontSize:11 }}>Nearest beach</span>
+                      <span style={{ color:"#1D4ED8", fontSize:11, fontWeight:600 }}>
+                        🏖 {listingDetail.nearest_beach_km} km
+                      </span>
                     </div>
                   )}
                   {apt.esg_grade && apt.esg_grade !== "nan" && (
@@ -781,7 +879,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                   <div style={{ fontWeight:700, fontSize:15, color:T.text,
                     display:"flex", alignItems:"center", gap:8 }}>
                     <span style={{ background:utColor, color:"#fff", width:24, height:24, borderRadius:"50%",
-                      display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:800 }}>2</span>
+                      display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:800 }}>3</span>
                     Similar {apt.unit_type} Apartments Nearby
                     <span style={{ color:T.textMuted, fontWeight:400, fontSize:12 }}>· {nearbyApts?.comarca}</span>
                   </div>
