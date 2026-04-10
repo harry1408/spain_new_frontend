@@ -664,8 +664,28 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
       }
     });
     const priceMap = Object.fromEntries((serverUtStats||[]).map(r => [r.unit_type, r]));
+    // Fallback: use prev_unit_type_stats for unit types only present as sold
+    const prevPriceAcc = {};
+    chartData.forEach(l => {
+      const prevStats = l.prev_unit_type_stats || {};
+      Object.entries(prevStats).forEach(([ut, s]) => {
+        if (!prevPriceAcc[ut]) prevPriceAcc[ut] = { prices: [], pm2s: [], sizes: [] };
+        if (s.avg_price) prevPriceAcc[ut].prices.push(s.avg_price);
+        if (s.avg_pm2)   prevPriceAcc[ut].pm2s.push(s.avg_pm2);
+        if (s.avg_size)  prevPriceAcc[ut].sizes.push(s.avg_size);
+        if (s.min_price != null) prevPriceAcc[ut].min_price = prevPriceAcc[ut].min_price == null ? s.min_price : Math.min(prevPriceAcc[ut].min_price, s.min_price);
+        if (s.max_price != null) prevPriceAcc[ut].max_price = prevPriceAcc[ut].max_price == null ? s.max_price : Math.max(prevPriceAcc[ut].max_price, s.max_price);
+      });
+    });
+    const prevPriceMap = Object.fromEntries(Object.entries(prevPriceAcc).map(([ut, a]) => [ut, {
+      avg_price: a.prices.length ? Math.round(a.prices.reduce((s,v)=>s+v,0)/a.prices.length) : null,
+      min_price: a.min_price ?? null,
+      max_price: a.max_price ?? null,
+      avg_pm2:   a.pm2s.length  ? Math.round(a.pm2s.reduce((s,v)=>s+v,0)/a.pm2s.length)   : null,
+      avg_size:  a.sizes.length ? Math.round(a.sizes.reduce((s,v)=>s+v,0)/a.sizes.length)  : null,
+    }]));
     const allRows = Object.keys(counts).map(ut => {
-      const ps = priceMap[ut] || {};
+      const ps = priceMap[ut] || prevPriceMap[ut] || {};
       return { unit_type: ut, count: counts[ut],
         avg_price: ps.avg_price ?? null, min_price: ps.min_price ?? null,
         max_price: ps.max_price ?? null, avg_pm2: ps.avg_pm2 ?? null, avg_size: ps.avg_size ?? null };
