@@ -437,10 +437,11 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
     let priceOverride = null;
 
     if (fSelUnit.length > 0) {
-      // Count only selected unit types; use server per-unit-type price stats
+      // Count only selected unit types (active + sold); use server per-unit-type price stats
       filteredListings.forEach(l => {
-        const utCounts = l.unit_type_counts || {};
-        fSelUnit.forEach(ut => { total_units += utCounts[ut] || 0; });
+        const utCounts     = l.unit_type_counts      || {};
+        const prevUtCounts = l.prev_unit_type_counts || {};
+        fSelUnit.forEach(ut => { total_units += (utCounts[ut] || 0) + (prevUtCounts[ut] || 0); });
       });
       const selStats = fSelUnit.map(ut => utPriceMap[ut]).filter(Boolean);
       if (selStats.length) {
@@ -451,10 +452,11 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
         };
       }
     } else if (fSelHouseType.length > 0) {
-      // Count only selected house types; use server per-house-type price stats
+      // Count only selected house types (active + sold); use server per-house-type price stats
       filteredListings.forEach(l => {
-        const htCounts = l.house_type_counts || {};
-        fSelHouseType.forEach(ht => { total_units += htCounts[ht] || 0; });
+        const htCounts     = l.house_type_counts      || {};
+        const prevHtCounts = l.prev_house_type_counts || {};
+        fSelHouseType.forEach(ht => { total_units += (htCounts[ht] || 0) + (prevHtCounts[ht] || 0); });
       });
       const selStats = fSelHouseType.map(ht => htPriceMap[ht]).filter(Boolean);
       if (selStats.length) {
@@ -466,7 +468,9 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       }
     } else {
       filteredListings.forEach(l => {
-        total_units += Object.values(l.unit_type_counts||{}).reduce((a,v)=>a+v,0) || l.units || 0;
+        const active = Object.values(l.unit_type_counts||{}).reduce((a,v)=>a+v,0);
+        const sold   = Object.values(l.prev_unit_type_counts||{}).reduce((a,v)=>a+v,0);
+        total_units += (active + sold) || l.units || 0;
       });
     }
 
@@ -708,7 +712,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
             <em style={{ color:T.navy }}>{municipality}</em>
           </h2>
           <div style={{ color:T.textSub, fontSize:12, marginTop:4 }}>
-            {fmtNum(stats.total_listings)} developments · {fmtNum(stats.total_units)} apartments
+            {fmtNum(stats.total_listings)} developments · {fmtNum(stats.total_units)} units
           </div>
         </div>
         <button onClick={()=>onSelectMunicipality(null)} style={{
