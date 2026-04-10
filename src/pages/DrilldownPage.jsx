@@ -787,7 +787,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                   <thead style={{ position:"sticky", top:0, zIndex:1 }}>
                     <tr style={{ borderBottom:`2px solid ${T.border}`, background:T.bgStripe }}>
-                      {["Type","Total","Active","Sold","Avg m²","Min","Avg","Max","€/m²"].map(h=>(
+                      {["Type","Units","Avg m²","Min","Avg","Max","€/m²"].map(h=>(
                         <th key={h} style={{ padding:"7px 8px", textAlign:h==="Type"?"left":"right",
                           color:T.textMuted, fontSize:10, textTransform:"uppercase",
                           letterSpacing:"0.07em", fontWeight:600, background:T.bgStripe }}>{h}</th>
@@ -804,8 +804,6 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                                 padding:"2px 8px", borderRadius:4, whiteSpace:"nowrap" }}>{row.unit_type}</span>
                           </td>
                           <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
-                          <td style={{ padding:"7px 8px", textAlign:"right", color:"#16a34a", fontSize:11 }}>{fmtNum(row.active_count ?? row.count)}</td>
-                          <td style={{ padding:"7px 8px", textAlign:"right", color:"#6B2A2A", fontSize:11 }}>{row.sold_count > 0 ? fmtNum(row.sold_count) : "—"}</td>
                           <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size!=null?Math.round(row.avg_size):"—"}</td>
                           <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
                           <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>
@@ -825,7 +823,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                   <thead style={{ position:"sticky", top:0, zIndex:1 }}>
                     <tr style={{ borderBottom:`2px solid ${T.border}`, background:T.bgStripe }}>
-                      {["Type","Total","Active","Sold","Avg m²","Min","Avg","Max","€/m²"].map(h=>(
+                      {["Type","Units","Avg m²","Min","Avg","Max","€/m²"].map(h=>(
                         <th key={h} style={{ padding:"7px 8px", textAlign:h==="Type"?"left":"right",
                           color:T.textMuted, fontSize:10, textTransform:"uppercase",
                           letterSpacing:"0.07em", fontWeight:600, background:T.bgStripe }}>{h}</th>
@@ -842,8 +840,6 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
                             display:"block", whiteSpace:"nowrap" }}>{row.house_type}</span>
                         </td>
                         <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
-                        <td style={{ padding:"7px 8px", textAlign:"right", color:"#16a34a", fontSize:11 }}>{fmtNum(row.active_count ?? row.count)}</td>
-                        <td style={{ padding:"7px 8px", textAlign:"right", color:"#6B2A2A", fontSize:11 }}>{row.sold_count > 0 ? fmtNum(row.sold_count) : "—"}</td>
                         <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size!=null?Math.round(row.avg_size):"—"}</td>
                         <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price!=null?`€${Math.round(row.min_price).toLocaleString()}`:"—"}</td>
                         <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price!=null?`€${Math.round(row.avg_price).toLocaleString()}`:"—"}</td>

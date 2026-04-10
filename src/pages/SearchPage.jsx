@@ -618,51 +618,29 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   const UT_ORDER = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
 
   const utStats = useMemo(() => {
-    const groups = {};
+    // Count active units per unit type from frontend-filtered chartData
+    const counts = {};
     chartData.forEach(l => {
-      const types = (l.unit_types || "").split(", ").filter(Boolean);
-      const counts     = l.unit_type_counts || {};
-      const prevCounts = l.prev_unit_type_counts || {};
-      const prevStats  = l.prev_unit_type_stats || {};
-      const isNonApartment = (l.house_types || "").split(", ").filter(Boolean)
-        .every(ht => ht !== "Apartments");
-      const hasAnyCounts = Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0;
-      if (!hasAnyCounts && isNonApartment) return;
-      const hasCountData = Object.keys(counts).length > 0 || Object.keys(prevCounts).length > 0;
-      const allTypes = hasCountData
-        ? [...new Set([...Object.keys(counts).filter(ut => counts[ut] > 0), ...Object.keys(prevCounts)])]
-        : types;
-      allTypes.forEach(ut => {
-        const active = counts[ut] || 0;
-        const sold   = prevCounts[ut] || 0;
-        const share  = hasCountData ? active + sold : Math.round((l.units || 1) / allTypes.length);
-        if (!share) return;
-        if (!groups[ut]) groups[ut] = { active: 0, sold: 0, prices: [], pm2s: [], sizes: [] };
-        groups[ut].active += active;
-        groups[ut].sold   += sold;
-        const ps = (!active && sold > 0) ? (prevStats[ut] || {}) : {};
-        const price = (!active && sold > 0) ? ps.avg_price : l.avg_price;
-        const pm2   = (!active && sold > 0) ? ps.avg_pm2   : l.avg_price_m2;
-        const size  = (!active && sold > 0) ? ps.avg_size   : l.avg_size;
-        if (price) groups[ut].prices.push(price);
-        if (pm2)   groups[ut].pm2s.push(pm2);
-        if (size)  groups[ut].sizes.push(size);
-      });
+      const utCounts = l.unit_type_counts || {};
+      const hasCountData = Object.keys(utCounts).length > 0;
+      if (hasCountData) {
+        Object.entries(utCounts).forEach(([ut, c]) => { if (c > 0) counts[ut] = (counts[ut] || 0) + c; });
+      } else {
+        const types = (l.unit_types || "").split(", ").filter(Boolean);
+        const isNonApartment = (l.house_types || "").split(", ").filter(Boolean).every(ht => ht !== "Apartments");
+        if (!isNonApartment || types.length === 0) return;
+        const share = Math.round((l.units || 1) / Math.max(types.length, 1));
+        types.forEach(ut => { counts[ut] = (counts[ut] || 0) + share; });
+      }
     });
-    const serverSizeMap = Object.fromEntries((serverUtStats||[]).map(r => [r.unit_type, r.avg_size]));
-    const rows = Object.entries(groups).map(([ut, g]) => {
-      const avgPrice = g.prices.length ? Math.round(g.prices.reduce((a,b)=>a+b,0)/g.prices.length) : null;
-      const avgPm2   = g.pm2s.length   ? Math.round(g.pm2s.reduce((a,b)=>a+b,0)/g.pm2s.length)    : null;
-      const directSize = g.sizes.length ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length) : null;
-      const derivedSize = (!directSize && avgPrice && avgPm2) ? Math.round(avgPrice / avgPm2) : null;
+    // Use server-computed stats for accurate per-unit-type prices (from actual sub-listing data)
+    const priceMap = Object.fromEntries((serverUtStats||[]).map(r => [r.unit_type, r]));
+    const rows = Object.keys(counts).map(ut => {
+      const ps = priceMap[ut] || {};
       return {
-        unit_type: ut, count: g.active + g.sold,
-        active_count: g.active, sold_count: g.sold,
-        avg_price: avgPrice,
-        min_price: g.prices.length ? Math.min(...g.prices) : null,
-        max_price: g.prices.length ? Math.max(...g.prices) : null,
-        avg_pm2:   avgPm2,
-        avg_size:  directSize ?? serverSizeMap[ut] ?? derivedSize,
+        unit_type: ut, count: counts[ut],
+        avg_price: ps.avg_price ?? null, min_price: ps.min_price ?? null,
+        max_price: ps.max_price ?? null, avg_pm2: ps.avg_pm2 ?? null, avg_size: ps.avg_size ?? null,
       };
     });
     rows.sort((a,b) => UT_ORDER.indexOf(a.unit_type) - UT_ORDER.indexOf(b.unit_type));
@@ -670,35 +648,28 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   }, [chartData, serverUtStats, searched]);
 
   const htStats = useMemo(() => {
-    const groups = {};
+    // Count active units per house type from frontend-filtered chartData
+    const counts = {};
     chartData.forEach(l => {
-      const htCounts     = l.house_type_counts || {};
-      const prevHtCounts = l.prev_house_type_counts || {};
-      const houseTypes   = (l.house_types || "").split(", ").filter(Boolean);
-      const allHt = [...new Set([...houseTypes, ...Object.keys(prevHtCounts)])];
-      allHt.forEach(ht => {
-        const active = htCounts[ht] || 0;
-        const sold   = prevHtCounts[ht] || 0;
-        const count  = active + sold;
-        if (!count) return;
-        if (!groups[ht]) groups[ht] = { active: 0, sold: 0, prices: [], pm2s: [], sizes: [] };
-        groups[ht].active += active;
-        groups[ht].sold   += sold;
-        if (l.avg_price)    groups[ht].prices.push(l.avg_price);
-        if (l.avg_price_m2) groups[ht].pm2s.push(l.avg_price_m2);
-        if (l.avg_size)     groups[ht].sizes.push(l.avg_size);
-      });
+      const htCounts = l.house_type_counts || {};
+      const hasCountData = Object.keys(htCounts).length > 0;
+      if (hasCountData) {
+        Object.entries(htCounts).forEach(([ht, c]) => { if (c > 0) counts[ht] = (counts[ht] || 0) + c; });
+      } else {
+        const houseTypes = (l.house_types || "").split(", ").filter(Boolean);
+        houseTypes.forEach(ht => { counts[ht] = (counts[ht] || 0) + 1; });
+      }
     });
-    const serverHtSizeMap = Object.fromEntries((serverHtStats||[]).map(r => [r.house_type, r.avg_size]));
-    const rows = Object.entries(groups).map(([ht, g]) => ({
-      house_type: ht, count: g.active + g.sold,
-      active_count: g.active, sold_count: g.sold,
-      avg_price:  g.prices.length ? Math.round(g.prices.reduce((a,b)=>a+b,0)/g.prices.length) : null,
-      min_price:  g.prices.length ? Math.min(...g.prices) : null,
-      max_price:  g.prices.length ? Math.max(...g.prices) : null,
-      avg_pm2:    g.pm2s.length   ? Math.round(g.pm2s.reduce((a,b)=>a+b,0)/g.pm2s.length)    : null,
-      avg_size:   g.sizes.length  ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length)   : (serverHtSizeMap[ht] ?? null),
-    })).sort((a,b) => a.house_type.localeCompare(b.house_type));
+    // Use server-computed stats for accurate per-house-type prices (from actual sub-listing data)
+    const priceMap = Object.fromEntries((serverHtStats||[]).map(r => [r.house_type, r]));
+    const rows = Object.keys(counts).map(ht => {
+      const ps = priceMap[ht] || {};
+      return {
+        house_type: ht, count: counts[ht],
+        avg_price: ps.avg_price ?? null, min_price: ps.min_price ?? null,
+        max_price: ps.max_price ?? null, avg_pm2: ps.avg_pm2 ?? null, avg_size: ps.avg_size ?? null,
+      };
+    }).sort((a,b) => a.house_type.localeCompare(b.house_type));
     return rows.length > 0 ? rows : (chartData.length === 0 && !searched ? serverHtStats : []);
   }, [chartData, serverHtStats, searched]);
 
@@ -1475,45 +1446,6 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                     </div>
                   </div>
 
-                  {/* Summary stat row */}
-                  {(() => {
-                    const total = chartData.length;
-                    const newCount = chartData.filter(l => newThisMonthIds.includes(l.listing_id)).length;
-                    const totalUnits = chartData.reduce((s, l) => s + (l.units || 0), 0);
-                    const avgPrice = total > 0 ? Math.round(chartData.reduce((s,l) => s + (l.avg_price||0), 0) / total) : 0;
-                    return (
-                      <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-                        {newCount > 0 && (
-                          <div style={{ flex:"0 0 auto", background:"#F0FDF4", border:"1px solid #86EFAC",
-                            borderRadius:10, padding:"10px 16px", minWidth:110 }}>
-                            <div style={{ fontSize:10, fontWeight:700, color:"#15803D", textTransform:"uppercase",
-                              letterSpacing:"0.06em", marginBottom:4 }}>🆕 New This Month</div>
-                            <div style={{ fontSize:22, fontWeight:800, color:"#16a34a" }}>{fmtNum(newCount)}</div>
-                            <div style={{ fontSize:10, color:"#15803D", marginTop:2 }}>developments</div>
-                          </div>
-                        )}
-                        <div style={{ flex:"0 0 auto", background:T.bgStripe, border:`1px solid ${T.border}`,
-                          borderRadius:10, padding:"10px 16px", minWidth:110 }}>
-                          <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase",
-                            letterSpacing:"0.06em", marginBottom:4 }}>Developments</div>
-                          <div style={{ fontSize:22, fontWeight:800, color:T.text }}>{fmtNum(total)}</div>
-                        </div>
-                        <div style={{ flex:"0 0 auto", background:T.bgStripe, border:`1px solid ${T.border}`,
-                          borderRadius:10, padding:"10px 16px", minWidth:110 }}>
-                          <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase",
-                            letterSpacing:"0.06em", marginBottom:4 }}>Total Units</div>
-                          <div style={{ fontSize:22, fontWeight:800, color:T.text }}>{fmtNum(totalUnits)}</div>
-                        </div>
-                        <div style={{ flex:"0 0 auto", background:T.bgStripe, border:`1px solid ${T.border}`,
-                          borderRadius:10, padding:"10px 16px", minWidth:130 }}>
-                          <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase",
-                            letterSpacing:"0.06em", marginBottom:4 }}>Avg Price</div>
-                          <div style={{ fontSize:22, fontWeight:800, color:T.navy }}>{avgPrice ? fmt(avgPrice) : "—"}</div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
                   {/* Row 2: Unit Type Summary | House Type Summary */}
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
 
@@ -1523,7 +1455,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                         <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                           <thead style={{ position:"sticky", top:0, zIndex:1 }}>
                             <tr style={{ borderBottom:`2px solid ${T.border}`, background:T.bgStripe }}>
-                              {["Type","Total","Active","Sold","Avg m²","Min","Avg","Max","€/m²"].map(h => (
+                              {["Type","Units","Avg m²","Min","Avg","Max","€/m²"].map(h => (
                                 <th key={h} style={{ padding:"7px 8px", textAlign:h==="Type"?"left":"right",
                                   color:T.textMuted, fontSize:10, textTransform:"uppercase",
                                   letterSpacing:"0.07em", fontWeight:600, background:T.bgStripe }}>{h}</th>
@@ -1538,13 +1470,11 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                                     fontWeight:700, fontSize:11, padding:"2px 7px", borderRadius:4 }}>{row.unit_type}</span>
                                 </td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:"#16a34a", fontSize:11 }}>{fmtNum(row.active_count ?? row.count)}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:"#6B2A2A", fontSize:11 }}>{row.sold_count > 0 ? fmtNum(row.sold_count) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size != null ? Math.round(row.avg_size) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price ? fmt(row.min_price) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price ? fmt(row.avg_price) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.red, fontSize:11 }}>{row.max_price ? fmt(row.max_price) : "—"}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{(row.avg_pm2 ?? row.avg_price_m2) ? `€${Math.round(row.avg_pm2 ?? row.avg_price_m2).toLocaleString("en")}` : "—"}</td>
+                                <td style={{ padding:"7px 8px", textAlign:"right", color:T.navyMid, fontWeight:600 }}>{row.avg_pm2 ? `€${Math.round(row.avg_pm2).toLocaleString("en")}` : "—"}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -1558,7 +1488,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                         <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                           <thead style={{ position:"sticky", top:0, zIndex:1 }}>
                             <tr style={{ borderBottom:`2px solid ${T.border}`, background:T.bgStripe }}>
-                              {["Type","Total","Active","Sold","Avg m²","Min","Avg","Max","€/m²"].map(h => (
+                              {["Type","Units","Avg m²","Min","Avg","Max","€/m²"].map(h => (
                                 <th key={h} style={{ padding:"7px 8px", textAlign:h==="Type"?"left":"right",
                                   color:T.textMuted, fontSize:10, textTransform:"uppercase",
                                   letterSpacing:"0.07em", fontWeight:600, background:T.bgStripe }}>{h}</th>
@@ -1575,8 +1505,6 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                                     display:"block", whiteSpace:"nowrap" }}>{row.house_type}</span>
                                 </td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.text, fontWeight:600 }}>{fmtNum(row.count)}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:"#16a34a", fontSize:11 }}>{fmtNum(row.active_count ?? row.count)}</td>
-                                <td style={{ padding:"7px 8px", textAlign:"right", color:"#6B2A2A", fontSize:11 }}>{row.sold_count > 0 ? fmtNum(row.sold_count) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.textSub, fontSize:11 }}>{row.avg_size != null ? Math.round(row.avg_size) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.green, fontSize:11 }}>{row.min_price ? fmt(row.min_price) : "—"}</td>
                                 <td style={{ padding:"7px 8px", textAlign:"right", color:T.navy, fontWeight:700 }}>{row.avg_price ? fmt(row.avg_price) : "—"}</td>
