@@ -39,7 +39,7 @@ function MuniCard({ m, onClick }) {
       <div style={{ fontWeight:700, fontSize:14, color:hov ? T.navy : T.text, marginBottom:10 }}>{m.municipality}</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"7px 12px" }}>
         <Metric label="Devel."    value={m.listings||"—"} />
-        <Metric label="Apts"      value={fmtNum(m.units)} />
+        <Metric label="Units"     value={fmtNum(m.units)} />
         <Metric label="Avg Price" value={fmt(m.avg_price)} color={T.navy} />
         <Metric label="€/m²"      value={m.avg_price_m2 != null ? `€${Math.round(m.avg_price_m2).toLocaleString("en-US")}` : "—"} color={T.textSub} />
       </div>
