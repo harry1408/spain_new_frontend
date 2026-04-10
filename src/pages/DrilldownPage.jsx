@@ -57,7 +57,7 @@ function ListingCard({ l, active, onSelect, onHover, selUnit, selHouseType }) {
     <div id={`lcard-${l.listing_id}`}
       onClick={onSelect}
       onMouseEnter={() => { setHov(true); onHover && onHover(l.listing_id); }}
-      onMouseLeave={() => { setHov(false); onHover && onHover(null); }}
+      onMouseLeave={() => { setHov(false); }}
       style={{ background: active ? T.navyLight : hov ? T.bgHover : T.bgCard,
         border:`2px solid ${active ? T.borderAccent : hov ? T.borderAccent : T.border}`,
         borderRadius:12, padding:"16px 18px", cursor:"pointer",
