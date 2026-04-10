@@ -510,10 +510,14 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       }
     });
     if (Object.keys(counts).length === 0) return muniData?.unit_type_stats || [];
-    // Active price map from server (latest period)
-    const priceMap = Object.fromEntries((muniData?.unit_type_stats || []).map(r => [r.unit_type, r]));
-    // Fallback price map from per-listing prev_unit_type_stats (sold/historical units)
-    const prevPriceAcc = {}; // ut → { prices, pm2s, sizes }
+    // helper: pick first source that has a non-null avg_price
+    const pickUT = (...srcs) => srcs.find(s => s?.avg_price != null) || srcs.find(Boolean) || {};
+    // Active price map (server, latest period)
+    const priceMap     = Object.fromEntries((muniData?.unit_type_stats      || []).map(r => [r.unit_type, r]));
+    // Municipality-level historical price map (truly-removed sub-listings)
+    const prevMuniMap  = Object.fromEntries((muniData?.prev_unit_type_stats || []).map(r => [r.unit_type, r]));
+    // Per-listing prev_unit_type_stats aggregated locally
+    const prevPriceAcc = {};
     filteredListings.forEach(l => {
       const prevStats = l.prev_unit_type_stats || {};
       Object.entries(prevStats).forEach(([ut, s]) => {
@@ -525,15 +529,14 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
         if (s.max_price != null) prevPriceAcc[ut].max_price = prevPriceAcc[ut].max_price == null ? s.max_price : Math.max(prevPriceAcc[ut].max_price, s.max_price);
       });
     });
-    const prevPriceMap = Object.fromEntries(Object.entries(prevPriceAcc).map(([ut, a]) => [ut, {
+    const prevListingMap = Object.fromEntries(Object.entries(prevPriceAcc).map(([ut, a]) => [ut, {
       avg_price: a.prices.length ? Math.round(a.prices.reduce((s,v)=>s+v,0)/a.prices.length) : null,
-      min_price: a.min_price ?? null,
-      max_price: a.max_price ?? null,
+      min_price: a.min_price ?? null, max_price: a.max_price ?? null,
       avg_pm2:   a.pm2s.length  ? Math.round(a.pm2s.reduce((s,v)=>s+v,0)/a.pm2s.length)   : null,
       avg_size:  a.sizes.length ? Math.round(a.sizes.reduce((s,v)=>s+v,0)/a.sizes.length)  : null,
     }]));
     const rows = Object.keys(counts).map(ut => {
-      const ps = priceMap[ut] || prevPriceMap[ut] || {};
+      const ps = pickUT(priceMap[ut], prevMuniMap[ut], prevListingMap[ut]);
       return {
         unit_type: ut, count: counts[ut],
         avg_price: ps.avg_price ?? null, min_price: ps.min_price ?? null,
@@ -575,10 +578,11 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       });
     });
     if (Object.keys(groups).length === 0) return muniData?.house_type_stats || [];
-    // Use server-computed price stats (from actual sub-listing data, not listing averages)
-    const priceMap = Object.fromEntries((muniData?.house_type_stats || []).map(r => [r.house_type, r]));
+    const pickHT = (...srcs) => srcs.find(s => s?.avg_price != null) || srcs.find(Boolean) || {};
+    const priceMap     = Object.fromEntries((muniData?.house_type_stats      || []).map(r => [r.house_type, r]));
+    const prevPriceMap = Object.fromEntries((muniData?.prev_house_type_stats || []).map(r => [r.house_type, r]));
     return Object.entries(groups).map(([ht, g]) => {
-      const ps = priceMap[ht] || {};
+      const ps = pickHT(priceMap[ht], prevPriceMap[ht]);
       return {
         house_type: ht, count: g.count,
         avg_price: ps.avg_price ?? null, min_price: ps.min_price ?? null,

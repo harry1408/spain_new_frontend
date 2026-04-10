@@ -447,8 +447,10 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   const lastHoveredPin = useRef(_firstPin); // persists last hovered id for Google Maps
   const firstResultCenter = useRef(null); // persists first result coords once loaded
   const [trend, setTrend] = useState([]);
-  const [serverUtStats, setServerUtStats] = useState(_ss?.serverUtStats ?? []);
-  const [serverHtStats, setServerHtStats] = useState(_ss?.serverHtStats ?? []);
+  const [serverUtStats,     setServerUtStats]     = useState(_ss?.serverUtStats     ?? []);
+  const [serverHtStats,     setServerHtStats]     = useState(_ss?.serverHtStats     ?? []);
+  const [prevServerUtStats, setPrevServerUtStats] = useState(_ss?.prevServerUtStats ?? []);
+  const [prevServerHtStats, setPrevServerHtStats] = useState(_ss?.prevServerHtStats ?? []);
 
 
   // Fixed center for radius searches — set once from first search results
@@ -461,7 +463,8 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   useEffect(() => {
     _ss = { selMuni, selStreet, radiusKm, mapMode, selUnit, selEsg, selHouseType,
             minPrice, maxPrice, minM2, maxM2, results, searched, searchCenter, streetCoords,
-            serverUtStats, serverHtStats, listingStatus, newThisMonth, gmapsLink, gmapsLabel };
+            serverUtStats, serverHtStats, prevServerUtStats, prevServerHtStats,
+            listingStatus, newThisMonth, gmapsLink, gmapsLabel };
   });  // runs every render — cheap object assign
   useEffect(() => {
     fetch(`${API}/filters`).then(r => r.json()).then(f => setNewThisMonthIds(f.new_this_month_ids || [])).catch(() => {});
@@ -523,8 +526,10 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
       .then(d => {
         const listings = d.listings || [];
         setResults(listings);
-        setServerUtStats(d.unit_type_stats || []);
-        setServerHtStats(d.house_type_stats || []);
+        setServerUtStats(d.unit_type_stats           || []);
+        setServerHtStats(d.house_type_stats          || []);
+        setPrevServerUtStats(d.prev_unit_type_stats  || []);
+        setPrevServerHtStats(d.prev_house_type_stats || []);
         // Auto-select first property with valid coords for Google Map
         const firstWithCoords = listings.find(l => l.lat && l.lng && l.lat !== 39.47);
         if (firstWithCoords) {
@@ -663,7 +668,8 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
         types.forEach(ut => { counts[ut] = (counts[ut] || 0) + share; });
       }
     });
-    const priceMap = Object.fromEntries((serverUtStats||[]).map(r => [r.unit_type, r]));
+    const priceMap     = Object.fromEntries((serverUtStats    ||[]).map(r => [r.unit_type, r]));
+    const prevPriceMapS= Object.fromEntries((prevServerUtStats||[]).map(r => [r.unit_type, r]));
     // Fallback: use prev_unit_type_stats for unit types only present as sold
     const prevPriceAcc = {};
     chartData.forEach(l => {
@@ -684,8 +690,9 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
       avg_pm2:   a.pm2s.length  ? Math.round(a.pm2s.reduce((s,v)=>s+v,0)/a.pm2s.length)   : null,
       avg_size:  a.sizes.length ? Math.round(a.sizes.reduce((s,v)=>s+v,0)/a.sizes.length)  : null,
     }]));
+    const pickUT = (...srcs) => srcs.find(s => s?.avg_price != null) || srcs.find(Boolean) || {};
     const allRows = Object.keys(counts).map(ut => {
-      const ps = priceMap[ut] || prevPriceMap[ut] || {};
+      const ps = pickUT(priceMap[ut], prevPriceMapS[ut], prevPriceMap[ut]);
       return { unit_type: ut, count: counts[ut],
         avg_price: ps.avg_price ?? null, min_price: ps.min_price ?? null,
         max_price: ps.max_price ?? null, avg_pm2: ps.avg_pm2 ?? null, avg_size: ps.avg_size ?? null };
@@ -693,7 +700,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     allRows.sort((a,b) => UT_ORDER.indexOf(a.unit_type) - UT_ORDER.indexOf(b.unit_type));
     const rows = selUnit.length > 0 ? allRows.filter(r => selUnit.includes(r.unit_type)) : allRows;
     return rows.length > 0 ? rows : (chartData.length === 0 && !searched ? serverUtStats : []);
-  }, [chartData, serverUtStats, searched, selUnit]);
+  }, [chartData, serverUtStats, prevServerUtStats, searched, selUnit]);
 
   const htStats = useMemo(() => {
     const counts = {};
@@ -717,16 +724,18 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
         counts[ht] = (counts[ht] || 0) + count;
       });
     });
-    const priceMap = Object.fromEntries((serverHtStats||[]).map(r => [r.house_type, r]));
+    const priceMap     = Object.fromEntries((serverHtStats    ||[]).map(r => [r.house_type, r]));
+    const prevPriceMapH= Object.fromEntries((prevServerHtStats||[]).map(r => [r.house_type, r]));
+    const pickHT = (...srcs) => srcs.find(s => s?.avg_price != null) || srcs.find(Boolean) || {};
     const allRows = Object.keys(counts).map(ht => {
-      const ps = priceMap[ht] || {};
+      const ps = pickHT(priceMap[ht], prevPriceMapH[ht]);
       return { house_type: ht, count: counts[ht],
         avg_price: ps.avg_price ?? null, min_price: ps.min_price ?? null,
         max_price: ps.max_price ?? null, avg_pm2: ps.avg_pm2 ?? null, avg_size: ps.avg_size ?? null };
     }).sort((a,b) => a.house_type.localeCompare(b.house_type));
     const rows = selHouseType.length > 0 ? allRows.filter(r => selHouseType.includes(r.house_type)) : allRows;
     return rows.length > 0 ? rows : (chartData.length === 0 && !searched ? serverHtStats : []);
-  }, [chartData, serverHtStats, searched, selUnit, selHouseType]);
+  }, [chartData, serverHtStats, prevServerHtStats, searched, selUnit, selHouseType]);
 
   const priceDist = useMemo(() => {
     const bins = [
@@ -1439,6 +1448,39 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0,
                   height: "calc(100vh - 200px)", overflowY: "auto",
                   scrollbarWidth: "thin", scrollbarColor: `${T.border} transparent` }}>
+
+                  {/* Summary bar — active + sold out counts */}
+                  {(displayResults.length > 0 || filteredDelisted.length > 0) && (
+                    <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap",
+                      background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:8, padding:"7px 14px" }}>
+                      {listingStatus !== "sold_out" && (
+                        <span style={{ fontSize:12, fontWeight:700, color:T.navy }}>
+                          {displayResults.length} <span style={{ fontWeight:400, color:T.textMuted }}>active</span>
+                        </span>
+                      )}
+                      {listingStatus !== "active" && filteredDelisted.length > 0 && (
+                        <>
+                          {listingStatus !== "sold_out" && displayResults.length > 0 && (
+                            <span style={{ color:T.border, fontSize:12 }}>·</span>
+                          )}
+                          <span style={{ fontSize:12, fontWeight:700, color:"#6B2A2A" }}>
+                            {filteredDelisted.length} <span style={{ fontWeight:400, color:"#9B4B4B" }}>sold out</span>
+                          </span>
+                        </>
+                      )}
+                      <span style={{ flex:1 }} />
+                      {chartData.length > 0 && (() => {
+                        const totalUnits = chartData.reduce((s, l) => {
+                          const active = Object.values(l.unit_type_counts || {}).reduce((a,v)=>a+v,0);
+                          const sold   = Object.values(l.prev_unit_type_counts || {}).reduce((a,v)=>a+v,0);
+                          return s + (active + sold || l.units || 0);
+                        }, 0);
+                        return totalUnits > 0
+                          ? <span style={{ fontSize:11, color:T.textMuted }}>{totalUnits.toLocaleString("en-US")} units total</span>
+                          : null;
+                      })()}
+                    </div>
+                  )}
 
                   {/* Row 1: Leaflet Map | Google Map */}
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
