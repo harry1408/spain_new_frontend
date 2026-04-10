@@ -1475,6 +1475,45 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                     </div>
                   </div>
 
+                  {/* Summary stat row */}
+                  {(() => {
+                    const total = chartData.length;
+                    const newCount = chartData.filter(l => newThisMonthIds.includes(l.listing_id)).length;
+                    const totalUnits = chartData.reduce((s, l) => s + (l.units || 0), 0);
+                    const avgPrice = total > 0 ? Math.round(chartData.reduce((s,l) => s + (l.avg_price||0), 0) / total) : 0;
+                    return (
+                      <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+                        {newCount > 0 && (
+                          <div style={{ flex:"0 0 auto", background:"#F0FDF4", border:"1px solid #86EFAC",
+                            borderRadius:10, padding:"10px 16px", minWidth:110 }}>
+                            <div style={{ fontSize:10, fontWeight:700, color:"#15803D", textTransform:"uppercase",
+                              letterSpacing:"0.06em", marginBottom:4 }}>🆕 New This Month</div>
+                            <div style={{ fontSize:22, fontWeight:800, color:"#16a34a" }}>{fmtNum(newCount)}</div>
+                            <div style={{ fontSize:10, color:"#15803D", marginTop:2 }}>developments</div>
+                          </div>
+                        )}
+                        <div style={{ flex:"0 0 auto", background:T.bgStripe, border:`1px solid ${T.border}`,
+                          borderRadius:10, padding:"10px 16px", minWidth:110 }}>
+                          <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase",
+                            letterSpacing:"0.06em", marginBottom:4 }}>Developments</div>
+                          <div style={{ fontSize:22, fontWeight:800, color:T.text }}>{fmtNum(total)}</div>
+                        </div>
+                        <div style={{ flex:"0 0 auto", background:T.bgStripe, border:`1px solid ${T.border}`,
+                          borderRadius:10, padding:"10px 16px", minWidth:110 }}>
+                          <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase",
+                            letterSpacing:"0.06em", marginBottom:4 }}>Total Units</div>
+                          <div style={{ fontSize:22, fontWeight:800, color:T.text }}>{fmtNum(totalUnits)}</div>
+                        </div>
+                        <div style={{ flex:"0 0 auto", background:T.bgStripe, border:`1px solid ${T.border}`,
+                          borderRadius:10, padding:"10px 16px", minWidth:130 }}>
+                          <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase",
+                            letterSpacing:"0.06em", marginBottom:4 }}>Avg Price</div>
+                          <div style={{ fontSize:22, fontWeight:800, color:T.navy }}>{avgPrice ? fmt(avgPrice) : "—"}</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* Row 2: Unit Type Summary | House Type Summary */}
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
 

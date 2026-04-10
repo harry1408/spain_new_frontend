@@ -603,6 +603,9 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
       {/* KPI row */}
       {stats && (
         <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
+          {stats.new_this_month > 0 && (
+            <StatCard label="New This Month" value={fmtNum(stats.new_this_month)} accent="#16a34a" />
+          )}
           {[
             { label:"Total Units", field:"total_units", fmt:v=>v.toLocaleString() },
             { label:"Avg Price",        field:"avg_price",   fmt:fmt },

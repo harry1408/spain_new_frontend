@@ -637,12 +637,13 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       {/* KPIs — driven by filteredStats when filters active */}
       <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
         {((_s => [
+          stats.new_this_month > 0 && <StatCard key="new"  label="New This Month"   value={fmtNum(stats.new_this_month)} accent="#16a34a" />,
           <StatCard key="dev"   label="Developments"     value={fmtNum(_s.total_listings)} accent={T.text} />,
           <StatCard key="apts"  label="Total Units" value={fmtNum(_s.total_units)} />,
           <StatCard key="avg"   label="Avg Price"        value={fmt(_s.avg_price)} />,
           <StatCard key="m2"    label="Avg €/m²"         value={_s.avg_price_m2 != null ? `€${Math.round(_s.avg_price_m2).toLocaleString("en")}` : "—"} accent={T.navyMid} />,
           <StatCard key="range" label="Price Range"      value={`${fmt(_s.price_range?.[0])} – ${fmt(_s.price_range?.[1])}`} accent={T.textSub} />,
-        ]))(filteredStats || stats)}
+        ].filter(Boolean)))(filteredStats || stats)}
       </div>
 
       {/* ── Filter Bar ── */}
