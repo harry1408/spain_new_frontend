@@ -39,20 +39,25 @@ export default function ApartmentModal({ apt, listingId, listingName, onClose })
     }).catch(() => setLoading(false));
   }, [apt.sub_listing_id, listingId, apt.unit_type]);
 
-  // Map markers: current listing = gold star, activePin = blue, rest = gray
+  // Map markers: only listings that have a matching apartment in the table (same unit type)
   const mapMarkers = useMemo(() => {
     if (!nearbyListings?.listings) return [];
-    return nearbyListings.listings.map(l => ({
-      id:       l.listing_id,
-      lat:      l.lat, lng: l.lng,
-      label:    l.property_name,
-      sublabel: `${fmt(l.avg_price)} avg · ${l.units} apts`,
-      active:   l.listing_id === listingId || l.listing_id === activePin,
-      color:    l.listing_id === listingId ? T.navy
-              : l.listing_id === activePin ? T.blue
-              : "#8A96B4",
-    }));
-  }, [nearbyListings, listingId, activePin]);
+    const tableListingIds = new Set((nearbyApts?.apartments || []).map(a => a.listing_id));
+    tableListingIds.add(listingId);
+    return nearbyListings.listings
+      .filter(l => tableListingIds.has(l.listing_id))
+      .filter(l => l.lat && l.lng)
+      .map(l => ({
+        id:       l.listing_id,
+        lat:      l.lat, lng: l.lng,
+        label:    l.property_name,
+        sublabel: `${fmt(l.avg_price)} avg · ${l.units} apts`,
+        active:   l.listing_id === listingId || l.listing_id === activePin,
+        color:    l.listing_id === listingId ? T.navy
+                : l.listing_id === activePin ? T.blue
+                : "#8A96B4",
+      }));
+  }, [nearbyListings, nearbyApts, listingId, activePin]);
 
   // Similar apts sorted
   const sortedApts = useMemo(() => {

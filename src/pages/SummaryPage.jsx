@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,
          LineChart,Line,ScatterChart,Scatter,PieChart,Pie,Cell,Legend } from "recharts";
 import { T,StatCard,ChartCard,fmt,fmtFull,fmtNum,COLORS,UNIT_COLORS,ESG_COLORS,PRICE_COLOR,M2_COLOR } from "../components/shared.jsx";
@@ -179,8 +179,11 @@ function PriceByUnitTypeChart({ data, animKey }) {
 }
 
 
+// constant outside component — avoids recreating 26-element array every render
+const SCATTER_SIZE_TICKS = Array.from({ length: 26 }, (_, i) => i * 20);
+
 // ── Price Distribution — two separate charts ─────────────────────────────
-function PriceDistributionChart({ data, m2data, height=220, animKey }) {
+const PriceDistributionChart = React.memo(function PriceDistributionChart({ data, m2data, height=220, animKey }) {
   const safePrice = (data||[]).map(d=>({ ...d, count: Number(d.count)||0 }));
   const safeM2    = (m2data||[]).map(d=>({ ...d, count: Number(d.count)||0 }));
   const maxPrice  = safePrice.length ? Math.max(...safePrice.map(d=>d.count||0)) : 1;
@@ -219,22 +222,22 @@ function PriceDistributionChart({ data, m2data, height=220, animKey }) {
       </ChartCard>
     </>
   );
-}
+});
 
 // ── Scatter Popup Modal ───────────────────────────────────────────────────
-function UnitByHouseTypeChart({ data, animKey }) {
+const UnitByHouseTypeChart = React.memo(function UnitByHouseTypeChart({ data, animKey }) {
   const [activeUT, setActiveUT] = React.useState(null);
-  const houseTypes = [...new Set(data.map(d=>d.house_type).filter(Boolean))].sort();
-  const unitTypes  = [...new Set(data.map(d=>d.unit_type).filter(Boolean))].sort();
-  const barData = houseTypes.map(ht => {
+  const houseTypes = useMemo(() => [...new Set(data.map(d=>d.house_type).filter(Boolean))].sort(), [data]);
+  const unitTypes  = useMemo(() => [...new Set(data.map(d=>d.unit_type).filter(Boolean))].sort(),  [data]);
+  const barData = useMemo(() => houseTypes.map(ht => {
     const row = { house_type: ht };
     unitTypes.forEach(ut => {
       const found = data.find(d=>d.house_type===ht && d.unit_type===ut);
       row[ut] = found ? found.count : 0;
     });
     return row;
-  });
-  const utColors = unitTypes.map(ut => UNIT_COLORS[ut] || COLORS[unitTypes.indexOf(ut) % COLORS.length]);
+  }), [houseTypes, unitTypes, data]);
+  const utColors = useMemo(() => unitTypes.map(ut => UNIT_COLORS[ut] || COLORS[unitTypes.indexOf(ut) % COLORS.length]), [unitTypes]);
   return (
     <ChartCard title="Unit Type by House Type — click segment to highlight" animKey={animKey}>
       <ResponsiveContainer width="100%" height={220}>
@@ -265,7 +268,7 @@ function UnitByHouseTypeChart({ data, animKey }) {
       )}
     </ChartCard>
   );
-}
+});
 
 function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
   const [selectedIds, setSelectedIds] = React.useState(new Set([dot.sub_listing_id]));
@@ -354,7 +357,7 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
               <ScatterChart margin={{ top:5, right:10, bottom:24, left:5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
                 <XAxis type="number" dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
-                  domain={[0, 500]} ticks={Array.from({length:26}, (_,i)=>i*20)}
+                  domain={[0, 500]} ticks={SCATTER_SIZE_TICKS}
                   label={{ value:"Size (m²)", position:"insideBottom", fill:T.textSub, fontSize:10, dy:16 }}/>
                 <YAxis type="number" dataKey="price_per_m2" name="€/m²" tickFormatter={v=>`€${Math.round(v).toLocaleString("en-US")}`}
                   tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}/>
@@ -392,7 +395,7 @@ function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
               <ScatterChart margin={{ top:5, right:10, bottom:24, left:5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
                 <XAxis type="number" dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}
-                  domain={[0, 500]} ticks={Array.from({length:26}, (_,i)=>i*20)}
+                  domain={[0, 500]} ticks={SCATTER_SIZE_TICKS}
                   label={{ value:"Size (m²)", position:"insideBottom", fill:T.textSub, fontSize:10, dy:16 }}/>
                 <YAxis type="number" dataKey="price" name="Price" tickFormatter={v=>`€${Math.round(v/1000).toLocaleString("en-US")}K`}
                   tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false}/>
@@ -544,29 +547,40 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
     } catch(e) { console.error(e); }
   }, [sel.municipality, sel.unit_type]);
 
-  useEffect(() => { load(); }, [load]);
+  // Debounce: wait 400ms after last filter change before firing requests
+  useEffect(() => {
+    const timer = setTimeout(() => load(), 400);
+    return () => clearTimeout(timer);
+  }, [load]);
   useEffect(() => { if (tab === "trend") loadTrend(); }, [tab, loadTrend]);
 
   const TABS = [["snapshot","Market Snapshot"],["trend","Trends Over Time"]];
 
-  const ut_lines = [...new Set((trend.utTrend||[]).map(d=>d.unit_type))];
-  const periods  = [...new Set((trend.mkt||[]).map(d=>d.period))];
+  const ut_lines = useMemo(() => [...new Set((trend.utTrend||[]).map(d=>d.unit_type))], [trend.utTrend]);
+  const periods  = useMemo(() => [...new Set((trend.mkt||[]).map(d=>d.period))],        [trend.mkt]);
 
   // For muni trend: pivot by period→muni
-  const muniTrendByPeriod = {};
-  (trend.muniTrend||[]).forEach(r => {
-    if(!muniTrendByPeriod[r.period]) muniTrendByPeriod[r.period] = {period:r.period};
-    muniTrendByPeriod[r.period][r.municipality] = r.avg_price;
-  });
-  const topMunis = [...new Set((trend.muniTrend||[]).map(d=>d.municipality))].slice(0,8);
-  const muniTrendRows = Object.values(muniTrendByPeriod);
+  const { muniTrendRows, topMunis } = useMemo(() => {
+    const byPeriod = {};
+    (trend.muniTrend||[]).forEach(r => {
+      if(!byPeriod[r.period]) byPeriod[r.period] = {period:r.period};
+      byPeriod[r.period][r.municipality] = r.avg_price;
+    });
+    return {
+      muniTrendRows: Object.values(byPeriod),
+      topMunis: [...new Set((trend.muniTrend||[]).map(d=>d.municipality))].slice(0,8),
+    };
+  }, [trend.muniTrend]);
 
   // For unit-type trend: pivot
-  const utByPeriod = {};
-  (trend.utTrend||[]).forEach(r => {
-    if(!utByPeriod[r.period]) utByPeriod[r.period] = {period:r.period};
-    utByPeriod[r.period][r.unit_type] = r.avg_price;
-  });
+  const utByPeriod = useMemo(() => {
+    const byPeriod = {};
+    (trend.utTrend||[]).forEach(r => {
+      if(!byPeriod[r.period]) byPeriod[r.period] = {period:r.period};
+      byPeriod[r.period][r.unit_type] = r.avg_price;
+    });
+    return byPeriod;
+  }, [trend.utTrend]);
 
   return (
     <div style={{ padding:"20px 20px", maxWidth:1700, margin:"0 auto" }}>
@@ -641,8 +655,6 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
         <div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:16 }}>
 
-            <PriceByUnitTypeChart data={charts.byType||[]} animKey={chartVer} />
-
             <PriceDistributionChart data={charts.price_dist||[]} m2data={charts.m2_dist||[]} height={220} animKey={chartVer} />
 
             <ChartCard title="Delivery Timeline" animKey={chartVer}>
@@ -709,7 +721,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                 <ScatterChart margin={{ top:5, right:20, bottom:20, left:5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
                   <XAxis type="number" dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}
-                    domain={[0, 500]} ticks={Array.from({length:26}, (_,i)=>i*20)}
+                    domain={[0, 500]} ticks={SCATTER_SIZE_TICKS}
                     label={{ value:"Size (m²)", position:"insideBottom", fill:T.textSub, fontSize:11, dy:16 }} />
                   <YAxis type="number" dataKey="price_per_m2" name="€/m²" tickFormatter={v=>`€${Math.round(v).toLocaleString("en-US")}`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
                   <Tooltip cursor={{ strokeDasharray:"3 3" }}
@@ -730,6 +742,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                   <Scatter
                     data={(charts.scatter||[]).filter(d=>d.price_per_m2)}
                     onClick={(pt) => setSelectedDot(pt)}
+                    isAnimationActive={false}
                     shape={(props) => {
                       const d = props.payload;
                       const isSelected = selectedDot?.sub_listing_id === d.sub_listing_id;
@@ -758,7 +771,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                 <ScatterChart margin={{ top:5, right:20, bottom:20, left:5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
                   <XAxis type="number" dataKey="size" name="Size (m²)" tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false}
-                    domain={[0, 500]} ticks={Array.from({length:26}, (_,i)=>i*20)}
+                    domain={[0, 500]} ticks={SCATTER_SIZE_TICKS}
                     label={{ value:"Size (m²)", position:"insideBottom", fill:T.textSub, fontSize:11, dy:16 }} />
                   <YAxis type="number" dataKey="price" name="Price" tickFormatter={v=>`€${Math.round(v/1000).toLocaleString("en-US")}K`} tick={{ fill:T.textSub, fontSize:11 }} axisLine={false} tickLine={false} />
                   <Tooltip cursor={{ strokeDasharray:"3 3" }}
@@ -779,6 +792,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                   <Scatter
                     data={charts.scatter||[]}
                     onClick={(pt) => setSelectedDot(pt)}
+                    isAnimationActive={false}
                     shape={(props) => {
                       const d = props.payload;
                       const isSelected = selectedDot?.sub_listing_id === d.sub_listing_id;

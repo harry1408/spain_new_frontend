@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
          ResponsiveContainer, Legend } from "recharts";
 import { T, Pill, fmt, fmtFull, fmtNum, UNIT_COLORS, ESG_COLORS, Tag } from "../components/shared.jsx";
@@ -248,15 +248,16 @@ function AVMSection({ apt, comparables, utColor }) {
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────
-export default function ApartmentPage({ apt, listingId, listingName, onBack, municipality }) {
+export default function ApartmentPage({ apt, listingId, listingName, onBack, municipality, onGoListing }) {
   const [aptTrend,      setAptTrend]      = useState([]);
   const [nearbyTrend,   setNearbyTrend]   = useState([]);
   const [nearbyApts,    setNearbyApts]    = useState(null);
   const [nearbyListings,setNearbyListings]= useState(null);
   const [listingDetail, setListingDetail] = useState(null);
   const [activePin,     setActivePin]     = useState(null);
+  const tableRef = useRef(null);
   const [sortCol,       setSortCol]       = useState("price");
-  const [radiusKm,      setRadiusKm]      = useState(null); // null = comarca mode
+  const [radiusKm,      setRadiusKm]      = useState(7);
   const [loading,       setLoading]       = useState(true);
   const [floorPlans,    setFloorPlans]    = useState([]);
   const [devFloorPlans, setDevFloorPlans] = useState([]);
@@ -293,12 +294,12 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
 
   useEffect(() => {
     setLoading(true);
-    const radiusQ = radiusKm ? `&radius_km=${radiusKm}` : "";
+    const radiusQ = radiusKm ? `radius_km=${radiusKm}` : "";
     Promise.all([
       fetch(`${API}/drilldown/listing/${listingId}`).then(r=>r.json()),
-      fetch(`${API}/nearby/apartments/${listingId}?unit_type=${encodeURIComponent(apt.unit_type)}${radiusQ}`).then(r=>r.json()),
-      fetch(`${API}/nearby/listings/${listingId}?${radiusQ.slice(1)}`).then(r=>r.json()),
-      fetch(`${API}/nearby/apartments/${listingId}/trend?unit_type=${encodeURIComponent(apt.unit_type)}${radiusQ}`).then(r=>r.json()),
+      fetch(`${API}/nearby/apartments/${listingId}?${radiusQ}`).then(r=>r.json()),
+      fetch(`${API}/nearby/listings/${listingId}?${radiusQ}`).then(r=>r.json()),
+      fetch(`${API}/nearby/apartments/${listingId}/trend?unit_type=${encodeURIComponent(apt.unit_type)}${radiusQ ? "&"+radiusQ : ""}`).then(r=>r.json()),
     ]).then(([detail, nbApts, nbListings, nbTrend]) => {
       const history = (detail.apt_trend || [])
         .filter(r => r.sub_listing_id === apt.sub_listing_id)
@@ -312,25 +313,44 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
     }).catch(() => setLoading(false));
   }, [apt.sub_listing_id, listingId, apt.unit_type, radiusKm]);
 
-  const mapMarkers = useMemo(() => {
-    if (!nearbyListings?.listings) return [];
-    return nearbyListings.listings
-      .filter(l => l.lat && l.lng && !(Math.abs(l.lat - 39.47) < 0.001 && Math.abs(l.lng + 0.38) < 0.001))
-      .map(l => ({
-      id:       l.listing_id,
-      lat:      l.lat, lng: l.lng,
-      label:    l.property_name,
-      sublabel: `${fmt(l.avg_price)} avg · ${fmtNum(l.units)} apts`,
-      active:   l.listing_id === listingId || l.listing_id === activePin,
-      color:    l.listing_id === listingId ? T.navy
-              : l.listing_id === activePin ? T.navyMid : "#8A96B4",
-    }));
-  }, [nearbyListings, listingId, activePin]);
+  // Scroll to first table row matching the active pin when map pin is clicked
+  useEffect(() => {
+    if (!activePin || !tableRef.current) return;
+    const row = tableRef.current.querySelector(`[data-lid="${activePin}"]`);
+    if (row) row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [activePin]);
 
   const sortedApts = useMemo(() => {
     if (!nearbyApts?.apartments) return [];
-    return [...nearbyApts.apartments].sort((a,b) => (a[sortCol]||0)-(b[sortCol]||0));
-  }, [nearbyApts, sortCol]);
+    return [...nearbyApts.apartments]
+      .filter(a => a.unit_type === apt.unit_type)
+      .sort((a,b) => {
+        // Self always first
+        const aThis = a.sub_listing_id === apt.sub_listing_id ? 0 : 1;
+        const bThis = b.sub_listing_id === apt.sub_listing_id ? 0 : 1;
+        if (aThis !== bThis) return aThis - bThis;
+        return (a[sortCol]||0) - (b[sortCol]||0);
+      });
+  }, [nearbyApts, sortCol, apt]);
+
+  const mapMarkers = useMemo(() => {
+    if (!nearbyListings?.listings) return [];
+    // Only pin developments that have at least one similar apartment in the table
+    const visibleLids = new Set(sortedApts.map(a => a.listing_id));
+    visibleLids.add(listingId);
+    return nearbyListings.listings
+      .filter(l => visibleLids.has(l.listing_id))
+      .filter(l => l.lat && l.lng && !(Math.abs(l.lat - 39.47) < 0.001 && Math.abs(l.lng + 0.38) < 0.001))
+      .map(l => ({
+        id:       l.listing_id,
+        lat:      l.lat, lng: l.lng,
+        label:    l.property_name,
+        sublabel: `${fmt(l.avg_price)} avg · ${fmtNum(l.units)} apts`,
+        active:   l.listing_id === listingId || l.listing_id === activePin,
+        color:    l.listing_id === listingId ? T.navy
+                : l.listing_id === activePin ? T.navyMid : "#8A96B4",
+      }));
+  }, [nearbyListings, sortedApts, listingId, activePin]);
 
   const priceStats = useMemo(() => {
     if (aptTrend.length < 2) return null;
@@ -880,23 +900,23 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                     display:"flex", alignItems:"center", gap:8 }}>
                     <span style={{ background:utColor, color:"#fff", width:24, height:24, borderRadius:"50%",
                       display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:800 }}>3</span>
-                    Similar {apt.unit_type} Apartments Nearby
-                    <span style={{ color:T.textMuted, fontWeight:400, fontSize:12 }}>· {nearbyApts?.comarca}</span>
+                    Nearby Similar Properties
+                    <span style={{ color:T.textMuted, fontWeight:400, fontSize:12 }}>· {radiusKm} km radius</span>
                   </div>
                   {/* Radius slider */}
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginLeft:"auto",
                     background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:8, padding:"6px 12px" }}>
                     <span style={{ fontSize:11, color:T.textMuted, whiteSpace:"nowrap" }}>📍 Search radius:</span>
-                    <input type="range" min="1" max="30" step="1"
-                      value={radiusKm ?? 0}
-                      onChange={e => setRadiusKm(+e.target.value === 0 ? null : +e.target.value)}
+                    <input type="range" min="1" max="7" step="1"
+                      value={radiusKm ?? 7}
+                      onChange={e => setRadiusKm(+e.target.value)}
                       style={{ width:100, accentColor:utColor, cursor:"pointer" }}
                     />
                     <span style={{ fontSize:12, fontWeight:700, color:utColor, minWidth:90 }}>
-                      {radiusKm ? `${radiusKm} km radius` : `Comarca`}
+                      {radiusKm} km radius
                     </span>
-                    {radiusKm && (
-                      <button onClick={() => setRadiusKm(null)}
+                    {radiusKm !== 7 && (
+                      <button onClick={() => setRadiusKm(7)}
                         style={{ background:"none", border:"none", color:T.textMuted, fontSize:11,
                           cursor:"pointer", padding:0, fontWeight:600 }}>✕ reset</button>
                     )}
@@ -918,7 +938,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                       <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                         <thead>
                           <tr style={{ background:T.bgStripe, borderBottom:`1px solid ${T.border}` }}>
-                            {["Development","Floor","Price","€/m²","Beds","Amenities","Updated","Link"].map((h,hi)=>(
+                            {["Development","House Type","Floor","Price","€/m²","Beds","Amenities","Updated","Link",""].map((h,hi)=>(
                               <th key={hi} style={{ padding:"8px 10px", position:"sticky", top:0, zIndex:1,
                                 background:T.bgStripe, color:T.textMuted,
                                 fontSize:9, textTransform:"uppercase", whiteSpace:"nowrap",
@@ -928,7 +948,7 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                           </tr>
                         </thead>
                       </table>
-                      <div style={{ maxHeight: 460, overflowY:"auto" }}>
+                      <div ref={tableRef} style={{ maxHeight: 460, overflowY:"auto" }}>
                         <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                           <tbody>
                             {sortedApts.map((a,i)=>{
@@ -937,11 +957,13 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                               const isPinned = a.listing_id === activePin;
                               const pDiff = isThis || !apt.price ? null : a.price - apt.price;
                               const mDiff = isThis || !apt.price_per_m2 ? null : (a.price_per_m2||0) - apt.price_per_m2;
-                              const rowBg = isThis   ? "rgba(201,168,76,0.15)"
-                                          : isPinned ? "rgba(74,128,176,0.10)"
+                              const rowBg = isThis   ? T.navyLight
+                                          : isPinned ? "rgba(234,88,12,0.10)"
                                           : isCur    ? T.navyLight
                                           : i%2===0  ? T.bgStripe : "#fff";
-                              const borderColor = isThis ? T.navy : isPinned ? T.navyMid : isCur ? "rgba(201,168,76,0.4)" : "transparent";
+                              const borderColor = isThis ? "#EA580C" : isPinned ? "#EA580C" : isCur ? "rgba(201,168,76,0.4)" : "transparent";
+                              const cellColor  = isThis || isCur ? "#fff" : T.text;
+                              const mutedColor = isThis || isCur ? "rgba(255,255,255,0.65)" : T.textSub;
                               const DiffTag = ({ d, isEur }) => {
                                 if (isThis || d == null) return null;
                                 const up = d > 0;
@@ -954,36 +976,45 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                                 );
                               };
                               return (
-                                <tr key={a.sub_listing_id}
+                                <tr key={a.sub_listing_id} data-lid={a.listing_id}
                                   onClick={() => setActivePin(p => p===a.listing_id ? null : a.listing_id)}
                                   style={{ background:rowBg, borderBottom:`1px solid ${T.border}`,
                                     borderLeft:`3px solid ${borderColor}`,
                                     cursor:"pointer", transition:"background 0.1s" }}>
                                   <td style={{ padding:"8px 10px", maxWidth:140 }}>
                                     <div style={{ fontWeight:isCur||isPinned?700:500,
-                                      color:isThis?T.navy:isPinned?T.navyMid:isCur?"#fff":T.text, fontSize:11,
+                                      color:isThis||isCur?"#fff":isPinned?T.navyMid:T.text, fontSize:11,
                                       whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:130 }}>{a.property_name}</div>
                                     <div style={{ color:isCur?"rgba(255,255,255,0.7)":T.textMuted, fontSize:10 }}>{a.municipality}</div>
-                                    {isThis&&<div style={{ fontSize:9,color:T.navy,fontWeight:700 }}>◀ This apt</div>}
+                                    {isThis&&<div style={{ fontSize:9,color:"rgba(255,255,255,0.85)",fontWeight:700 }}>◀ This apt</div>}
                                     {isPinned&&!isThis&&<div style={{ fontSize:9,color:T.navyMid,fontWeight:700 }}>📍 Pinned</div>}
                                   </td>
-                                  <td style={{ padding:"8px 10px", textAlign:"right", whiteSpace:"nowrap" }}>{a.floor||"—"}</td>
+                                  <td style={{ padding:"8px 10px", whiteSpace:"nowrap" }}>
+                                    {a.house_type
+                                      ? <span style={{ background: isThis||isCur ? "rgba(255,255,255,0.15)" : T.navyTint,
+                                          color: isThis||isCur ? "#fff" : T.navy,
+                                          borderRadius:5, padding:"2px 7px", fontSize:10, fontWeight:600 }}>
+                                          {a.house_type}
+                                        </span>
+                                      : <span style={{ color:mutedColor }}>—</span>}
+                                  </td>
+                                  <td style={{ padding:"8px 10px", textAlign:"right", whiteSpace:"nowrap", color:cellColor }}>{a.floor||"—"}</td>
                                   <td style={{ padding:"8px 10px", textAlign:"right", whiteSpace:"nowrap" }}>
-                                    <div style={{ color:isThis?T.navy:T.text, fontWeight:isThis?700:600 }}>{fmtFull(a.price)}</div>
+                                    <div style={{ color:cellColor, fontWeight:isThis?700:600 }}>{fmtFull(a.price)}</div>
                                     <DiffTag d={pDiff} isEur={false}/>
                                   </td>
                                   <td style={{ padding:"8px 10px", textAlign:"right", whiteSpace:"nowrap" }}>
-                                    <div style={{ color:T.textSub }}>{a.price_per_m2?`€${Math.round(a.price_per_m2).toLocaleString("en-US")}`:"—"}</div>
+                                    <div style={{ color:mutedColor }}>{a.price_per_m2?`€${Math.round(a.price_per_m2).toLocaleString("en-US")}`:"—"}</div>
                                     <DiffTag d={mDiff} isEur={true}/>
                                   </td>
-                                  <td style={{ padding:"8px 10px", textAlign:"right" }}>{a.bedrooms??"—"}</td>
+                                  <td style={{ padding:"8px 10px", textAlign:"right", color:cellColor }}>{a.bedrooms??"—"}</td>
                                   <td style={{ padding:"8px 10px", textAlign:"right" }}>
                                     <div style={{ display:"flex", gap:3, justifyContent:"flex-end" }}>
                                       <Pill on={a.has_terrace} label="T"/><Pill on={a.has_parking} label="P"/>
                                       <Pill on={a.has_pool} label="Pool"/><Pill on={a.has_lift} label="Lift"/>
                                     </div>
                                   </td>
-                                  <td style={{ padding:"8px 10px", whiteSpace:"nowrap", fontSize:10, color:"#6B7A9F" }}>
+                                  <td style={{ padding:"8px 10px", whiteSpace:"nowrap", fontSize:10, color:mutedColor }}>
                                     {a.last_updated ? a.last_updated.replace("Listing updated on ","").replace("listing updated on ","") : "—"}
                                   </td>
                                   <td style={{ padding:"8px 10px", textAlign:"center" }}>
@@ -992,6 +1023,17 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                                         color:"#fff", background:T.navyMid, fontSize:10, fontWeight:700,
                                         textDecoration:"none", padding:"3px 9px", borderRadius:5,
                                         whiteSpace:"nowrap" }}>Idealista ↗</a>}
+                                  </td>
+                                  <td style={{ padding:"8px 10px", textAlign:"center" }}>
+                                    {!isThis && onGoListing && (
+                                      <button onClick={() => onGoListing(a.listing_id, a.property_name, a.municipality)}
+                                        style={{ background:"none", border:`1px solid ${T.border}`, borderRadius:5,
+                                          color: isCur||isPinned ? cellColor : T.navy,
+                                          fontSize:10, fontWeight:700, cursor:"pointer",
+                                          padding:"3px 9px", whiteSpace:"nowrap" }}>
+                                        View →
+                                      </button>
+                                    )}
                                   </td>
                                 </tr>
                               );
