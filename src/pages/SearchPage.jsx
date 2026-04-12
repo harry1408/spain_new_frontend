@@ -431,7 +431,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   const [maxM2,   setMaxM2]    = useState(_ss?.maxM2    ?? "");
 
   const [results,         setResults]         = useState(_ss?.results  ?? null);
-  const [delistedResults,   setDelistedResults]   = useState([]);
+  const [delistedResults,   setDelistedResults]   = useState(_ss?.delistedResults ?? []);
   const [showSoldOutOnly,   setShowSoldOutOnly]   = useState(false);
   const [listingStatus,     setListingStatus]     = useState(_ss?.listingStatus ?? "all"); // "all" | "active" | "sold_out"
   const [newThisMonth,      setNewThisMonth]      = useState(_ss?.newThisMonth ?? false);
@@ -442,7 +442,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   const [loading,  setLoading]  = useState(false);
   const [searched, setSearched] = useState(_ss?.searched ?? false);
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const _firstPin = _ss?.results?.find?.(l => l.lat && l.lng && l.lat !== 39.47)?.listing_id ?? null;
+  const _firstPin = _ss?.activePin ?? _ss?.results?.find?.(l => l.lat && l.lng && l.lat !== 39.47)?.listing_id ?? null;
   const [activePin, setActivePin] = useState(_firstPin);
   const lastHoveredPin = useRef(_firstPin); // persists last hovered id for Google Maps
   const firstResultCenter = useRef(null); // persists first result coords once loaded
@@ -464,12 +464,14 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     _ss = { selMuni, selStreet, radiusKm, mapMode, selUnit, selEsg, selHouseType,
             minPrice, maxPrice, minM2, maxM2, results, searched, searchCenter, streetCoords,
             serverUtStats, serverHtStats, prevServerUtStats, prevServerHtStats,
-            listingStatus, newThisMonth, gmapsLink, gmapsLabel };
+            listingStatus, newThisMonth, gmapsLink, gmapsLabel,
+            delistedResults, activePin };
   });  // runs every render — cheap object assign
   useEffect(() => {
     fetch(`${API}/filters`).then(r => r.json()).then(f => setNewThisMonthIds(f.new_this_month_ids || [])).catch(() => {});
   }, []);
   const isAutoRadiusRef = React.useRef(false); // flag to skip re-fetch on auto-set
+  const _restoredFromCache = React.useRef(!!_ss?.results); // skip re-fetch on back-navigation remount
   const _filterMountRef = React.useRef(true);  // skip secondary-filter effect on first mount
   // Track the last selMuni/selStreet identity that triggered the auto-search effect.
   // On mount (including StrictMode double-invoke), the ref is initialized to the
@@ -503,6 +505,11 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   // Single useEffect mirrors ApartmentPage pattern
   useEffect(() => {
     if (!searched) return;
+    // Skip re-fetch when returning from back navigation — cached results are already correct
+    if (_restoredFromCache.current) {
+      _restoredFromCache.current = false;
+      return;
+    }
     // Skip re-fetch when radius was auto-set — center/circle already correct
     if (isAutoRadiusRef.current) {
       isAutoRadiusRef.current = false;
