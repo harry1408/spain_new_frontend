@@ -7,7 +7,8 @@ import DelistedPage   from "./pages/DelistedPage.jsx";
 import SearchPage     from "./pages/SearchPage.jsx";
 
 //export const API = "http://localhost:8000";
-export const API = "https://spain-house-development.onrender.com";
+//export const API = "https://spain-house-development.onrender.com";
+export const API = "https://spain-housing-intelligence-477978906383.asia-south1.run.app";
 const NAV_H = 56;
 const NAVY  = "#0B1239";
 const BEIGE = "#F2F4F6";
