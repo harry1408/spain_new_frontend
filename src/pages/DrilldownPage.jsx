@@ -119,9 +119,8 @@ function ListingCard({ l, active, onSelect, onHover, selUnit, selHouseType }) {
         const utStats      = l.unit_type_stats        || {};
         let totalCount, activeOnly, ps = null;
         if (selUnit && selUnit.length > 0) {
-          activeOnly  = selUnit.reduce((s, ut) => s + (utCounts[ut]     || 0), 0);
-          const sold  = selUnit.reduce((s, ut) => s + (prevUtCounts[ut] || 0), 0);
-          totalCount  = activeOnly + sold;
+          activeOnly  = selUnit.reduce((s, ut) => s + (utCounts[ut] || 0), 0);
+          totalCount  = activeOnly;
           const sel = selUnit.map(ut => utStats[ut]).filter(Boolean);
           if (sel.length === 1) {
             ps = sel[0];
@@ -135,13 +134,11 @@ function ListingCard({ l, active, onSelect, onHover, selUnit, selHouseType }) {
             };
           }
         } else if (selHouseType && selHouseType.length > 0) {
-          activeOnly = selHouseType.reduce((s, ht) => s + (htCounts[ht]     || 0), 0);
-          const sold = selHouseType.reduce((s, ht) => s + (prevHtCounts[ht] || 0), 0);
-          totalCount = activeOnly + sold;
+          activeOnly = selHouseType.reduce((s, ht) => s + (htCounts[ht] || 0), 0);
+          totalCount = activeOnly;
         } else {
           activeOnly = Object.values(utCounts).reduce((s, v) => s + v, 0);
-          totalCount = l.units || activeOnly;
-          activeOnly = activeOnly || totalCount;
+          totalCount = activeOnly || l.units;
         }
         const avgPrice = ps?.avg_price ?? l.avg_price;
         const minPrice = ps?.min_price ?? l.min_price;
@@ -447,11 +444,10 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
     let priceOverride = null;
 
     if (fSelUnit.length > 0) {
-      // Count only selected unit types (active + sold); use server per-unit-type price stats
+      // Count only selected unit types (active only)
       filteredListings.forEach(l => {
-        const utCounts     = l.unit_type_counts      || {};
-        const prevUtCounts = l.prev_unit_type_counts || {};
-        fSelUnit.forEach(ut => { total_units += (utCounts[ut] || 0) + (prevUtCounts[ut] || 0); });
+        const utCounts = l.unit_type_counts || {};
+        fSelUnit.forEach(ut => { total_units += (utCounts[ut] || 0); });
       });
       const selStats = fSelUnit.map(ut => utPriceMap[ut]).filter(Boolean);
       if (selStats.length) {
@@ -462,11 +458,10 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
         };
       }
     } else if (fSelHouseType.length > 0) {
-      // Count only selected house types (active + sold); use server per-house-type price stats
+      // Count only selected house types (active only)
       filteredListings.forEach(l => {
-        const htCounts     = l.house_type_counts      || {};
-        const prevHtCounts = l.prev_house_type_counts || {};
-        fSelHouseType.forEach(ht => { total_units += (htCounts[ht] || 0) + (prevHtCounts[ht] || 0); });
+        const htCounts = l.house_type_counts || {};
+        fSelHouseType.forEach(ht => { total_units += (htCounts[ht] || 0); });
       });
       const selStats = fSelHouseType.map(ht => htPriceMap[ht]).filter(Boolean);
       if (selStats.length) {
@@ -479,8 +474,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
     } else {
       filteredListings.forEach(l => {
         const active = Object.values(l.unit_type_counts||{}).reduce((a,v)=>a+v,0);
-        const sold   = Object.values(l.prev_unit_type_counts||{}).reduce((a,v)=>a+v,0);
-        total_units += (active + sold) || l.units || 0;
+        total_units += active || l.active_units || 0;
       });
     }
 
@@ -508,26 +502,20 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
     const counts = {};
     filteredListings.forEach(l => {
       if (activeHtFilter) {
-        // Use cross-reference: only count unit types belonging to the selected house types
+        // Use cross-reference: only count active unit types belonging to the selected house types
         fSelHouseType.forEach(ht => {
-          const xref     = (l.house_type_unit_counts      || {})[ht] || {};
-          const prevXref = (l.prev_house_type_unit_counts || {})[ht] || {};
-          const allUts = new Set([...Object.keys(xref), ...Object.keys(prevXref)]);
-          allUts.forEach(ut => {
-            const total = (xref[ut] || 0) + (prevXref[ut] || 0);
-            if (total > 0) counts[ut] = (counts[ut] || 0) + total;
+          const xref = (l.house_type_unit_counts || {})[ht] || {};
+          Object.keys(xref).forEach(ut => {
+            if (xref[ut] > 0) counts[ut] = (counts[ut] || 0) + xref[ut];
           });
         });
         return;
       }
-      const utCounts     = l.unit_type_counts      || {};
-      const prevUtCounts = l.prev_unit_type_counts  || {};
-      const hasCountData = Object.keys(utCounts).length > 0 || Object.keys(prevUtCounts).length > 0;
+      const utCounts = l.unit_type_counts || {};
+      const hasCountData = Object.keys(utCounts).length > 0;
       if (hasCountData) {
-        const allUts = new Set([...Object.keys(utCounts), ...Object.keys(prevUtCounts)]);
-        allUts.forEach(ut => {
-          const total = (utCounts[ut] || 0) + (prevUtCounts[ut] || 0);
-          if (total > 0) counts[ut] = (counts[ut] || 0) + total;
+        Object.keys(utCounts).forEach(ut => {
+          if (utCounts[ut] > 0) counts[ut] = (counts[ut] || 0) + utCounts[ut];
         });
       } else {
         const types = (l.unit_types || "").split(", ").filter(Boolean);
@@ -581,25 +569,21 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
     const activeUnitFilter = fSelUnit.length > 0 || unitFilter.length > 0;
     const effectiveUnitFilter = fSelUnit.length > 0 ? fSelUnit : unitFilter;
     filteredListings.forEach(l => {
-      const htCounts     = l.house_type_counts      || {};
-      const prevHtCounts = l.prev_house_type_counts  || {};
-      const utCounts     = l.unit_type_counts        || {};
-      const prevUtCounts = l.prev_unit_type_counts   || {};
-      const houseTypes   = (l.house_types || "").split(", ").filter(Boolean);
+      const htCounts   = l.house_type_counts || {};
+      const utCounts   = l.unit_type_counts  || {};
+      const houseTypes = (l.house_types || "").split(", ").filter(Boolean);
       const allHt = [...new Set([
         ...Object.keys(htCounts).filter(h => htCounts[h] > 0),
-        ...Object.keys(prevHtCounts).filter(h => prevHtCounts[h] > 0),
         ...houseTypes,
       ])];
       allHt.forEach(ht => {
         // When unit type filter active, use cross-reference for accurate per-house-type unit count
         let count;
         if (activeUnitFilter) {
-          const xref     = (l.house_type_unit_counts      || {})[ht] || {};
-          const prevXref = (l.prev_house_type_unit_counts || {})[ht] || {};
-          count = effectiveUnitFilter.reduce((s, ut) => s + (xref[ut] || 0) + (prevXref[ut] || 0), 0);
+          const xref = (l.house_type_unit_counts || {})[ht] || {};
+          count = effectiveUnitFilter.reduce((s, ut) => s + (xref[ut] || 0), 0);
         } else {
-          count = (htCounts[ht] || 0) + (prevHtCounts[ht] || 0) || (houseTypes.includes(ht) ? 1 : 0);
+          count = (htCounts[ht] || 0) || (houseTypes.includes(ht) ? 1 : 0);
         }
         if (!count) return;
         if (!groups[ht]) groups[ht] = { count: 0, prices: [], pm2s: [], sizes: [] };

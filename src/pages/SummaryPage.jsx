@@ -270,6 +270,54 @@ const UnitByHouseTypeChart = React.memo(function UnitByHouseTypeChart({ data, an
   );
 });
 
+// ── Municipalities Sold Out by Period (time-series stacked bar) ──────────
+const MunicipalitySoldOutTrendChart = React.memo(function MunicipalitySoldOutTrendChart({ data, animKey }) {
+  const { pivoted, topMunis } = useMemo(() => {
+    if (!data || !data.length) return { pivoted: [], topMunis: [] };
+    const totals = {};
+    data.forEach(r => { totals[r.municipality] = (totals[r.municipality] || 0) + r.listings; });
+    const topMunis = Object.entries(totals).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([m])=>m);
+    const byPeriod = {};
+    data.forEach(r => {
+      if (!topMunis.includes(r.municipality)) return;
+      if (!byPeriod[r.period]) byPeriod[r.period] = { period: r.period };
+      byPeriod[r.period][r.municipality] = r.listings;
+    });
+    const allPeriods = [...new Set(data.map(d=>d.period))];
+    const pivoted = allPeriods.map(p => {
+      const row = byPeriod[p] || { period: p };
+      topMunis.forEach(m => { if (!row[m]) row[m] = 0; });
+      return row;
+    });
+    return { pivoted, topMunis };
+  }, [data]);
+
+  if (!pivoted.length) return (
+    <div style={{ height:220, display:"flex", alignItems:"center", justifyContent:"center", color:T.textMuted, fontSize:12 }}>
+      No sold-out data across periods
+    </div>
+  );
+  return (
+    <ChartCard title="Municipalities — Sold Out by Period" animKey={animKey}>
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={pivoted} barSize={Math.max(6, Math.floor(48 / Math.max(pivoted.length, 1)))}>
+          <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+          <XAxis dataKey="period" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+          <YAxis allowDecimals={false} tickFormatter={v=>Number(v).toLocaleString("en-US")} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+          <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }}
+            formatter={(v, name) => [Number(v).toLocaleString("en-US"), name]} />
+          <Legend wrapperStyle={{ fontSize:10, paddingTop:4 }} />
+          {topMunis.map((m, i) => (
+            <Bar key={m} dataKey={m} stackId="a" fill={COLORS[i % COLORS.length]}
+              radius={i === topMunis.length - 1 ? [4,4,0,0] : [0,0,0,0]}
+              isAnimationActive={false} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+});
+
 function ScatterPopup({ dot, allDots, onClose, onGoListing }) {
   const [selectedIds, setSelectedIds] = React.useState(new Set([dot.sub_listing_id]));
   const [unitFilter, setUnitFilter] = React.useState([]);
@@ -514,7 +562,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
       const muniQsOnly = new URLSearchParams();
       if (sel.province.length)     sel.province.forEach(v=>muniQsOnly.append("province",v));
       if (sel.municipality.length) sel.municipality.forEach(v=>muniQsOnly.append("municipality",v));
-      const [st, byType, dl, distData, muni, esgR, scatter, unitByHouse, muniActivity] = await Promise.all([
+      const [st, byType, dl, distData, muni, esgR, scatter, unitByHouse, muniActivity, soldoutTrend] = await Promise.all([
         fetch(`${API}/stats?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/price-by-unit-type?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/delivery-timeline?${qs}`).then(r=>r.json()),
@@ -524,9 +572,10 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
         fetch(`${API}/charts/size-vs-price?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/unit-by-house-type?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/municipality-activity?${muniQsOnly}`).then(r=>r.json()),
+        fetch(`${API}/charts/municipality-soldout-trend?${muniQsOnly}`).then(r=>r.json()),
       ]);
       setStats(st);
-      setCharts({ byType, dl, price_dist: distData.price_dist, m2_dist: distData.m2_dist, muni, esgR, scatter, unitByHouse, muniActivity });
+      setCharts({ byType, dl, price_dist: distData.price_dist, m2_dist: distData.m2_dist, muni, esgR, scatter, unitByHouse, muniActivity, soldoutTrend });
       setChartVer(v => v + 1);
     } catch(e) { console.error(e); }
     setLoading(false);
@@ -700,20 +749,9 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
               </ResponsiveContainer>
             </ChartCard>
 
-            <ChartCard title="Top Municipalities — Sold Out" animKey={chartVer}>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={(charts.muniActivity?.sold_out||[]).slice(0,15)} layout="vertical" barSize={14}
-                  onClick={d=>d&&d.activePayload&&onDrilldown&&onDrilldown(d.activePayload[0].payload.municipality)}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
-                  <XAxis type="number" allowDecimals={false} tickFormatter={v=>Number(v).toLocaleString("en-US")} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
-                  <YAxis type="category" dataKey="municipality" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} width={120} />
-                  <Tooltip formatter={v=>[Number(v).toLocaleString("en-US"), "Sold Out"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
-                  <Bar dataKey="listings" name="Sold Out" radius={[0,5,5,0]} cursor="pointer">
-                    {(charts.muniActivity?.sold_out||[]).slice(0,15).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
+            <UnitByHouseTypeChart data={charts.unitByHouse||[]} animKey={chartVer} />
+
+            <MunicipalitySoldOutTrendChart data={charts.soldoutTrend||[]} animKey={chartVer} />
 
             {/* Size vs €/m² — click dot to open popup */}
             <ChartCard title="Size vs €/m² — click any dot for details" animKey={chartVer}>
@@ -847,7 +885,6 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
               })()}
             </ChartCard>
 
-            <UnitByHouseTypeChart data={charts.unitByHouse||[]} animKey={chartVer} />
           </div>
 
           {/* ── Scatter popup modal ─────────────────────────────────── */}
