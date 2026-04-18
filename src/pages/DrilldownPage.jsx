@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Cell,
          LineChart,Line,Legend } from "recharts";
-import { T,StatCard,ChartCard,Tag,Pill,fmt,fmtFull,fmtNum,COLORS,UNIT_COLORS,ESG_COLORS,AddressBreadcrumb,MapPinPopup,PRICE_COLOR,M2_COLOR} from "../components/shared.jsx";
+import { T,StatCard,ChartCard,Tag,Pill,fmt,fmtFull,fmtNum,COLORS,UNIT_COLORS,ESG_COLORS,AddressBreadcrumb,MapPinPopup,PRICE_COLOR,M2_COLOR,Skeleton,SkeletonStatCard,SkeletonChartCard} from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
-import LoadingHouse from "../components/LoadingHouse.jsx";
 
 
 // ── tiny helpers ────────────────────────────────────────────────────────
@@ -22,6 +21,25 @@ function NoDataNote({ msg }) {
     <div style={{ height:160, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:6 }}>
       <div style={{ fontSize:22 }}>📅</div>
       <div style={{ color:T.textSub, fontSize:12 }}>{msg}</div>
+    </div>
+  );
+}
+
+// ── municipality skeleton card ──────────────────────────────────────────
+function SkeletonMuniCard() {
+  return (
+    <div style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:12,
+      padding:"16px 18px", boxShadow:T.shadow }}>
+      <Skeleton w={140} h={14} r={4} style={{ marginBottom:14 }} />
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px 12px", marginBottom:12 }}>
+        {[1,2,3,4].map(i => (
+          <div key={i}>
+            <Skeleton w={40} h={9} r={3} style={{ marginBottom:5 }} />
+            <Skeleton w={i%2===0?60:50} h={13} r={3} />
+          </div>
+        ))}
+      </div>
+      <Skeleton w={70} h={10} r={3} />
     </div>
   );
 }
@@ -343,6 +361,7 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200, nav
 
 export default function DrilldownPage({ municipality, onSelectMunicipality, onSelectListing, onBackToSearch }) {
   const [muniList,    setMuniList]    = useState([]);
+  const [muniListLoading, setMuniListLoading] = useState(true);
   const [filters,     setFilters]     = useState({ provinces:[], province_munis:{}, house_types:[], new_this_month_ids:[] });
   const [selProvince, setSelProvince] = useState([]);
   const [selMuni,     setSelMuni]     = useState([]);
@@ -376,7 +395,8 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   useEffect(() => {
     const qs = new URLSearchParams();
     selHouseType.forEach(h => qs.append("house_type", h));
-    fetch(`${API}/charts/municipality-overview?${qs}`).then(r=>r.json()).then(setMuniList).catch(()=>{});
+    setMuniListLoading(true);
+    fetch(`${API}/charts/municipality-overview?${qs}`).then(r=>r.json()).then(d => { setMuniList(d); setMuniListLoading(false); }).catch(()=>setMuniListLoading(false));
   }, [selHouseType]);
 
   // Municipality detail
@@ -697,14 +717,49 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
           </div>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(240px,1fr))", gap:12 }}>
-          {sorted.map(m => <MuniCard key={m.municipality} m={m} onClick={()=>onSelectMunicipality(m.municipality)} />)}
+          {muniListLoading
+            ? Array.from({length:20}).map((_,i) => <SkeletonMuniCard key={i} />)
+            : sorted.map(m => <MuniCard key={m.municipality} m={m} onClick={()=>onSelectMunicipality(m.municipality)} />)
+          }
         </div>
       </div>
     );
   }
 
   // ── Municipality detail view ──────────────────────────────────────────
-  if (loading) return <div style={{ padding:60, textAlign:"center" }}><LoadingHouse message={`Loading ${municipality || ""}…`} /></div>;
+  if (loading) return (
+    <div style={{ padding:"20px 20px", maxWidth:1700, margin:"0 auto" }}>
+      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:18 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          <Skeleton w={220} h={28} r={6} />
+          <Skeleton w={180} h={12} r={4} />
+        </div>
+        <Skeleton w={140} h={36} r={9} />
+      </div>
+      <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
+        {["New This Month","Developments","Total Units","Avg Price","Avg €/m²","Price Range"].map(lbl => (
+          <StatCard key={lbl} label={lbl} loading={true} />
+        ))}
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"280px 1fr", gap:16 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {Array.from({length:6}).map((_,i) => (
+            <div key={i} style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:12, padding:"16px 18px", boxShadow:T.shadow }}>
+              <Skeleton w={160} h={14} r={4} style={{ marginBottom:10 }} />
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px 12px" }}>
+                {[1,2,3,4].map(j => <Skeleton key={j} w="100%" h={32} r={4} />)}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+          {["Unit Type Mix","House Type Mix","Price Trend","Price Distribution","€/m² Distribution","Delivery Timeline"].map(t => (
+            <ChartCard key={t} title={t} loading loadingH={200} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
   if (!muniData?.stats) return <div style={{ padding:60, textAlign:"center", color:T.textSub }}>No data.</div>;
 
   const { stats, listings, unit_type_mix, price_dist, m2_dist, trend } = muniData;

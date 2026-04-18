@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { T, StatCard, ChartCard, Tag, Pill, fmt, fmtFull, fmtNum, COLORS, UNIT_COLORS, ESG_COLORS, AddressBreadcrumb, MapPinPopup, PRICE_COLOR, M2_COLOR } from "../components/shared.jsx";
+import { T, StatCard, ChartCard, Tag, Pill, fmt, fmtFull, fmtNum, COLORS, UNIT_COLORS, ESG_COLORS, AddressBreadcrumb, MapPinPopup, PRICE_COLOR, M2_COLOR, Skeleton, SkeletonTableRows } from "../components/shared.jsx";
 import { API } from "../App.jsx";
 import LeafletMap from "../components/LeafletMap.jsx";
-import LoadingHouse from "../components/LoadingHouse.jsx";
 import GoogleStaticMap from "../components/GoogleStaticMap.jsx";
 
 function makeBins(values, numBins = 8, fmt1000 = true) {
@@ -281,7 +280,28 @@ function DelistedApartments({ listingId, listingName, onBack, backLabel = "All S
     }).catch(() => { setLoading(false); setPhotoLoading(false); });
   }, [listingId]);
 
-  if (loading) return <div style={{ padding:60, textAlign:"center" }}><LoadingHouse message="Loading…" /></div>;
+  if (loading) return (
+    <div style={{ padding:"20px 20px", maxWidth:1700, margin:"0 auto" }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20, flexWrap:"wrap", gap:12 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          <Skeleton w={260} h={28} r={6} />
+          <Skeleton w={340} h={13} r={4} />
+        </div>
+        <Skeleton w={100} h={36} r={9} />
+      </div>
+      <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
+        {["Total Units","Avg Price (last)","Avg €/m² (last)","Avg Size"].map(lbl => (
+          <StatCard key={lbl} label={lbl} loading={true} />
+        ))}
+      </div>
+      <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:14, padding:"20px 22px", boxShadow:T.shadow }}>
+        <Skeleton w={200} h={14} r={5} style={{ marginBottom:16 }} />
+        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+          <tbody><SkeletonTableRows rows={8} cols={10}/></tbody>
+        </table>
+      </div>
+    </div>
+  );
   if (!data) return null;
 
   const apts = data.apartments || [];
@@ -788,8 +808,66 @@ export default function DelistedPage({ onGoListing, onGoDrilldown, selectedId, f
   }
 
   if (loading) return (
-    <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:400 }}>
-      <div style={{ color:T.textSub, fontSize:14 }}>Loading delisted properties…</div>
+    <div style={{ padding:"20px 20px", maxWidth:1700, margin:"0 auto" }}>
+      {/* Header skeleton */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20, gap:12 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          <Skeleton w={280} h={28} r={6} />
+          <Skeleton w={360} h={13} r={4} />
+        </div>
+        <Skeleton w={120} h={38} r={9} />
+      </div>
+      {/* KPI row */}
+      <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
+        {["Sold Out Developments","Total Units","Avg Last Price","Avg Last €/m²"].map(lbl => (
+          <StatCard key={lbl} label={lbl} loading={true} />
+        ))}
+      </div>
+      {/* Filter bar skeleton */}
+      <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:12,
+        padding:"14px 20px", marginBottom:16, display:"flex", gap:12, flexWrap:"wrap" }}>
+        {[160,180,130,130,130].map((w,i) => <Skeleton key={i} w={w} h={38} r={10} />)}
+      </div>
+      {/* Content grid skeleton */}
+      <div style={{ display:"grid", gridTemplateColumns:"340px 1fr", gap:20, alignItems:"start" }}>
+        {/* Left cards */}
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {[1,2,3,4,5].map(i => (
+            <div key={i} style={{ background:"#fff", border:`2px solid #FCA5A5`, borderRadius:12, padding:"16px 18px", boxShadow:T.shadow }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:10 }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  <Skeleton w={180} h={14} r={4} />
+                  <Skeleton w={120} h={11} r={4} />
+                </div>
+                <Skeleton w={70} h={20} r={5} />
+              </div>
+              <Skeleton w="100%" h={11} r={4} style={{ marginBottom:10 }} />
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
+                {[1,2,3,4,5,6].map(j => <Skeleton key={j} w="100%" h={28} r={4} />)}
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Right panel */}
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+            <Skeleton w="100%" h={280} r={12} />
+            <Skeleton w="100%" h={280} r={12} />
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+            <ChartCard title="Unit Type Summary"  loading loadingH={220} />
+            <ChartCard title="House Type Summary" loading loadingH={220} />
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+            <ChartCard title="Price Distribution" loading loadingH={200} />
+            <ChartCard title="€/m² Distribution" loading loadingH={200} />
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+            <ChartCard title="Delivery Timeline"                    loading loadingH={200} />
+            <ChartCard title="Top Municipalities — click to explore" loading loadingH={200} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 
@@ -1011,11 +1089,6 @@ export default function DelistedPage({ onGoListing, onGoDrilldown, selectedId, f
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
                 <LeafletMap markers={mapMarkers} height="280px"
                   onMarkerClick={id => {
-                    const listing = filtered.find(l => l.listing_id === id);
-                    if (listing?.delisted_type === "partial" && onGoListing) {
-                      onGoListing(listing.listing_id, listing.property_name, listing.municipality);
-                      return;
-                    }
                     const newId = id === activePin ? null : id;
                     setActivePin(newId);
                     if (newId) {

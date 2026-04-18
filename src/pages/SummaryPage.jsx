@@ -183,14 +183,14 @@ function PriceByUnitTypeChart({ data, animKey }) {
 const SCATTER_SIZE_TICKS = Array.from({ length: 26 }, (_, i) => i * 20);
 
 // ── Price Distribution — two separate charts ─────────────────────────────
-const PriceDistributionChart = React.memo(function PriceDistributionChart({ data, m2data, height=220, animKey }) {
+const PriceDistributionChart = React.memo(function PriceDistributionChart({ data, m2data, height=220, animKey, loading }) {
   const safePrice = (data||[]).map(d=>({ ...d, count: Number(d.count)||0 }));
   const safeM2    = (m2data||[]).map(d=>({ ...d, count: Number(d.count)||0 }));
   const maxPrice  = safePrice.length ? Math.max(...safePrice.map(d=>d.count||0)) : 1;
   const maxM2     = safeM2.length    ? Math.max(...safeM2.map(d=>d.count||0))    : 1;
   return (
     <>
-      <ChartCard title="€/m² Distribution" animKey={animKey}>
+      <ChartCard title="€/m² Distribution" animKey={animKey} loading={loading}>
         <ResponsiveContainer width="100%" height={height}>
           <BarChart data={safeM2} barSize={26}>
             <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
@@ -205,7 +205,7 @@ const PriceDistributionChart = React.memo(function PriceDistributionChart({ data
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
-      <ChartCard title="Price Distribution" animKey={animKey}>
+      <ChartCard title="Price Distribution" animKey={animKey} loading={loading}>
         <ResponsiveContainer width="100%" height={height}>
           <BarChart data={safePrice} barSize={26}>
             <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
@@ -225,7 +225,7 @@ const PriceDistributionChart = React.memo(function PriceDistributionChart({ data
 });
 
 // ── Scatter Popup Modal ───────────────────────────────────────────────────
-const UnitByHouseTypeChart = React.memo(function UnitByHouseTypeChart({ data, animKey }) {
+const UnitByHouseTypeChart = React.memo(function UnitByHouseTypeChart({ data, animKey, loading }) {
   const [activeUT, setActiveUT] = React.useState(null);
   const houseTypes = useMemo(() => [...new Set(data.map(d=>d.house_type).filter(Boolean))].sort(), [data]);
   const unitTypes  = useMemo(() => [...new Set(data.map(d=>d.unit_type).filter(Boolean))].sort(),  [data]);
@@ -239,7 +239,7 @@ const UnitByHouseTypeChart = React.memo(function UnitByHouseTypeChart({ data, an
   }), [houseTypes, unitTypes, data]);
   const utColors = useMemo(() => unitTypes.map(ut => UNIT_COLORS[ut] || COLORS[unitTypes.indexOf(ut) % COLORS.length]), [unitTypes]);
   return (
-    <ChartCard title="Unit Type by House Type — click segment to highlight" animKey={animKey}>
+    <ChartCard title="Unit Type by House Type — click segment to highlight" animKey={animKey} loading={loading}>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={barData} barSize={32}
           onClick={d => {
@@ -270,50 +270,64 @@ const UnitByHouseTypeChart = React.memo(function UnitByHouseTypeChart({ data, an
   );
 });
 
-// ── Municipalities Sold Out by Period (time-series stacked bar) ──────────
-const MunicipalitySoldOutTrendChart = React.memo(function MunicipalitySoldOutTrendChart({ data, animKey }) {
-  const { pivoted, topMunis } = useMemo(() => {
-    if (!data || !data.length) return { pivoted: [], topMunis: [] };
-    const totals = {};
-    data.forEach(r => { totals[r.municipality] = (totals[r.municipality] || 0) + r.listings; });
-    const topMunis = Object.entries(totals).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([m])=>m);
+// ── Sold-Out Monthly Totals ──────────────────────────────────────────────
+const MunicipalitySoldOutTrendChart = React.memo(function MunicipalitySoldOutTrendChart({ data, animKey, loading }) {
+  const monthly = useMemo(() => {
+    if (!data || !data.length) return [];
     const byPeriod = {};
-    data.forEach(r => {
-      if (!topMunis.includes(r.municipality)) return;
-      if (!byPeriod[r.period]) byPeriod[r.period] = { period: r.period };
-      byPeriod[r.period][r.municipality] = r.listings;
-    });
-    const allPeriods = [...new Set(data.map(d=>d.period))];
-    const pivoted = allPeriods.map(p => {
-      const row = byPeriod[p] || { period: p };
-      topMunis.forEach(m => { if (!row[m]) row[m] = 0; });
-      return row;
-    });
-    return { pivoted, topMunis };
+    data.forEach(r => { byPeriod[r.period] = (byPeriod[r.period] || 0) + r.listings; });
+    return Object.entries(byPeriod).map(([period, count]) => ({ period, count }))
+      .sort((a, b) => a.period.localeCompare(b.period));
   }, [data]);
 
-  if (!pivoted.length) return (
-    <div style={{ height:220, display:"flex", alignItems:"center", justifyContent:"center", color:T.textMuted, fontSize:12 }}>
-      No sold-out data across periods
-    </div>
-  );
   return (
-    <ChartCard title="Municipalities — Sold Out by Period" animKey={animKey}>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={pivoted} barSize={Math.max(6, Math.floor(48 / Math.max(pivoted.length, 1)))}>
-          <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-          <XAxis dataKey="period" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
-          <YAxis allowDecimals={false} tickFormatter={v=>Number(v).toLocaleString("en-US")} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
-          <Tooltip contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }}
-            formatter={(v, name) => [Number(v).toLocaleString("en-US"), name]} />
-          <Legend wrapperStyle={{ fontSize:10, paddingTop:4 }} />
-          {topMunis.map((m, i) => (
-            <Bar key={m} dataKey={m} stackId="a" fill={COLORS[i % COLORS.length]}
-              radius={i === topMunis.length - 1 ? [4,4,0,0] : [0,0,0,0]}
-              isAnimationActive={false} />
-          ))}
-        </BarChart>
-      </ResponsiveContainer>
+    <ChartCard title="Sold Out — Monthly Total" animKey={animKey} loading={loading}>
+      {!monthly.length
+        ? <div style={{ height:220, display:"flex", alignItems:"center", justifyContent:"center", color:T.textMuted, fontSize:12 }}>No sold-out data</div>
+        : <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={monthly} barSize={Math.max(10, Math.floor(52 / Math.max(monthly.length, 1)))}>
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+              <XAxis dataKey="period" tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+              <Tooltip formatter={v=>[Number(v).toLocaleString("en-US"), "Sold Out"]}
+                contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+              <Bar dataKey="count" name="Sold Out" radius={[4,4,0,0]} isAnimationActive={false}>
+                {monthly.map((_,i) => <Cell key={i} fill={T.navy} fillOpacity={0.4 + (i/Math.max(monthly.length-1,1))*0.6} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+      }
+    </ChartCard>
+  );
+});
+
+// ── Top Municipalities — Sold Out ────────────────────────────────────────
+const TopMunicipalitiesSoldOutChart = React.memo(function TopMunicipalitiesSoldOutChart({ data, animKey, loading }) {
+  const topMunis = useMemo(() => {
+    if (!data || !data.length) return [];
+    const totals = {};
+    data.forEach(r => { totals[r.municipality] = (totals[r.municipality] || 0) + r.listings; });
+    return Object.entries(totals).sort((a,b) => b[1]-a[1]).slice(0,12)
+      .map(([municipality, listings]) => ({ municipality, listings }));
+  }, [data]);
+
+  return (
+    <ChartCard title="Top Municipalities — Sold Out" animKey={animKey} loading={loading}>
+      {!topMunis.length
+        ? <div style={{ height:220, display:"flex", alignItems:"center", justifyContent:"center", color:T.textMuted, fontSize:12 }}>No data</div>
+        : <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={topMunis} layout="vertical" barSize={13}>
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
+              <XAxis type="number" allowDecimals={false} tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="municipality" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} width={110} />
+              <Tooltip formatter={v=>[Number(v).toLocaleString("en-US"), "Sold Out Listings"]}
+                contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+              <Bar dataKey="listings" name="Sold Out" radius={[0,4,4,0]} isAnimationActive={false}>
+                {topMunis.map((_,i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+      }
     </ChartCard>
   );
 });
@@ -661,32 +675,31 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
         </div>
       </div>
 
-      {/* KPI row */}
-      {stats && (
-        <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
-          {stats.new_this_month > 0 && (
-            <StatCard label="New This Month" value={fmtNum(stats.new_this_month)} accent="#16a34a" />
+      {/* KPI row — always rendered; skeleton until data loads */}
+      <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
+        {stats?.new_this_month > 0 && (
+          <StatCard label="New This Month" value={fmtNum(stats.new_this_month)} accent="#16a34a" />
+        )}
+        {[
+          { label:"Total Units",      field:"total_units",        fmt:v=>v.toLocaleString("en-US") },
+          { label:"Avg Price",        field:"avg_price",          fmt:fmt },
+          { label:"Avg €/m²",        field:"avg_price_m2",       fmt:v=>v!=null?`€${Math.round(v).toLocaleString("en-US")}`:"—" },
+          { label:"Avg Size",         field:"avg_size",           fmt:v=>v!=null?`${Math.round(Number(v))}m²`:"—" },
+          { label:"Developments",     field:"total_developments", fmt:v=>v },
+        ].map(({ label, field, fmt:f }) => (
+          <StatCard key={label} label={label} loading={!stats} value={stats ? f(stats[field]) : undefined}>
+            {stats && <Delta cur={stats} prev={stats.prev} field={field} format={f} prevPeriod={stats.prev_period} />}
+          </StatCard>
+        ))}
+        <StatCard label="Units per Description" loading={!stats}
+          value={stats ? (stats.total_stated_units > 0 ? stats.total_stated_units : "—") : undefined}>
+          {stats?.total_stated_units > 0 && (
+            <div style={{ color:"#8A96B4", fontSize:10, marginTop:3 }}>
+              *where mentioned ({fmtNum(stats.stated_unit_count)} developments)
+            </div>
           )}
-          {[
-            { label:"Total Units", field:"total_units", fmt:v=>v.toLocaleString("en-US") },
-            { label:"Avg Price",        field:"avg_price",   fmt:fmt },
-            { label:"Avg €/m²",         field:"avg_price_m2",fmt:v=>v != null ? `€${Math.round(v).toLocaleString("en-US")}` : "—" },
-            { label:"Avg Size",         field:"avg_size",    fmt:v=>v != null ? `${Math.round(Number(v))}m²` : "—" },
-            { label:"Developments",     field:"total_developments", fmt:v=>v },
-          ].map(({ label, field, fmt:f }) => (
-            <StatCard key={label} label={label} value={f(stats[field])}>
-              <Delta cur={stats} prev={stats.prev} field={field} format={f} prevPeriod={stats.prev_period} />
-            </StatCard>
-          ))}
-          {stats.total_stated_units > 0 && (
-            <StatCard label="Units per Description" value={stats.total_stated_units}>
-              <div style={{ color:"#8A96B4", fontSize:10, marginTop:3 }}>
-                *where mentioned ({fmtNum(stats.stated_unit_count)} developments)
-              </div>
-            </StatCard>
-          )}
-        </div>
-      )}
+        </StatCard>
+      </div>
 
       {/* Tabs */}
       <div style={{ display:"flex", gap:0, borderBottom:"1px solid rgba(255,255,255,0.08)", marginBottom:20 }}>
@@ -702,11 +715,12 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
       {/* ═══════ SNAPSHOT TAB ═══════ */}
       {tab === "snapshot" && (
         <div>
+          {(() => { const L = !charts.price_dist; return (
           <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:16 }}>
 
-            <PriceDistributionChart data={charts.price_dist||[]} m2data={charts.m2_dist||[]} height={220} animKey={chartVer} />
+            <PriceDistributionChart data={charts.price_dist||[]} m2data={charts.m2_dist||[]} height={220} animKey={chartVer} loading={L} />
 
-            <ChartCard title="Delivery Timeline" animKey={chartVer}>
+            <ChartCard title="Delivery Timeline" animKey={chartVer} loading={L}>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={charts.dl||[]} barSize={22}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
@@ -719,7 +733,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
             </ChartCard>
 
 
-            <ChartCard title="Top Municipalities — click to explore" animKey={chartVer}>
+            <ChartCard title="Top Municipalities — click to explore" animKey={chartVer} loading={L}>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={(charts.muni||[]).slice(0,15)} layout="vertical" barSize={14}
                   onClick={d=>d&&d.activePayload&&onDrilldown&&onDrilldown(d.activePayload[0].payload.municipality)}>
@@ -734,27 +748,44 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
               </ResponsiveContainer>
             </ChartCard>
 
-            <ChartCard title="Top Municipalities — New Listings" animKey={chartVer}>
+            <ChartCard title="Top Municipalities — New Listings (Developments)" animKey={chartVer} loading={L}>
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={(charts.muniActivity?.new_listings||[]).slice(0,15)} layout="vertical" barSize={14}
+                <BarChart data={[...(charts.muniActivity?.new_listings||[])].sort((a,b)=>(b.listings||0)-(a.listings||0)).slice(0,15)} layout="vertical" barSize={14}
                   onClick={d=>d&&d.activePayload&&onDrilldown&&onDrilldown(d.activePayload[0].payload.municipality)}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
                   <XAxis type="number" allowDecimals={false} tickFormatter={v=>Number(v).toLocaleString("en-US")} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
                   <YAxis type="category" dataKey="municipality" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} width={120} />
-                  <Tooltip formatter={v=>[Number(v).toLocaleString("en-US"), "New Listings"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
-                  <Bar dataKey="listings" name="New Listings" radius={[0,5,5,0]} cursor="pointer">
-                    {(charts.muniActivity?.new_listings||[]).slice(0,15).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+                  <Tooltip formatter={v=>[Number(v).toLocaleString("en-US"), "New Developments"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                  <Bar dataKey="listings" name="New Developments" radius={[0,5,5,0]} cursor="pointer">
+                    {[...(charts.muniActivity?.new_listings||[])].sort((a,b)=>(b.listings||0)-(a.listings||0)).slice(0,15).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
 
-            <UnitByHouseTypeChart data={charts.unitByHouse||[]} animKey={chartVer} />
+            <ChartCard title="Top Municipalities — New Listings (Units)" animKey={chartVer} loading={L}>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={[...(charts.muniActivity?.new_listings||[])].sort((a,b)=>(b.units||0)-(a.units||0)).slice(0,15)} layout="vertical" barSize={14}
+                  onClick={d=>d&&d.activePayload&&onDrilldown&&onDrilldown(d.activePayload[0].payload.municipality)}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
+                  <XAxis type="number" allowDecimals={false} tickFormatter={v=>Number(v).toLocaleString("en-US")} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="municipality" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} width={120} />
+                  <Tooltip formatter={v=>[Number(v).toLocaleString("en-US"), "New Units"]} contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }} />
+                  <Bar dataKey="units" name="New Units" radius={[0,5,5,0]} cursor="pointer">
+                    {[...(charts.muniActivity?.new_listings||[])].sort((a,b)=>(b.units||0)-(a.units||0)).slice(0,15).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
 
-            <MunicipalitySoldOutTrendChart data={charts.soldoutTrend||[]} animKey={chartVer} />
+            <UnitByHouseTypeChart data={charts.unitByHouse||[]} animKey={chartVer} loading={L} />
+
+            <MunicipalitySoldOutTrendChart data={charts.soldoutTrend||[]} animKey={chartVer} loading={L} />
+
+            <TopMunicipalitiesSoldOutChart data={charts.soldoutTrend||[]} animKey={chartVer} loading={L} />
 
             {/* Size vs €/m² — click dot to open popup */}
-            <ChartCard title="Size vs €/m² — click any dot for details" animKey={chartVer}>
+            <ChartCard title="Size vs €/m² — click any dot for details" animKey={chartVer} loading={L}>
               <ResponsiveContainer width="100%" height={220}>
                 <ScatterChart margin={{ top:5, right:20, bottom:20, left:5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
@@ -804,7 +835,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
             </ChartCard>
 
             {/* Size vs Price — click dot to open popup */}
-            <ChartCard title="Size vs Price — click any dot for details" animKey={chartVer}>
+            <ChartCard title="Size vs Price — click any dot for details" animKey={chartVer} loading={L}>
               <ResponsiveContainer width="100%" height={220}>
                 <ScatterChart margin={{ top:5, right:20, bottom:20, left:5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
@@ -854,7 +885,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
             </ChartCard>
 
             {/* ESG Grade Breakdown */}
-            <ChartCard title="ESG Grade Breakdown" animKey={chartVer}>
+            <ChartCard title="ESG Grade Breakdown" animKey={chartVer} loading={L}>
               {(() => {
                 const ESG_PALETTE = { A:"#0B1239", B:"#2D3F8F", C:"#5566B8", D:"#8B99D4", E:"#BBC3E8", Unknown:"#D4D8EE" };
                 const esgData = charts.esgR || [];
@@ -886,6 +917,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
             </ChartCard>
 
           </div>
+          ); })()}
 
           {/* ── Scatter popup modal ─────────────────────────────────── */}
           {selectedDot && (
@@ -902,9 +934,10 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
       {/* ═══════ TREND TAB ═══════ */}
       {tab === "trend" && (
         <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:16 }}>
+          {(() => { const L = !trend.mkt; return (<>
 
           {/* Market-wide avg price over time */}
-          <ChartCard title="Market Average Price — Month over Month">
+          <ChartCard title="Market Average Price — Month over Month" loading={L}>
             {(trend.mkt||[]).length < 2
               ? <NoDataNote msg="More snapshots needed for trend lines" />
               : <ResponsiveContainer width="100%" height={220}>
@@ -922,7 +955,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
           </ChartCard>
 
           {/* Inventory over time */}
-          <ChartCard title="Inventory — Units on Market">
+          <ChartCard title="Inventory — Units on Market" loading={L}>
             {(trend.inv||[]).length < 2
               ? <NoDataNote msg="More snapshots needed for inventory trend" />
               : <ResponsiveContainer width="100%" height={220}>
@@ -940,7 +973,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
           </ChartCard>
 
           {/* Price by unit type over time */}
-          <ChartCard title="Price Trend by Unit Type">
+          <ChartCard title="Price Trend by Unit Type" loading={L}>
             {Object.keys(utByPeriod).length < 2
               ? <NoDataNote msg="More snapshots needed for per-type trends" />
               : <ResponsiveContainer width="100%" height={220}>
@@ -958,7 +991,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
           </ChartCard>
 
           {/* Snapshot comparison table */}
-          <ChartCard title="Snapshot Comparison — All Periods">
+          <ChartCard title="Snapshot Comparison — All Periods" loading={L}>
             <div style={{ overflowX:"auto" }}>
               <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                 <thead>
@@ -983,6 +1016,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
             </div>
           </ChartCard>
 
+          </>); })()}
         </div>
       )}
     </div>
