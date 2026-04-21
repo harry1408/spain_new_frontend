@@ -89,7 +89,7 @@ export default function App() {
       {/* Pages */}
       {nav.page==="search" && <SearchPage onSelectListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onSelectDelisted={id => goTo("delisted",{selectedId:id,fromSearch:true})}/>}
       {nav.page==="summary" && <SummaryPage onDrilldown={m => goTo("drilldown",{municipality:m})} onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni,highlight:id})}/>}
-      {nav.page==="drilldown" && <DrilldownPage municipality={nav.municipality} onSelectMunicipality={m => goTo("drilldown",{municipality:m})} onSelectListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onBackToSearch={prevPageRef.current==="search" ? () => goTo("search") : null}/>}
+      {nav.page==="drilldown" && <DrilldownPage municipality={nav.municipality} onSelectMunicipality={m => goTo("drilldown",{municipality:m})} onSelectListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onSelectDelisted={id => goTo("delisted",{selectedId:id})} onBackToSearch={prevPageRef.current==="search" ? () => goTo("search") : null}/>}
       {nav.page==="listing" && <ListingPage listingId={nav.listingId} municipality={nav.municipality} highlight={nav.highlight}
         backLabel={prevPageRef.current==="search" ? "Search" : nav.municipality}
         onBack={prevPageRef.current==="search" ? () => goTo("search") : () => goTo("drilldown",{municipality:nav.municipality})}
