@@ -153,6 +153,12 @@ export default function PriceMatrixTab({ listingId, statedTotalUnits, onRowClick
   const displayPeriods  = [...periods].reverse(); // latest first
   const hasFilters = unitTypeFilter.length || search || minPrice || maxPrice || (changedOnly && anyChanges) || typeChangedOnly || statusFilter !== "all";
 
+  if (!stats) return (
+    <div style={{ padding:60, textAlign:"center", color:"#6B7A9F" }}>
+      No units match the current filters.
+    </div>
+  );
+
   return (
     <div>
       <style>{`

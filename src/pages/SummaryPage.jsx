@@ -778,11 +778,11 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
               </ResponsiveContainer>
             </ChartCard>
 
-            <UnitByHouseTypeChart data={charts.unitByHouse||[]} animKey={chartVer} loading={L} />
+            <TopMunicipalitiesSoldOutChart data={charts.soldoutTrend||[]} animKey={chartVer} loading={L} />
 
             <MunicipalitySoldOutTrendChart data={charts.soldoutTrend||[]} animKey={chartVer} loading={L} />
 
-            <TopMunicipalitiesSoldOutChart data={charts.soldoutTrend||[]} animKey={chartVer} loading={L} />
+            <UnitByHouseTypeChart data={charts.unitByHouse||[]} animKey={chartVer} loading={L} />
 
             {/* Size vs €/m² — click dot to open popup */}
             <ChartCard title="Size vs €/m² — click any dot for details" animKey={chartVer} loading={L}>

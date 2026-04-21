@@ -163,6 +163,11 @@ function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect, ma
               {l.municipality} · {l.province}
               <MapPinPopup lat={l.lat} lng={l.lng} name={l.property_name} mapType={mapType} />
             </div>
+            {l.developer && l.developer !== "nan" && (
+              <div style={{ fontSize: 10, color: T.textMuted, marginTop: 1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:260 }}>
+                by <span style={{ fontWeight:600, color:T.textSub }}>{l.developer}</span>
+              </div>
+            )}
             {l.city_area && (
               <div style={{ fontSize: 10, color: T.textMuted, marginTop: 2,
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260 }}>
@@ -171,13 +176,21 @@ function ResultCard({ l, onSelect, active, onHover, selected, onToggleSelect, ma
             )}
           </div>
         </div>
-        {l.esg_grade && l.esg_grade !== "Unknown" && (
-          <span style={{ background: ESG_COLORS[l.esg_grade] || "#8A96B4",
-            color: "#fff", borderRadius: 5, padding: "2px 8px", fontSize: 10,
-            fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0, alignSelf: "flex-start" }}>
-            ESG {l.esg_grade}
-          </span>
-        )}
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4, flexShrink:0 }}>
+          {l.is_partial_delisted && (
+            <span style={{ background:"#FEF2F2", color:"#6B2A2A", border:"1px solid #FCA5A5",
+              borderRadius:5, padding:"2px 8px", fontSize:10, fontWeight:700, whiteSpace:"nowrap" }}>
+              Partial Sold Out
+            </span>
+          )}
+          {l.esg_grade && l.esg_grade !== "Unknown" && (
+            <span style={{ background: ESG_COLORS[l.esg_grade] || "#8A96B4",
+              color: "#fff", borderRadius: 5, padding: "2px 8px", fontSize: 10,
+              fontWeight: 700, whiteSpace: "nowrap" }}>
+              ESG {l.esg_grade}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Stats row */}
@@ -611,13 +624,14 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   // chartData: newThisMonth has priority over listingStatus when both active
   const chartData = useMemo(() => {
     if (newThisMonth) return [...displayResults, ...filteredDelisted];
-    if (listingStatus === "sold_out") return filteredDelisted;
-    if (listingStatus === "active")   return displayResults;
+    if (listingStatus === "sold_out")        return filteredDelisted;
+    if (listingStatus === "active")          return displayResults.filter(l => !l.is_partial_delisted);
+    if (listingStatus === "partial_sold_out") return displayResults.filter(l => l.is_partial_delisted);
     return [...displayResults, ...filteredDelisted];
   }, [newThisMonth, listingStatus, displayResults, filteredDelisted]);
 
   const mapMarkers = useMemo(() => {
-    const active = listingStatus !== "sold_out"
+    const active = listingStatus !== "sold_out" && listingStatus !== "partial_sold_out"
       ? displayResults
           .filter(l => l.lat && l.lng)
           .map(l => ({
@@ -1191,11 +1205,12 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
             <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
               <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.05em" }}>Listings</div>
               <div style={{ display:"flex", gap:4 }}>
-                {[["all","All"],["active","Active"],["sold_out","Sold Out"]].map(([val,lbl]) => {
+                {[["all","All"],["active","Active"],["partial_sold_out","Partial Sold"],["sold_out","Sold Out"]].map(([val,lbl]) => {
                   const isActive = listingStatus === val;
-                  const bg = val === "sold_out" ? (isActive ? "#DC2626" : "#FEF2F2") : (isActive ? T.navy : "#fff");
-                  const color = val === "sold_out" ? (isActive ? "#fff" : "#6B2A2A") : (isActive ? "#fff" : T.textSub);
-                  const border = val === "sold_out" ? "1px solid #FCA5A5" : `1px solid ${isActive ? T.navy : T.border}`;
+                  const isRed = val === "sold_out" || val === "partial_sold_out";
+                  const bg    = isRed ? (isActive ? "#DC2626" : "#FEF2F2") : (isActive ? T.navy : "#fff");
+                  const color = isRed ? (isActive ? "#fff" : "#6B2A2A") : (isActive ? "#fff" : T.textSub);
+                  const border = isRed ? "1px solid #FCA5A5" : `1px solid ${isActive ? T.navy : T.border}`;
                   return (
                     <button key={val} onClick={() => setListingStatus(val)}
                       style={{ padding:"8px 12px", borderRadius:9, fontSize:12, fontWeight:isActive?700:500,
@@ -1391,9 +1406,14 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                 <div>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10, gap:8, flexWrap:"wrap" }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>
-                      {listingStatus === "sold_out" ? "Sold Out" : "Developments"}
-                      <span style={{ color: T.textMuted, fontWeight: 400, fontSize: 12 }}> ({listingStatus === "sold_out" ? filteredDelisted.length : listingStatus === "active" ? displayResults.length : displayResults.length + filteredDelisted.length})</span>
-                      {listingStatus !== "sold_out" && filteredDelisted.length > 0 && listingStatus === "all" && (
+                      {listingStatus === "sold_out" ? "Sold Out" : listingStatus === "partial_sold_out" ? "Partial Sold Out" : "Developments"}
+                      <span style={{ color: T.textMuted, fontWeight: 400, fontSize: 12 }}> ({
+                        listingStatus === "sold_out" ? filteredDelisted.length :
+                        listingStatus === "active" ? displayResults.filter(l => !l.is_partial_delisted).length :
+                        listingStatus === "partial_sold_out" ? displayResults.filter(l => l.is_partial_delisted).length :
+                        displayResults.length + filteredDelisted.length
+                      })</span>
+                      {listingStatus !== "sold_out" && listingStatus !== "partial_sold_out" && filteredDelisted.length > 0 && listingStatus === "all" && (
                         <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: "#6B2A2A",
                           background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: 4, padding: "1px 6px" }}>
                           +{filteredDelisted.length} sold out
@@ -1418,7 +1438,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                   <div style={{ height: "calc(100vh - 260px)", overflowY: "auto", overflowX: "hidden",
                     display: "flex", flexDirection: "column", gap: 10,
                     paddingRight: 4, scrollbarWidth: "thin", scrollbarColor: `${T.border} transparent` }}>
-                    {listingStatus !== "sold_out" && displayResults.map(l => (
+                    {listingStatus !== "sold_out" && (listingStatus === "partial_sold_out" ? displayResults.filter(l => l.is_partial_delisted) : displayResults).map(l => (
                       <ResultCard key={l.listing_id} l={l}
                         mapType="google"
                         active={l.listing_id === activePin}
@@ -1435,7 +1455,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                       />
                     ))}
 
-                    {listingStatus !== "sold_out" && listingStatus !== "active" && filteredDelisted.length > 0 && (
+                    {listingStatus !== "sold_out" && listingStatus !== "active" && listingStatus !== "partial_sold_out" && filteredDelisted.length > 0 && (
                       <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 0 2px" }}>
                         <div style={{ flex: 1, height: 1, background: "#FCA5A5" }} />
                         <span style={{ fontSize: 10, fontWeight: 700, color: "#6B2A2A",
@@ -1446,7 +1466,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                         <div style={{ flex: 1, height: 1, background: "#FCA5A5" }} />
                       </div>
                     )}
-                    {listingStatus !== "active" && filteredDelisted.map(l => (
+                    {listingStatus !== "active" && listingStatus !== "partial_sold_out" && filteredDelisted.map(l => (
                       <DelistedSearchCard key={`d-${l.listing_id}`} l={l}
                         onSelect={l => onSelectDelisted && onSelectDelisted(l.listing_id)}
                         onHover={id => { setActivePin(id); if (id) lastHoveredPin.current = id; }}

@@ -90,14 +90,22 @@ function ListingCard({ l, active, onSelect, onHover, selUnit, selHouseType }) {
             <MapPinPopup lat={l.lat} lng={l.lng} name={l.property_name} />
           </div>
         </div>
-        {l.esg_grade && l.esg_grade !== "nan" && (
-          active
-            ? <span style={{ fontSize:10, padding:"2px 8px", borderRadius:4, fontWeight:700,
-                background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.35)" }}>
-                ESG {l.esg_grade}
-              </span>
-            : <Tag label={`ESG ${l.esg_grade}`} color={esgColor}/>
-        )}
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
+          {l.is_partial_delisted && (
+            <span style={{ fontSize:10, padding:"2px 8px", borderRadius:4, fontWeight:700,
+              background:"#FEF2F2", color:"#6B2A2A", border:"1px solid #FCA5A5", whiteSpace:"nowrap" }}>
+              Partial Sold Out
+            </span>
+          )}
+          {l.esg_grade && l.esg_grade !== "nan" && (
+            active
+              ? <span style={{ fontSize:10, padding:"2px 8px", borderRadius:4, fontWeight:700,
+                  background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.35)" }}>
+                  ESG {l.esg_grade}
+                </span>
+              : <Tag label={`ESG ${l.esg_grade}`} color={esgColor}/>
+          )}
+        </div>
       </div>
       <AddressBreadcrumb cityArea={l.city_area} municipality={l.municipality} style={{ marginBottom:10 }} />
       {(l.unit_types || l.house_types || l.is_tourist) && (
@@ -156,7 +164,7 @@ function ListingCard({ l, active, onSelect, onHover, selUnit, selHouseType }) {
           totalCount = activeOnly;
         } else {
           activeOnly = Object.values(utCounts).reduce((s, v) => s + v, 0);
-          totalCount = activeOnly || l.units;
+          totalCount = l.total_units_ever || activeOnly || l.units;
         }
         const avgPrice = ps?.avg_price ?? l.avg_price;
         const minPrice = ps?.min_price ?? l.min_price;
@@ -359,7 +367,7 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200, nav
   );
 }
 
-export default function DrilldownPage({ municipality, onSelectMunicipality, onSelectListing, onBackToSearch }) {
+export default function DrilldownPage({ municipality, onSelectMunicipality, onSelectListing, onSelectDelisted, onBackToSearch }) {
   const [muniList,    setMuniList]    = useState([]);
   const [muniListLoading, setMuniListLoading] = useState(true);
   const [filters,     setFilters]     = useState({ provinces:[], province_munis:{}, house_types:[], new_this_month_ids:[] });
