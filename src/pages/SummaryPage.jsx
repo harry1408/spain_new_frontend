@@ -670,8 +670,15 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
         {(sel.province.length||sel.municipality.length||sel.unit_type.length||sel.house_type.length||sel.year.length||sel.esg.length) ? (
           <button onClick={()=>setSel({province:[],municipality:[],unit_type:[],house_type:[],year:[],esg:[]})} style={{ background:"#FEF2F2", border:"1px solid rgba(192,57,43,0.4)", color:"#6B2A2A", padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:11 }}>✕ Clear all</button>
         ) : null}
-        <div style={{ marginLeft:"auto", color:"#8A96B4", fontSize:12 }}>
-          <span style={{ color:"#0B1239" }}>Snapshot: 4 Apr 2026</span>
+        <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:12 }}>
+          <span style={{ color:"#0B1239", fontSize:12 }}>Snapshot: 4 Apr 2026</span>
+          <button
+            onClick={() => { window.open(`${API}/summary/export?${q()}`, "_blank"); }}
+            style={{ background:"#0B1239", color:"#fff", border:"none", borderRadius:8,
+              padding:"7px 14px", fontSize:11, fontWeight:600, cursor:"pointer",
+              display:"flex", alignItems:"center", gap:6 }}>
+            ↓ Export Excel
+          </button>
         </div>
       </div>
 
