@@ -684,8 +684,8 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
 
       {/* KPI row — always rendered; skeleton until data loads */}
       <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
-        {stats?.new_this_month > 0 && (
-          <StatCard label="New Developments" value={fmtNum(stats.new_this_month)} accent="#16a34a" />
+        {(!stats || stats.new_this_month > 0) && (
+          <StatCard label="New Developments" loading={!stats} value={stats ? fmtNum(stats.new_this_month) : undefined} accent="#16a34a" />
         )}
         {[
           { label:"Total Units",      field:"total_units",        fmt:v=>v.toLocaleString("en-US") },
