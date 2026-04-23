@@ -1555,7 +1555,12 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                         boxShadow:"0 2px 8px rgba(0,0,0,0.07)", height:240 }}>
                         {(() => {
                           const pinId = activePin ?? lastHoveredPin.current;
-                          const pinnedListing = pinId ? (results||[]).find(r => r.listing_id === pinId) : null;
+                          const pinnedListing = pinId
+                            ? (typeof pinId === "string" && pinId.startsWith("d-")
+                                ? filteredDelisted.find(r => `d-${r.listing_id}` === pinId)
+                                : (results||[]).find(r => r.listing_id === pinId))
+                            : null;
+                          const isApprox = pinnedListing ? pinnedListing.lat_exact === false : false;
                           const firstResult = displayResults.find(l => l.lat && l.lng && l.lat !== 39.47)
                             || filteredDelisted.find(l => l.lat && l.lng && l.lat !== 39.47);
                           if (firstResult) {
@@ -1569,7 +1574,15 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                             ? `https://maps.google.com/maps?q=${center.lat},${center.lng}&hl=en&z=16&output=embed`
                             : null;
                           return gmUrl
-                            ? <iframe key={gmUrl} src={gmUrl} width="100%" height="240" style={{ border:"none", display:"block" }} title="Google Maps" loading="lazy" />
+                            ? <>
+                                {isApprox && (
+                                  <div style={{ textAlign:"center", fontSize:10, color:"#92400E", background:"#FEF3C7",
+                                    border:"1px solid #FDE68A", borderRadius:6, padding:"3px 8px", marginBottom:6 }}>
+                                    ⚠ Approximate location
+                                  </div>
+                                )}
+                                <iframe key={`${pinId}_${gmUrl}`} src={gmUrl} width="100%" height="240" style={{ border:"none", display:"block" }} title="Google Maps" loading="lazy" />
+                              </>
                             : <div style={{ height:240, display:"flex", alignItems:"center", justifyContent:"center", color:T.textMuted, fontSize:12 }}>No location available</div>;
                         })()}
                       </div>
