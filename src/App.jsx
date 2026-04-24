@@ -4,7 +4,8 @@ import DrilldownPage  from "./pages/DrilldownPage.jsx";
 import ListingPage    from "./pages/ListingPage.jsx";
 import ApartmentPage  from "./pages/ApartmentPage.jsx";
 import DelistedPage   from "./pages/DelistedPage.jsx";
-import SearchPage     from "./pages/SearchPage.jsx";
+import SearchPage            from "./pages/SearchPage.jsx";
+import DescriptionSearchPage from "./pages/DescriptionSearchPage.jsx";
 
 //export const API = "http://localhost:8000";
 export const API = "https://spain-house-development.onrender.com";
@@ -22,10 +23,11 @@ export default function App() {
   };
 
   const NAV_TABS = [
-    ["search",   "Search"],
-    ["summary",  "Market Summary"],
-    ["drilldown","Analysis"],
-    ["delisted", "Sold Out"],
+    ["search",      "Search"],
+    ["description", "Description Search"],
+    ["summary",     "Market Summary"],
+    ["drilldown",   "Analysis"],
+    ["delisted",    "Sold Out"],
   ];
 
   const activeTab = (nav.page==="listing"||nav.page==="apartment") ? "drilldown" : nav.page;
@@ -88,11 +90,12 @@ export default function App() {
 
       {/* Pages */}
       {nav.page==="search" && <SearchPage onSelectListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onSelectDelisted={id => goTo("delisted",{selectedId:id,fromSearch:true})}/>}
+      {nav.page==="description" && <DescriptionSearchPage onSelectListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onSelectDelisted={id => goTo("delisted",{selectedId:id,fromSearch:true})}/>}
       {nav.page==="summary" && <SummaryPage onDrilldown={m => goTo("drilldown",{municipality:m})} onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni,highlight:id})}/>}
       {nav.page==="drilldown" && <DrilldownPage municipality={nav.municipality} onSelectMunicipality={m => goTo("drilldown",{municipality:m})} onSelectListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onSelectDelisted={id => goTo("delisted",{selectedId:id})} onBackToSearch={prevPageRef.current==="search" ? () => goTo("search") : null}/>}
       {nav.page==="listing" && <ListingPage listingId={nav.listingId} municipality={nav.municipality} highlight={nav.highlight}
-        backLabel={prevPageRef.current==="search" ? "Search" : nav.municipality}
-        onBack={prevPageRef.current==="search" ? () => goTo("search") : () => goTo("drilldown",{municipality:nav.municipality})}
+        backLabel={prevPageRef.current==="search" ? "Search" : prevPageRef.current==="description" ? "Description Search" : nav.municipality}
+        onBack={prevPageRef.current==="search" ? () => goTo("search") : prevPageRef.current==="description" ? () => goTo("description") : () => goTo("drilldown",{municipality:nav.municipality})}
         onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onGoApartment={(apt,lid,lname,muni) => goTo("apartment",{apt,listingId:lid,listingName:lname,municipality:muni,aptLabel:`${apt.unit_type} · ${apt.floor||"—"}`})}/>}
       {nav.page==="apartment" && <ApartmentPage apt={nav.apt} listingId={nav.listingId} listingName={nav.listingName} municipality={nav.municipality} onBack={() => goTo("listing",{listingId:nav.listingId,listingName:nav.listingName,municipality:nav.municipality})} onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})}/>}
       {nav.page==="delisted" && <DelistedPage onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onGoDrilldown={m => goTo("drilldown",{municipality:m})} selectedId={nav.selectedId} fromSearch={nav.fromSearch} onBackToSearch={() => goTo("search")}/>}
