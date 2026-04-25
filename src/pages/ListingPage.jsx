@@ -268,16 +268,34 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
 }
 
 // ── Description block with expand/collapse ───────────────────────────────
-function DescriptionBlock({ text, forceExpand = false }) {
+function _applyHighlight(text, query) {
+  if (!query) return null;
+  const tokens = query.trim().split(/[\s\W]+/).filter(t => t.length >= 2);
+  if (!tokens.length) return null;
+  let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  for (const tok of [...tokens].sort((a, b) => b.length - a.length)) {
+    const esc = tok.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    html = html.replace(new RegExp(esc, "gi"), m =>
+      `<mark style="background:#FEF3C7;color:#92400E;border-radius:2px;padding:0 2px">${m}</mark>`
+    );
+  }
+  return html;
+}
+
+function DescriptionBlock({ text, forceExpand = false, highlightQuery = "" }) {
   const [expanded, setExpanded] = React.useState(false);
   const LIMIT = 280;
   const short = text.length > LIMIT;
   const display = expanded || !short || forceExpand ? text : text.slice(0, LIMIT) + "…";
+  const highlighted = _applyHighlight(display, highlightQuery);
   return (
     <div style={{ background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:10,
       padding:"14px 18px", fontSize:12, lineHeight:1.7, color:T.textSub,
       maxWidth:820, maxHeight:280, overflowY:"auto" }}>
-      <div style={{ whiteSpace:"pre-wrap" }}>{display}</div>
+      {highlighted
+        ? <div style={{ whiteSpace:"pre-wrap" }} dangerouslySetInnerHTML={{ __html: highlighted }} />
+        : <div style={{ whiteSpace:"pre-wrap" }}>{display}</div>
+      }
       {short && !forceExpand && (
         <button onClick={() => setExpanded(v=>!v)}
           style={{ background:"none", border:"none", color:PRICE_COLOR, fontSize:11,
@@ -289,7 +307,7 @@ function DescriptionBlock({ text, forceExpand = false }) {
   );
 }
 
-export default function ListingPage({ listingId, municipality, onBack, onGoListing, onGoApartment, highlight, backLabel }) {
+export default function ListingPage({ listingId, municipality, onBack, onGoListing, onGoApartment, highlight, backLabel, descQuery }) {
   const [data,        setData]        = useState(null);
   const [loading,     setLoading]     = useState(true);
   const [meta,        setMeta]        = useState(null);
@@ -456,7 +474,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
         return (
           <div style={{ display:"grid", gridTemplateColumns: cols,
             gap:16, marginBottom:11, alignItems:"stretch" }}>
-            {cleaned && <DescriptionBlock text={cleaned} forceExpand={hasPhotos} />}
+            {cleaned && <DescriptionBlock text={cleaned} forceExpand={hasPhotos} highlightQuery={descQuery || ""} />}
             {!cleaned && hasPhotos && <div/>}
 
             {/* Floor Plans — slideshow */}

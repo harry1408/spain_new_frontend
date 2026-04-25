@@ -90,10 +90,10 @@ export default function App() {
 
       {/* Pages */}
       {nav.page==="search" && <SearchPage onSelectListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onSelectDelisted={id => goTo("delisted",{selectedId:id,fromSearch:true})}/>}
-      {nav.page==="description" && <DescriptionSearchPage onSelectListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onSelectDelisted={id => goTo("delisted",{selectedId:id,fromSearch:true})}/>}
+      {nav.page==="description" && <DescriptionSearchPage onSelectListing={(id,name,muni,dq) => goTo("listing",{listingId:id,listingName:name,municipality:muni,descQuery:dq})} onSelectDelisted={id => goTo("delisted",{selectedId:id,fromSearch:true})}/>}
       {nav.page==="summary" && <SummaryPage onDrilldown={m => goTo("drilldown",{municipality:m})} onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni,highlight:id})}/>}
       {nav.page==="drilldown" && <DrilldownPage municipality={nav.municipality} onSelectMunicipality={m => goTo("drilldown",{municipality:m})} onSelectListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onSelectDelisted={id => goTo("delisted",{selectedId:id})} onBackToSearch={prevPageRef.current==="search" ? () => goTo("search") : null}/>}
-      {nav.page==="listing" && <ListingPage listingId={nav.listingId} municipality={nav.municipality} highlight={nav.highlight}
+      {nav.page==="listing" && <ListingPage listingId={nav.listingId} municipality={nav.municipality} highlight={nav.highlight} descQuery={nav.descQuery}
         backLabel={prevPageRef.current==="search" ? "Search" : prevPageRef.current==="description" ? "Description Search" : nav.municipality}
         onBack={prevPageRef.current==="search" ? () => goTo("search") : prevPageRef.current==="description" ? () => goTo("description") : () => goTo("drilldown",{municipality:nav.municipality})}
         onGoListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onGoApartment={(apt,lid,lname,muni) => goTo("apartment",{apt,listingId:lid,listingName:lname,municipality:muni,aptLabel:`${apt.unit_type} · ${apt.floor||"—"}`})}/>}
