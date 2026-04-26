@@ -269,17 +269,34 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
 
 // ── Description block with expand/collapse ───────────────────────────────
 function _applyHighlight(text, query) {
-  if (!query) return null;
-  const tokens = query.trim().split(/[\s\W]+/).filter(t => t.length >= 2);
-  if (!tokens.length) return null;
-  let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  for (const tok of [...tokens].sort((a, b) => b.length - a.length)) {
-    const esc = tok.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    html = html.replace(new RegExp(esc, "gi"), m =>
-      `<mark style="background:#FEF3C7;color:#92400E;border-radius:2px;padding:0 2px">${m}</mark>`
-    );
+  if (!query || !text) return null;
+  const terms = query.split(",").map(t => t.trim().toLowerCase()).filter(Boolean);
+  if (!terms.length) return null;
+  const lower = text.toLowerCase();
+  const spans = [];
+  for (const term of terms) {
+    let i = 0;
+    while ((i = lower.indexOf(term, i)) !== -1) {
+      spans.push({ start: i, end: i + term.length });
+      i += term.length;
+    }
   }
-  return html;
+  if (spans.length === 0) return null;
+  spans.sort((a, b) => a.start - b.start || b.end - a.end);
+  const merged = [];
+  for (const s of spans) {
+    if (merged.length && s.start < merged[merged.length - 1].end)
+      merged[merged.length - 1].end = Math.max(merged[merged.length - 1].end, s.end);
+    else merged.push({ ...s });
+  }
+  const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  let out = "", last = 0;
+  for (const { start, end } of merged) {
+    out += esc(text.slice(last, start));
+    out += `<mark style="background:#FEF3C7;color:#92400E;border-radius:2px;padding:0 2px">${esc(text.slice(start, end))}</mark>`;
+    last = end;
+  }
+  return out + esc(text.slice(last));
 }
 
 function DescriptionBlock({ text, forceExpand = false, highlightQuery = "" }) {
