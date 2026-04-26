@@ -270,18 +270,26 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
 // ── Description block with expand/collapse ───────────────────────────────
 function _applyHighlight(text, query) {
   if (!query || !text) return null;
-  // Split by comma and whitespace into individual tokens — mirrors backend tokenisation
-  const terms = [...new Set(
-    query.split(",").flatMap(t => t.trim().split(/\s+/)).map(t => t.toLowerCase()).filter(t => t.length >= 2)
-  )];
-  if (!terms.length) return null;
+  const searchForms = new Set();
+  for (const raw of query.split(",")) {
+    const words = raw.trim().toLowerCase().split(/[\s\W]+/).filter(w => w.length >= 2);
+    if (!words.length) continue;
+    if (words.length === 1) {
+      searchForms.add(words[0]);
+    } else {
+      searchForms.add(words.join(" "));
+      searchForms.add(words.join(""));
+      searchForms.add(words.join("-"));
+    }
+  }
+  if (!searchForms.size) return null;
   const lower = text.toLowerCase();
   const spans = [];
-  for (const term of terms) {
+  for (const form of searchForms) {
     let i = 0;
-    while ((i = lower.indexOf(term, i)) !== -1) {
-      spans.push({ start: i, end: i + term.length });
-      i += term.length;
+    while ((i = lower.indexOf(form, i)) !== -1) {
+      spans.push({ start: i, end: i + form.length });
+      i += form.length;
     }
   }
   if (spans.length === 0) return null;

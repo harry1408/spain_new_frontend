@@ -273,7 +273,7 @@ function makeBins(values, numBins = 8, fmt1000 = true) {
 
 // ── main component ───────────────────────────────────────────────────────
 // ── Type-search multi-select ──────────────────────────────────────────────
-function TypeSearchMultiSelect({ label, options, value, onChange, width=200, navigateOnSelect=false, onSelect }) {
+function TypeSearchMultiSelect({ label, options, value, onChange, width=200, navigateOnSelect=false, onSelect, labelOutside=false }) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const ref = React.useRef(null);
@@ -297,11 +297,14 @@ function TypeSearchMultiSelect({ label, options, value, onChange, width=200, nav
 
   return (
     <div ref={ref} style={{ position:"relative" }}>
+      {labelOutside && (
+        <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase", marginBottom:4, letterSpacing:"0.05em" }}>{label}</div>
+      )}
       <div onClick={() => setOpen(o => !o)}
         style={{ background:"#fff", border:`1px solid ${hasVal ? T.borderAccent : T.border}`,
           borderRadius:8, padding:"6px 10px", cursor:"pointer",
           display:"flex", alignItems:"center", gap:6, minWidth:width, boxShadow:T.shadow }}>
-        <span style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase", fontWeight:600, whiteSpace:"nowrap" }}>{label}</span>
+        {!labelOutside && <span style={{ color:T.textMuted, fontSize:10, textTransform:"uppercase", fontWeight:600, whiteSpace:"nowrap" }}>{label}</span>}
         {hasVal
           ? <span style={{ background:T.navy, color:"#fff", borderRadius:4, fontSize:10, fontWeight:700, padding:"1px 6px" }}>{value.length}</span>
           : <span style={{ color:T.textSub, fontSize:12, flex:1 }}>{ navigateOnSelect ? "Type to search…" : "All" }</span>}
@@ -390,6 +393,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   const [fMaxPrice,      setFMaxPrice]      = useState("");
   const [fMinM2,         setFMinM2]         = useState("");
   const [fMaxM2,         setFMaxM2]         = useState("");
+  const [fMaxBeachKm,    setFMaxBeachKm]    = useState("");
   const [fNewThisMonth,  setFNewThisMonth]  = useState(false);
 
   // Filters (once)
@@ -443,11 +447,12 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
     if (fSelEsg.length && !fSelEsg.includes(l.esg_grade)) return false;
     if (fMinPrice && l.avg_price < Number(fMinPrice)*1000) return false;
     if (fMaxPrice && l.avg_price > Number(fMaxPrice)*1000) return false;
-    if (fMinM2 && l.avg_price_m2 && l.avg_price_m2 < Number(fMinM2)) return false;
-    if (fMaxM2 && l.avg_price_m2 && l.avg_price_m2 > Number(fMaxM2)) return false;
+    if (fMinM2       && l.avg_price_m2    && l.avg_price_m2    < Number(fMinM2))    return false;
+    if (fMaxM2       && l.avg_price_m2    && l.avg_price_m2    > Number(fMaxM2))    return false;
+    if (fMaxBeachKm  && l.nearest_beach_km && l.nearest_beach_km > Number(fMaxBeachKm)) return false;
     if (fNewThisMonth && !filters.new_this_month_ids.includes(l.listing_id)) return false;
     return true;
-  }), [_listings, unitFilter, fSelUnit, fSelHouseType, fSelEsg, fMinPrice, fMaxPrice, fMinM2, fMaxM2, fNewThisMonth, filters.new_this_month_ids]);
+  }), [_listings, unitFilter, fSelUnit, fSelHouseType, fSelEsg, fMinPrice, fMaxPrice, fMinM2, fMaxM2, fMaxBeachKm, fNewThisMonth, filters.new_this_month_ids]);
 
   const filteredIds = useMemo(() => new Set(filteredListings.map(l => l.listing_id)), [filteredListings]);
   const mapMarkers = useMemo(() =>
@@ -459,7 +464,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   // ── Stats derived from filteredListings (drive whole right panel) ────────
   const filteredStats = useMemo(() => {
     const anyFilterActive = fSelUnit.length || fSelHouseType.length || fSelEsg.length ||
-      fMinPrice || fMaxPrice || fMinM2 || fMaxM2 || fNewThisMonth || unitFilter.length;
+      fMinPrice || fMaxPrice || fMinM2 || fMaxM2 || fMaxBeachKm || fNewThisMonth || unitFilter.length;
     if (!filteredListings.length) {
       // When a filter is active but no listings match, show zeros so KPIs reflect the filter
       if (anyFilterActive) return { total_listings: 0, total_units: 0, avg_price: null, avg_price_m2: null, price_range: [null, null] };
@@ -554,7 +559,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       }
     });
     const anyFilterActive = fSelUnit.length || fSelHouseType.length || fSelEsg.length ||
-      fMinPrice || fMaxPrice || fMinM2 || fMaxM2 || fNewThisMonth || unitFilter.length;
+      fMinPrice || fMaxPrice || fMinM2 || fMaxM2 || fMaxBeachKm || fNewThisMonth || unitFilter.length;
     if (Object.keys(counts).length === 0) return anyFilterActive ? [] : (muniData?.unit_type_stats || []);
     // helper: pick first source that has a non-null avg_price
     const pickUT = (...srcs) => srcs.find(s => s?.avg_price != null) || srcs.find(Boolean) || {};
@@ -590,7 +595,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       };
     });
     return rows.sort((a,b) => UT_ORDER.indexOf(a.unit_type) - UT_ORDER.indexOf(b.unit_type));
-  }, [filteredListings, muniData, fSelUnit, fSelHouseType, fSelEsg, fMinPrice, fMaxPrice, fMinM2, fMaxM2, fNewThisMonth, unitFilter]);
+  }, [filteredListings, muniData, fSelUnit, fSelHouseType, fSelEsg, fMinPrice, fMaxPrice, fMinM2, fMaxM2, fMaxBeachKm, fNewThisMonth, unitFilter]);
 
   const filteredHouseStats = useMemo(() => {
     const groups = {};
@@ -622,7 +627,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       });
     });
     const anyFilterActive = fSelUnit.length || fSelHouseType.length || fSelEsg.length ||
-      fMinPrice || fMaxPrice || fMinM2 || fMaxM2 || fNewThisMonth || unitFilter.length;
+      fMinPrice || fMaxPrice || fMinM2 || fMaxM2 || fMaxBeachKm || fNewThisMonth || unitFilter.length;
     if (Object.keys(groups).length === 0) return anyFilterActive ? [] : (muniData?.house_type_stats || []);
     const pickHT = (...srcs) => srcs.find(s => s?.avg_price != null) || srcs.find(Boolean) || {};
     const priceMap     = Object.fromEntries((muniData?.house_type_stats      || []).map(r => [r.house_type, r]));
@@ -636,7 +641,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
         avg_size:  ps.avg_size ?? (g.sizes.length ? Math.round(g.sizes.reduce((a,b)=>a+b,0)/g.sizes.length) : null),
       };
     }).sort((a,b) => b.count - a.count);
-  }, [filteredListings, muniData, fSelUnit, fSelHouseType, fSelEsg, fMinPrice, fMaxPrice, fMinM2, fMaxM2, fNewThisMonth, unitFilter]);
+  }, [filteredListings, muniData, fSelUnit, fSelHouseType, fSelEsg, fMinPrice, fMaxPrice, fMinM2, fMaxM2, fMaxBeachKm, fNewThisMonth, unitFilter]);
 
   // ── Municipality selector view ────────────────────────────────────────
   if (!municipality) {
@@ -774,8 +779,8 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
 
   const sortedListings = [...filteredListings].sort((a,b) => b.avg_price - a.avg_price);
 
-  const hasFilter = fSelUnit.length||fSelHouseType.length||fSelEsg.length||fMinPrice||fMaxPrice||fMinM2||fMaxM2||fNewThisMonth;
-  const clearFilters = () => { setFSelUnit([]); setFSelHouseType([]); setFSelEsg([]); setFMinPrice(""); setFMaxPrice(""); setFMinM2(""); setFMaxM2(""); setFNewThisMonth(false); };
+  const hasFilter = fSelUnit.length||fSelHouseType.length||fSelEsg.length||fMinPrice||fMaxPrice||fMinM2||fMaxM2||fMaxBeachKm||fNewThisMonth;
+  const clearFilters = () => { setFSelUnit([]); setFSelHouseType([]); setFSelEsg([]); setFMinPrice(""); setFMaxPrice(""); setFMinM2(""); setFMaxM2(""); setFMaxBeachKm(""); setFNewThisMonth(false); };
 
   const ALL_UTS = ["Studio","1BR","2BR","3BR","4BR","5BR","Penthouse"];
 
@@ -812,33 +817,52 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
       </div>
 
       {/* ── Filter Bar ── */}
-      <div style={{ display:"flex", gap:10, alignItems:"flex-end", marginBottom:16, flexWrap:"nowrap",
-        background:"#fff", border:`1px solid ${T.border}`, borderRadius:12, padding:"12px 16px",
-        boxShadow:T.shadow }}>
-        <TypeSearchMultiSelect label="Unit Type"   options={allUnitTypes}  value={fSelUnit}      onChange={setFSelUnit} width={150} />
-        <TypeSearchMultiSelect label="House Type"  options={allHouseTypes} value={fSelHouseType} onChange={setFSelHouseType} width={150} />
-        <TypeSearchMultiSelect label="ESG"         options={allEsgGrades}  value={fSelEsg}       onChange={setFSelEsg} width={100} />
+      <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:12, padding:"12px 16px",
+        marginBottom:16, boxShadow:T.shadow }}>
+        <div style={{ display:"flex", gap:10, alignItems:"flex-start", flexWrap:"nowrap" }}>
+        <TypeSearchMultiSelect label="Unit Type"   options={allUnitTypes}  value={fSelUnit}      onChange={setFSelUnit} width={150} labelOutside />
+        <TypeSearchMultiSelect label="House Type"  options={allHouseTypes} value={fSelHouseType} onChange={setFSelHouseType} width={150} labelOutside />
+        <div>
+          <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase", marginBottom:4, letterSpacing:"0.05em" }}>Beach Dist.</div>
+          <div style={{ position:"relative" }}>
+            <select value={fMaxBeachKm} onChange={e => setFMaxBeachKm(e.target.value)}
+              style={{ appearance:"none", WebkitAppearance:"none",
+                background:"#fff", border:`1px solid ${fMaxBeachKm ? T.borderAccent : T.border}`,
+                borderRadius:8, padding:"6px 28px 6px 10px", fontSize:12,
+                outline:"none", cursor:"pointer", minWidth:120, boxShadow:T.shadow,
+                color: fMaxBeachKm ? T.text : T.textSub }}>
+              <option value="">Any</option>
+              {Array.from({length:20}, (_, i) => {
+                const m = (i + 1) * 100;
+                const km = m / 1000;
+                return <option key={m} value={String(km)}>{m < 1000 ? `≤${m}m` : `≤${km}km`}</option>;
+              })}
+            </select>
+            <span style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", color:T.textMuted, fontSize:10, pointerEvents:"none" }}>▼</span>
+          </div>
+        </div>
         <div>
           <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase", marginBottom:4, letterSpacing:"0.05em" }}>Price (€K)</div>
           <div style={{ display:"flex", alignItems:"center", gap:4 }}>
             <input value={fMinPrice} onChange={e=>setFMinPrice(e.target.value)} placeholder="Min"
-              style={{ width:70, border:`1px solid ${fMinPrice?T.borderAccent:T.border}`, borderRadius:8, padding:"9px 8px", fontSize:12, outline:"none", background:"#fff" }} />
+              style={{ width:70, border:`1px solid ${fMinPrice?T.borderAccent:T.border}`, borderRadius:8, padding:"6px 8px", fontSize:12, outline:"none", background:"#fff", boxShadow:T.shadow }} />
             <span style={{ color:T.textMuted, fontSize:11 }}>–</span>
             <input value={fMaxPrice} onChange={e=>setFMaxPrice(e.target.value)} placeholder="Max"
-              style={{ width:70, border:`1px solid ${fMaxPrice?T.borderAccent:T.border}`, borderRadius:8, padding:"9px 8px", fontSize:12, outline:"none", background:"#fff" }} />
+              style={{ width:70, border:`1px solid ${fMaxPrice?T.borderAccent:T.border}`, borderRadius:8, padding:"6px 8px", fontSize:12, outline:"none", background:"#fff", boxShadow:T.shadow }} />
           </div>
         </div>
         <div>
           <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase", marginBottom:4, letterSpacing:"0.05em" }}>€/m²</div>
           <div style={{ display:"flex", alignItems:"center", gap:4 }}>
             <input value={fMinM2} onChange={e=>setFMinM2(e.target.value)} placeholder="Min"
-              style={{ width:70, border:`1px solid ${fMinM2?T.borderAccent:T.border}`, borderRadius:8, padding:"9px 8px", fontSize:12, outline:"none", background:"#fff" }} />
+              style={{ width:70, border:`1px solid ${fMinM2?T.borderAccent:T.border}`, borderRadius:8, padding:"6px 8px", fontSize:12, outline:"none", background:"#fff", boxShadow:T.shadow }} />
             <span style={{ color:T.textMuted, fontSize:11 }}>–</span>
             <input value={fMaxM2} onChange={e=>setFMaxM2(e.target.value)} placeholder="Max"
-              style={{ width:70, border:`1px solid ${fMaxM2?T.borderAccent:T.border}`, borderRadius:8, padding:"9px 8px", fontSize:12, outline:"none", background:"#fff" }} />
+              style={{ width:70, border:`1px solid ${fMaxM2?T.borderAccent:T.border}`, borderRadius:8, padding:"6px 8px", fontSize:12, outline:"none", background:"#fff", boxShadow:T.shadow }} />
           </div>
         </div>
-        <div style={{ alignSelf:"flex-end" }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+          <div style={{ fontSize:10, fontWeight:700, color:"transparent", textTransform:"uppercase", letterSpacing:"0.05em" }}>Added</div>
           <button onClick={() => setFNewThisMonth(v => !v)} style={{
             background: fNewThisMonth ? T.navy : "#fff",
             border: `1px solid ${fNewThisMonth ? T.navy : T.border}`,
@@ -849,11 +873,33 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
           </button>
         </div>
         {hasFilter && (
-          <button onClick={clearFilters} style={{ background:"#FEF2F2", border:"1px solid rgba(192,57,43,0.4)",
-            color:"#6B2A2A", padding:"9px 12px", borderRadius:8, cursor:"pointer", fontSize:11, fontWeight:600, whiteSpace:"nowrap", alignSelf:"flex-end" }}>
-            ✕ Clear
-          </button>
+          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:"transparent", textTransform:"uppercase", letterSpacing:"0.05em" }}>x</div>
+            <button onClick={clearFilters} style={{ background:"#FEF2F2", border:"1px solid rgba(192,57,43,0.4)",
+              color:"#6B2A2A", padding:"9px 12px", borderRadius:8, cursor:"pointer", fontSize:11, fontWeight:600, whiteSpace:"nowrap" }}>
+              ✕ Clear
+            </button>
+          </div>
         )}
+        </div>
+        {/* ESG Grade — below filter row */}
+        <div style={{ marginTop:10, display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.05em", whiteSpace:"nowrap" }}>ESG</span>
+          <div style={{ display:"flex", gap:3, flexWrap:"wrap" }}>
+            {allEsgGrades.map(g => {
+              const isActive = fSelEsg.includes(g);
+              const clr = ESG_COLORS[g] || "#999";
+              return (
+                <button key={g} onClick={() => setFSelEsg(prev => isActive ? prev.filter(x=>x!==g) : [...prev,g])}
+                  style={{ padding:"2px 8px", borderRadius:20, fontSize:10, fontWeight:700, cursor:"pointer",
+                    background:isActive?clr:"#fff", border:`1.5px solid ${isActive?clr:T.border}`,
+                    color:isActive?"#fff":T.textSub, transition:"all 0.15s" }}>
+                  {g}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* ── TWO-COLUMN BODY ── */}

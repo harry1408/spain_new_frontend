@@ -442,6 +442,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   const [maxPrice, setMaxPrice] = useState(_ss?.maxPrice ?? "");
   const [minM2,   setMinM2]    = useState(_ss?.minM2    ?? "");
   const [maxM2,   setMaxM2]    = useState(_ss?.maxM2    ?? "");
+  const [maxBeachKm, setMaxBeachKm] = useState(_ss?.maxBeachKm ?? "");
 
   const [results,         setResults]         = useState(_ss?.results  ?? null);
   const [delistedResults,   setDelistedResults]   = useState(_ss?.delistedResults ?? []);
@@ -475,7 +476,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
   // Save state to module-level variable whenever key values change
   useEffect(() => {
     _ss = { selMuni, selStreet, radiusKm, mapMode, selUnit, selEsg, selHouseType,
-            minPrice, maxPrice, minM2, maxM2, results, searched, searchCenter, streetCoords,
+            minPrice, maxPrice, minM2, maxM2, maxBeachKm, results, searched, searchCenter, streetCoords,
             serverUtStats, serverHtStats, prevServerUtStats, prevServerHtStats,
             listingStatus, newThisMonth, gmapsLink, gmapsLabel,
             delistedResults, activePin };
@@ -503,17 +504,18 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     selUnit.forEach(u => qs.append("unit_type", u));
     selEsg.forEach(e => qs.append("esg", e));
     selHouseType.forEach(h => qs.append("house_type", h));
-    if (minPrice) qs.set("min_price", minPrice);
-    if (maxPrice) qs.set("max_price", maxPrice);
-    if (minM2)    qs.set("min_m2", minM2);
-    if (maxM2)    qs.set("max_m2", maxM2);
+    if (minPrice)    qs.set("min_price",    minPrice);
+    if (maxPrice)    qs.set("max_price",    maxPrice);
+    if (minM2)       qs.set("min_m2",       minM2);
+    if (maxM2)       qs.set("max_m2",       maxM2);
+    if (maxBeachKm)  qs.set("max_beach_km", maxBeachKm);
     if (withRadius && withRadius > 0 && searchCenterRef.current) {
       qs.set("radius_km", withRadius);
       qs.set("lat", searchCenterRef.current.lat);
       qs.set("lng", searchCenterRef.current.lng);
     }
     return qs;
-  }, [selMuni, selStreet, selUnit, selEsg, selHouseType, minPrice, maxPrice, minM2, maxM2]);
+  }, [selMuni, selStreet, selUnit, selEsg, selHouseType, minPrice, maxPrice, minM2, maxM2, maxBeachKm]);
 
   // Single useEffect mirrors ApartmentPage pattern
   useEffect(() => {
@@ -609,17 +611,18 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
     if (selUnit.length      && !selUnit.some(ut => l.unit_types?.includes(ut)))      return false;
     if (selHouseType.length && !selHouseType.some(ht => l.house_types?.includes(ht))) return false;
     if (selEsg.length       && !selEsg.includes(l.esg_grade))                        return false;
-    if (minPrice && l.avg_price < Number(minPrice) * 1000) return false;
-    if (maxPrice && l.avg_price > Number(maxPrice) * 1000) return false;
-    if (newThisMonth && !newThisMonthIds.includes(l.listing_id)) return false;
-    if (minM2 && l.avg_price_m2 && l.avg_price_m2 < Number(minM2)) return false;
-    if (maxM2 && l.avg_price_m2 && l.avg_price_m2 > Number(maxM2)) return false;
+    if (minPrice    && l.avg_price < Number(minPrice) * 1000)                      return false;
+    if (maxPrice    && l.avg_price > Number(maxPrice) * 1000)                      return false;
+    if (newThisMonth && !newThisMonthIds.includes(l.listing_id))                   return false;
+    if (minM2       && l.avg_price_m2 && l.avg_price_m2 < Number(minM2))          return false;
+    if (maxM2       && l.avg_price_m2 && l.avg_price_m2 > Number(maxM2))          return false;
+    if (maxBeachKm  && l.nearest_beach_km && l.nearest_beach_km > Number(maxBeachKm)) return false;
     // When gmaps radius search is active, filter delisted by radius too
     if (searchCenter && radiusKm && l.lat && l.lng) {
       if (haversineKm(searchCenter.lat, searchCenter.lng, l.lat, l.lng) > radiusKm) return false;
     }
     return true;
-  }), [delistedResults, selUnit, selHouseType, selEsg, minPrice, maxPrice, minM2, maxM2, searchCenter, radiusKm, newThisMonth, newThisMonthIds]);
+  }), [delistedResults, selUnit, selHouseType, selEsg, minPrice, maxPrice, minM2, maxM2, maxBeachKm, searchCenter, radiusKm, newThisMonth, newThisMonthIds]);
 
   // chartData: newThisMonth has priority over listingStatus when both active
   const chartData = useMemo(() => {
@@ -926,7 +929,7 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
       setTimeout(() => setSearched(true), 0);
     }, 400);
     return () => clearTimeout(timer);
-  }, [selUnit, selEsg, selHouseType, minPrice, maxPrice, minM2, maxM2]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selUnit, selEsg, selHouseType, minPrice, maxPrice, minM2, maxM2, maxBeachKm]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const applyGmapsLink = async () => {
     let url = gmapsLink.trim();
@@ -1171,15 +1174,34 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
           <div style={{ display:"flex", alignItems:"flex-start", gap:12, flexWrap:"nowrap", justifyContent:"space-between" }}>
           <div style={{ display:"flex", alignItems:"flex-start", gap:12, flexWrap:"nowrap", flex:1, minWidth:0 }}>
 
-            {/* House Type */}
-            <MultiSelect
-              label="House Type"
-              options={["Detached house","Semi-detached house","Terraced house","Apartments"]}
-              value={selHouseType}
-              onChange={setSelHouseType}
-              placeholder="All types"
-              maxDisplay={1}
-            />
+            {/* House Type + ESG pills below */}
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              <MultiSelect
+                label="House Type"
+                options={["Detached house","Semi-detached house","Terraced house","Apartments"]}
+                value={selHouseType}
+                onChange={setSelHouseType}
+                placeholder="All types"
+                maxDisplay={1}
+              />
+              <div>
+                <div style={{ fontSize:9, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:3 }}>ESG Grade</div>
+                <div style={{ display:"flex", gap:3, flexWrap:"wrap" }}>
+                  {ALL_ESG.map(g => {
+                    const isActive = selEsg.includes(g);
+                    const clr = ESG_COLORS[g] || "#999";
+                    return (
+                      <button key={g} onClick={() => setSelEsg(prev => isActive ? prev.filter(x=>x!==g) : [...prev,g])}
+                        style={{ padding:"2px 8px", borderRadius:20, fontSize:10, fontWeight:700, cursor:"pointer",
+                          background:isActive?clr:"#fff", border:`1.5px solid ${isActive?clr:T.border}`,
+                          color:isActive?"#fff":T.textSub, transition:"all 0.15s" }}>
+                        {g}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
 
             {/* Unit Type */}
             <MultiSelect
@@ -1191,15 +1213,26 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
               maxDisplay={2}
             />
 
-            {/* ESG Grade */}
-            <MultiSelect
-              label="ESG Grade"
-              options={ALL_ESG}
-              value={selEsg}
-              onChange={setSelEsg}
-              placeholder="All grades"
-              maxDisplay={3}
-            />
+            {/* Beach Distance */}
+            <div style={{ position:"relative" }}>
+              <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase", marginBottom:4, letterSpacing:"0.05em" }}>Beach Dist.</div>
+              <select value={maxBeachKm} onChange={e => setMaxBeachKm(e.target.value)}
+                style={{ appearance:"none", WebkitAppearance:"none",
+                  background:"#fff", border:`1px solid ${maxBeachKm ? T.borderAccent : T.border}`,
+                  borderRadius:10, padding:"10px 32px 10px 12px", cursor:"pointer", minWidth:130,
+                  boxShadow:"0 1px 4px rgba(0,0,0,0.06)", fontSize:13,
+                  color: maxBeachKm ? T.text : T.textMuted,
+                  fontWeight: maxBeachKm ? 600 : 400,
+                  outline:"none", transition:"border-color 0.15s" }}>
+                <option value="">Any distance</option>
+                {Array.from({length:20}, (_, i) => {
+                  const m = (i + 1) * 100;
+                  const km = m / 1000;
+                  return <option key={m} value={String(km)}>{m < 1000 ? `Within ${m}m` : `Within ${km}km`}</option>;
+                })}
+              </select>
+              <span style={{ position:"absolute", right:12, top:"calc(50% + 9px)", transform:"translateY(-50%)", color:T.textMuted, fontSize:10, pointerEvents:"none" }}>▼</span>
+            </div>
 
             {/* Listing Status */}
             <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
@@ -1213,9 +1246,9 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
                   const border = isRed ? "1px solid #FCA5A5" : `1px solid ${isActive ? T.navy : T.border}`;
                   return (
                     <button key={val} onClick={() => setListingStatus(val)}
-                      style={{ padding:"8px 12px", borderRadius:9, fontSize:12, fontWeight:isActive?700:500,
+                      style={{ padding:"10px 12px", borderRadius:10, fontSize:13, fontWeight:isActive?700:500,
                         cursor:"pointer", background:bg, border, color, transition:"all 0.15s",
-                        whiteSpace:"nowrap", height:42 }}>
+                        whiteSpace:"nowrap", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
                       {lbl}
                     </button>
                   );
@@ -1227,10 +1260,11 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
             <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
               <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.05em" }}>Added</div>
               <button onClick={() => setNewThisMonth(v => !v)} style={{
-                padding:"8px 12px", borderRadius:9, fontSize:12, fontWeight: newThisMonth ? 700 : 500,
+                padding:"10px 12px", borderRadius:10, fontSize:13, fontWeight: newThisMonth ? 700 : 500,
                 cursor:"pointer", background: newThisMonth ? T.navy : "#fff",
                 border:`1px solid ${newThisMonth ? T.navy : T.border}`,
-                color: newThisMonth ? "#fff" : T.textSub, transition:"all 0.15s", whiteSpace:"nowrap", height:42,
+                color: newThisMonth ? "#fff" : T.textSub, transition:"all 0.15s", whiteSpace:"nowrap",
+                boxShadow:"0 1px 4px rgba(0,0,0,0.06)",
               }}>
                 🆕 New This Month
               </button>
@@ -1316,14 +1350,14 @@ export default function SearchPage({ onSelectListing, onSelectDelisted }) {
             </div>
 
             {/* Active filters count + reset */}
-            {(selUnit.length + selEsg.length + selHouseType.length > 0 || minPrice || maxPrice || minM2 || maxM2) && (
+            {(selUnit.length + selEsg.length + selHouseType.length > 0 || minPrice || maxPrice || minM2 || maxM2 || maxBeachKm) && (
               <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:8, alignSelf:"center" }}>
                 <span style={{ background:T.navyLight, color:"#fff", borderRadius:20,
                   padding:"4px 12px", fontSize:11, fontWeight:700, whiteSpace:"nowrap" }}>
-                  {[selUnit.length, selEsg.length, selHouseType.length, minPrice||maxPrice?1:0, minM2||maxM2?1:0]
-                    .reduce((a,b)=>a+b,0)} filter{[selUnit.length, selEsg.length, selHouseType.length, minPrice||maxPrice?1:0, minM2||maxM2?1:0].reduce((a,b)=>a+b,0)!==1?"s":""} active
+                  {[selUnit.length, selEsg.length, selHouseType.length, minPrice||maxPrice?1:0, minM2||maxM2?1:0, maxBeachKm?1:0]
+                    .reduce((a,b)=>a+b,0)} filter{[selUnit.length, selEsg.length, selHouseType.length, minPrice||maxPrice?1:0, minM2||maxM2?1:0, maxBeachKm?1:0].reduce((a,b)=>a+b,0)!==1?"s":""} active
                 </span>
-                <button onClick={() => { setSelUnit([]); setSelEsg([]); setSelHouseType([]); setMinPrice(""); setMaxPrice(""); setMinM2(""); setMaxM2(""); }}
+                <button onClick={() => { setSelUnit([]); setSelEsg([]); setSelHouseType([]); setMinPrice(""); setMaxPrice(""); setMinM2(""); setMaxM2(""); setMaxBeachKm(""); }}
                   style={{ background:"none", border:`1.5px solid ${T.border}`, borderRadius:20,
                     color:T.textMuted, fontSize:11, cursor:"pointer", padding:"4px 12px",
                     fontWeight:600, whiteSpace:"nowrap" }}>
