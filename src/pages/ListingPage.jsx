@@ -270,7 +270,10 @@ function NearbySection({ listings, comarca, currentListingId, currentListing, on
 // ── Description block with expand/collapse ───────────────────────────────
 function _applyHighlight(text, query) {
   if (!query || !text) return null;
-  const terms = query.split(",").map(t => t.trim().toLowerCase()).filter(Boolean);
+  // Split by comma and whitespace into individual tokens — mirrors backend tokenisation
+  const terms = [...new Set(
+    query.split(",").flatMap(t => t.trim().split(/\s+/)).map(t => t.toLowerCase()).filter(t => t.length >= 2)
+  )];
   if (!terms.length) return null;
   const lower = text.toLowerCase();
   const spans = [];
