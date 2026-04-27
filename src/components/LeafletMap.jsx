@@ -157,8 +157,9 @@ export default function LeafletMap({
       } else if (wasEmpty && valid.length === 1) {
         map.setView([valid[0].lat, valid[0].lng], 14, { animate: true });
       } else if (!wasEmpty && activePinChanged && activeMarker) {
-        // Active pin ID changed (user hover/click) — pan to it; ignore loadMore adding more pins
-        map.setView([activeMarker.lat, activeMarker.lng], Math.max(map.getZoom(), 12), { animate: true });
+        // Active pin ID changed — pan to it, capped at zoom 11 (~10km radius); user can zoom in manually
+        const z = Math.min(map.getZoom(), 10);
+        map.setView([activeMarker.lat, activeMarker.lng], Math.max(z, 9), { animate: true });
       }
       map.invalidateSize();
     };
