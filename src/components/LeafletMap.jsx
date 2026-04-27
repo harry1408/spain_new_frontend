@@ -50,10 +50,12 @@ export default function LeafletMap({
   const layerGroup   = useRef(null);
   const tileLayerRef = useRef(null);
   const circleLayer  = useRef(null);
-  const radiusKmRef   = useRef(radiusKm);     // always current value
-  const radiusCtrRef  = useRef(radiusCenter); // always current value
-  const tileStyleRef   = useRef(tileStyle);    // always current value
-  const tileInitedRef  = useRef(false);        // skip first swap (init handles it)
+  const radiusKmRef      = useRef(radiusKm);     // always current value
+  const radiusCtrRef     = useRef(radiusCenter); // always current value
+  const tileStyleRef     = useRef(tileStyle);    // always current value
+  const tileInitedRef    = useRef(false);        // skip first swap (init handles it)
+  const prevMarkerLenRef = useRef(0);            // detect first-load vs active-pin-change
+  const prevActiveIdRef  = useRef(null);         // pan only when active pin ID changes
 
   // Keep refs in sync
   radiusKmRef.current  = radiusKm;
@@ -103,6 +105,14 @@ export default function LeafletMap({
 
   // ── Re-draw markers ───────────────────────────────────────────────────────
   useEffect(() => {
+    const valid        = markers.filter(m => m.lat && m.lng);
+    const wasEmpty     = prevMarkerLenRef.current === 0;
+    prevMarkerLenRef.current = valid.length;
+    const activeMarker   = valid.find(m => m.active);
+    const activeId       = activeMarker?.id ?? null;
+    const activePinChanged = activeId !== prevActiveIdRef.current;
+    prevActiveIdRef.current = activeId;
+
     let attempts = 0;
     const draw = () => {
       if (!mapRef.current || !layerGroup.current) {
@@ -113,7 +123,6 @@ export default function LeafletMap({
       const group = layerGroup.current;
       group.clearLayers();
 
-      const valid = markers.filter(m => m.lat && m.lng);
       valid.forEach(m => {
         const isActive = !!m.active;
         const color    = isActive ? "#0B1239" : (m.color || "#2D3F8F");
@@ -131,22 +140,25 @@ export default function LeafletMap({
         group.addLayer(marker);
       });
 
-      // Use ref so this always reads the live radiusKm value
       const rKm  = radiusKmRef.current;
       const rCtr = radiusCtrRef.current;
 
       if (rKm && rCtr?.lat && rCtr?.lng) {
-        // Radius active — fit to circle (don't fit to markers)
+        // Radius active — fit to circle
         try {
-          const c      = [rCtr.lat, rCtr.lng];
-          const rM     = rKm * 1000;
-          const pad    = rKm < 0.5 ? [50, 50] : rKm < 2 ? [40, 40] : [30, 30];
+          const c   = [rCtr.lat, rCtr.lng];
+          const rM  = rKm * 1000;
+          const pad = rKm < 0.5 ? [50, 50] : rKm < 2 ? [40, 40] : [30, 30];
           map.fitBounds(L.circle(c, { radius: rM }).getBounds(), { padding: pad, animate: false });
         } catch {}
-      } else if (valid.length > 1) {
+      } else if (wasEmpty && valid.length > 1) {
+        // First load of a result set — show all markers
         try { map.fitBounds(valid.map(m => [m.lat, m.lng]), { padding: [40, 40], maxZoom: 14, animate: false }); } catch {}
-      } else if (valid.length === 1) {
+      } else if (wasEmpty && valid.length === 1) {
         map.setView([valid[0].lat, valid[0].lng], 14, { animate: true });
+      } else if (!wasEmpty && activePinChanged && activeMarker) {
+        // Active pin ID changed (user hover/click) — pan to it; ignore loadMore adding more pins
+        map.setView([activeMarker.lat, activeMarker.lng], Math.max(map.getZoom(), 12), { animate: true });
       }
       map.invalidateSize();
     };

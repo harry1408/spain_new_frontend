@@ -374,6 +374,7 @@ export default function DescriptionSearchPage({ onSelectListing, onSelectDeliste
   const _loadingMoreRef  = useRef(false);
   const _hasMoreRef      = useRef(_dss?.hasMore ?? false);
   const _resultsLenRef   = useRef((_dss?.results ?? []).length);
+  const _pendingScrollId = useRef(null);
 
   useEffect(() => {
     _hasMoreRef.current    = hasMore;
@@ -463,6 +464,19 @@ export default function DescriptionSearchPage({ onSelectListing, onSelectDeliste
     return qs;
   };
 
+  const scrollToCardWithLoad = (id, attempts = 0) => {
+    if (_pendingScrollId.current !== id) return;
+    if (attempts > 50) { _pendingScrollId.current = null; return; }
+    const el = document.getElementById(`dscard-${id}`);
+    if (el) {
+      _pendingScrollId.current = null;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (_hasMoreRef.current && !_loadingMoreRef.current) loadMore();
+    setTimeout(() => scrollToCardWithLoad(id, attempts + 1), 200);
+  };
+
   const doSearch = () => {
     if (!query.trim()) return;
     setLoading(true); setResults([]); setTotal(0); setHasMore(false);
@@ -515,6 +529,8 @@ export default function DescriptionSearchPage({ onSelectListing, onSelectDeliste
         _hasMoreRef.current = d.has_more ?? false; // sync ref immediately too
         _loadingMoreRef.current = false;
         setIsLoadingMore(false);
+        const newPins = newItems.filter(l => l.lat && l.lng);
+        if (newPins.length) setMapPins(prev => ({ ...prev, active: [...prev.active, ...newPins] }));
         if (firstNewId) {
           requestAnimationFrame(() => {
             const el = document.getElementById(`dscard-${firstNewId}`);
@@ -934,17 +950,15 @@ export default function DescriptionSearchPage({ onSelectListing, onSelectDeliste
                   <div style={{ minWidth:0 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8,
                       background:T.bgStripe, border:`1px solid ${T.border}`, borderRadius:8, padding:"6px 12px" }}>
-                      <span style={{ fontSize:10, color:T.textMuted, flex:1 }}>📍 {mapMarkers.length} developments on map</span>
+                      <span style={{ fontSize:10, color:T.textMuted, flex:1 }}>📍 {total + delistedResults.length} developments on map</span>
                     </div>
                     <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
                       boxShadow:"0 2px 8px rgba(0,0,0,0.07)", height:240 }}>
                       <LeafletMap markers={mapMarkers} height="240px" zoom={7}
                         onMarkerClick={id => {
                           setActivePin(p => p === id ? null : id);
-                          const isDelPin = typeof id === "string" && id.startsWith("d-");
-                          const elId = isDelPin ? `dscard-${id}` : `dscard-${id}`;
-                          const el = document.getElementById(elId);
-                          if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
+                          _pendingScrollId.current = id;
+                          scrollToCardWithLoad(id, 0);
                         }} />
                     </div>
                   </div>
