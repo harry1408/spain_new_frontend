@@ -6,6 +6,7 @@ import ApartmentPage  from "./pages/ApartmentPage.jsx";
 import DelistedPage   from "./pages/DelistedPage.jsx";
 import SearchPage            from "./pages/SearchPage.jsx";
 import DescriptionSearchPage from "./pages/DescriptionSearchPage.jsx";
+import ScraperPage    from "./pages/ScraperPage.jsx";
 
 //export const API = "http://localhost:8000";
 export const API = "https://spain-house-development.onrender.com";
@@ -15,7 +16,10 @@ const NAVY  = "#0B1239";
 const BEIGE = "#F2F4F6";
 
 export default function App() {
-  const [nav, setNav] = useState({ page:"search" });
+  // Hidden scraper page: navigate to /#scraper to access
+  const [nav, setNav] = useState(() =>
+    window.location.hash === "#scraper" ? { page: "scraper" } : { page: "search" }
+  );
   const prevPageRef = useRef(null);
   const goTo = (page, extra={}) => {
     prevPageRef.current = nav.page;
@@ -31,6 +35,24 @@ export default function App() {
   ];
 
   const activeTab = (nav.page==="listing"||nav.page==="apartment") ? "drilldown" : nav.page;
+
+  // Scraper page: full-screen, no nav bar
+  if (nav.page === "scraper") {
+    return (
+      <div style={{ minHeight:"100vh", background:"#F2F4F6", fontFamily:"'Inter',sans-serif", color:NAVY }}>
+        <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+        <div style={{ background:NAVY, padding:"10px 28px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <span style={{ color:"#fff", fontSize:13, fontWeight:600 }}>Spain Housing Intelligence · Admin</span>
+          <button onClick={() => { window.location.hash = ""; setNav({ page:"search" }); }}
+            style={{ background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)",
+              color:"#fff", fontSize:11, padding:"5px 12px", borderRadius:6, cursor:"pointer" }}>
+            ← Back to App
+          </button>
+        </div>
+        <ScraperPage />
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight:"100vh", background:"#FFFFFF", fontFamily:"'Inter',sans-serif", color:NAVY }}>

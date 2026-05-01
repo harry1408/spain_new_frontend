@@ -363,6 +363,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
     setLoading(true); setData(null); setMeta(null); setNearby(null);
     setShowAddrMap(false);
     setPhotos([]); setFloorPlans([]); setPhotoIdx(0); setFpIdx(0); setPhotoLoading(true);
+
     Promise.all([
       fetch(`${API}/drilldown/listing/${listingId}`).then(r=>r.json()),
       fetch(`${API}/listing/meta/${listingId}`).then(r=>r.json()),
@@ -371,7 +372,8 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
     ]).then(([d,m,nb,ph]) => {
       setData(d); setMeta(m); setNearby(nb);
       setPhotos(ph.photos || []);
-      setFloorPlans(ph.floor_plans || []);
+      const fps = ph.floor_plans || [];
+      setFloorPlans(fps);
       setPhotoLoading(false);
       setLoading(false);
     }).catch(() => { setLoading(false); setPhotoLoading(false); });
@@ -507,6 +509,7 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
 
             {/* Floor Plans — slideshow */}
             {hasPhotos && hasFP && (
+              <>
               <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${T.border}`,
                 boxShadow:T.shadow, background:"#f8f9fb", position:"relative", height:280 }}>
                 <img src={floorPlans[fpIdx]} alt={`Floor plan ${fpIdx+1}`}
@@ -567,6 +570,8 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
                   {fpIdx+1} / {floorPlans.length}
                 </div>
               </div>
+
+              </>
             )}
 
             {/* Photo Slideshow */}
@@ -654,6 +659,168 @@ export default function ListingPage({ listingId, municipality, onBack, onGoListi
                 )}
               </div>
             )}
+          </div>
+        );
+      })()}
+
+
+      {/* Floor Plan LLM Analysis Cards — removed, data stored in floorplan_llm_cache.json */}
+      {false && (() => {
+        const TYPE_COLOR = { garage:"#1D4ED8", storage:"#7C3AED", room:"#047857", utility:"#92400E", other:"#6B7280" };
+        const TYPE_LABEL = { garage:"Garage", storage:"Storage", room:"Room", utility:"Utility", other:"Space" };
+        const PLAN_BADGE = { apartment:"Apt", parking:"Parking", basement:"Basement", other:"Plan" };
+
+        const AREA_ROWS = [
+          { key:"superficie_util_vivienda",       label:"Sup. Útil Vivienda",        bold:false },
+          { key:"superficie_construida_vivienda",  label:"Sup. Construida Vivienda",  bold:false },
+          { key:"terraza_cubierta",               label:"Terraza Cubierta",           bold:false },
+          { key:"terraza_descubierta",            label:"Terraza Descubierta",        bold:false },
+          { key:"zzcc_elementos_comunes",         label:"ZZCC / Elem. Comunes",       bold:false },
+          { key:"total_construida_con_zzcc",      label:"Total Construida c/ZZCC",    bold:true  },
+        ];
+
+        return (
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:T.textMuted, textTransform:"uppercase",
+              letterSpacing:"0.07em", marginBottom:10 }}>Floor Plan Analysis</div>
+            <div style={{ display:"flex", gap:14, flexWrap:"wrap", alignItems:"flex-start" }}>
+              {floorPlans.map((url, fi) => {
+                const d = fpLlm[url];
+                if (!d || d.error) return null;
+                const spaces     = d.spaces      || [];
+                const extraRooms = d.extra_rooms  || [];
+                const hasAreas   = AREA_ROWS.some(r => d[r.key] != null);
+                const hasSpaces  = spaces.length > 0;
+                if (!hasAreas && !hasSpaces && !extraRooms.length) return null;
+
+                const flags = [
+                  d.parking  && d.parking  !== "N/A" ? { label:"Parking",  val:d.parking  } : null,
+                  d.garage   && d.garage   !== "N/A" ? { label:"Garage",   val:d.garage   } : null,
+                  d.trastero && d.trastero !== "N/A" ? { label:"Trastero", val:d.trastero } : null,
+                ].filter(Boolean);
+
+                return (
+                  <div key={fi} style={{ background:"#fff", border:`1px solid ${T.border}`,
+                    borderRadius:12, overflow:"hidden", boxShadow:T.shadow,
+                    minWidth:260, maxWidth:380, flex:"0 0 auto" }}>
+
+                    {/* Header */}
+                    <div style={{ padding:"8px 14px", background:T.navy, color:"#fff",
+                      display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div>
+                        <div style={{ fontSize:11, fontWeight:700 }}>Plan {fi+1}</div>
+                        {(d.floor || d.unit) && (
+                          <div style={{ fontSize:10, opacity:0.8, marginTop:1 }}>
+                            {[d.floor, d.unit].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ fontSize:10, opacity:0.7, fontWeight:600, textTransform:"uppercase" }}>
+                        {PLAN_BADGE[d.plan_type] || "Plan"}
+                      </div>
+                    </div>
+
+                    {/* Area table (apartment plans) */}
+                    {hasAreas && (
+                      <div>
+                        {AREA_ROWS.map((row, i) => {
+                          const val = d[row.key];
+                          if (val == null) return null;
+                          return (
+                            <div key={i} style={{ display:"flex", justifyContent:"space-between",
+                              alignItems:"center", padding:"5px 14px",
+                              background: row.bold ? T.bgStripe : (i % 2 === 0 ? "#fff" : T.bgStripe),
+                              borderTop: row.bold ? `1px solid ${T.border}` : "none" }}>
+                              <span style={{ fontSize:11, color:T.textSub, fontWeight: row.bold ? 600 : 400 }}>
+                                {row.label}
+                              </span>
+                              <span style={{ fontSize:13, fontWeight:700, color:T.navy, whiteSpace:"nowrap", marginLeft:12 }}>
+                                {typeof val === "number" ? val.toFixed(2) : val} m²
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Parking / Garage / Trastero flags */}
+                    {flags.length > 0 && (
+                      <div style={{ padding:"6px 14px", borderTop:`1px solid ${T.border}`,
+                        display:"flex", gap:6, flexWrap:"wrap" }}>
+                        {flags.map((f, i) => (
+                          <span key={i} style={{ fontSize:10, fontWeight:600,
+                            background: f.val === "Yes" ? "#D1FAE5" : "#FEE2E2",
+                            color: f.val === "Yes" ? "#065F46" : "#991B1B",
+                            borderRadius:4, padding:"2px 7px" }}>
+                            {f.label}: {f.val}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Individual spaces (parking/basement plans) */}
+                    {hasSpaces && (
+                      <div>
+                        {spaces.map((s, i) => (
+                          <div key={i} style={{ display:"flex", justifyContent:"space-between",
+                            alignItems:"center", padding:"5px 14px",
+                            background: i % 2 === 0 ? T.bgStripe : "#fff" }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:6, minWidth:0 }}>
+                              <span style={{ fontSize:9, fontWeight:700, color:"#fff", flexShrink:0,
+                                background: TYPE_COLOR[s.type] || TYPE_COLOR.other,
+                                borderRadius:4, padding:"1px 5px" }}>
+                                {s.id || TYPE_LABEL[s.type] || "Space"}
+                              </span>
+                              {s.dimensions && (
+                                <span style={{ fontSize:10, color:T.textMuted, whiteSpace:"nowrap" }}>
+                                  {s.dimensions}
+                                </span>
+                              )}
+                            </div>
+                            {(s.net_area_m2 || s.built_area_m2) && (
+                              <div style={{ textAlign:"right", flexShrink:0, marginLeft:8 }}>
+                                {s.net_area_m2 && (
+                                  <div style={{ fontSize:12, fontWeight:700, color:T.navy }}>
+                                    {s.net_area_m2} m²
+                                  </div>
+                                )}
+                                {s.built_area_m2 && s.built_area_m2 !== s.net_area_m2 && (
+                                  <div style={{ fontSize:10, color:T.textMuted }}>
+                                    {s.built_area_m2} built
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Extra rooms (named but no area) */}
+                    {extraRooms.length > 0 && (
+                      <div style={{ padding:"6px 14px", borderTop:`1px solid ${T.border}`,
+                        display:"flex", gap:6, flexWrap:"wrap" }}>
+                        {extraRooms.map((r, i) => (
+                          <span key={i} style={{ fontSize:10, background:"#F3F4F6",
+                            border:`1px solid ${T.border}`, borderRadius:4,
+                            padding:"2px 7px", color:T.textSub }}>
+                            {r.name_en || r.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Notes */}
+                    {d.notes && (
+                      <div style={{ padding:"6px 14px", borderTop:`1px solid ${T.border}`,
+                        fontSize:10, color:T.textMuted, fontStyle:"italic" }}>
+                        {d.notes}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         );
       })()}

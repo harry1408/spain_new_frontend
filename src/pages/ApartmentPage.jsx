@@ -283,12 +283,18 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
     // Apt-specific floor plans
     fetch(`${API}/listing/photos/${listingId}/${apt.sub_listing_id}`)
       .then(r => r.json())
-      .then(d => { setFloorPlans(d.floor_plans || []); setFpAptSpecific(d.apt_specific || false); })
+      .then(d => {
+        setFloorPlans(d.floor_plans || []);
+        setFpAptSpecific(d.apt_specific || false);
+      })
       .catch(() => {});
     // Development-level photos + floor plans
     fetch(`${API}/listing/photos/${listingId}`)
       .then(r => r.json())
-      .then(d => { setDevPhotos(d.photos || []); setDevFloorPlans(d.floor_plans || []); })
+      .then(d => {
+        setDevPhotos(d.photos || []);
+        setDevFloorPlans(d.floor_plans || []);
+      })
       .catch(() => {});
   }, [listingId, apt.sub_listing_id]);
 
@@ -506,6 +512,8 @@ export default function ApartmentPage({ apt, listingId, listingName, onBack, mun
                     onThumb={setPhotoIdx} label="Development Photos" emptyIcon="📸" height={280} />
                 </div>
               </div>
+
+
 
               {/* Title + location */}
               <h1 style={{ margin:"0 0 6px", fontSize:22, fontWeight:700, color:T.text, lineHeight:1.3 }}>

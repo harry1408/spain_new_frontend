@@ -576,7 +576,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
       const muniQsOnly = new URLSearchParams();
       if (sel.province.length)     sel.province.forEach(v=>muniQsOnly.append("province",v));
       if (sel.municipality.length) sel.municipality.forEach(v=>muniQsOnly.append("municipality",v));
-      const [st, byType, dl, distData, muni, esgR, scatter, unitByHouse, muniActivity, soldoutTrend] = await Promise.all([
+      const [st, byType, dl, distData, muni, esgR, scatter, unitByHouse, muniActivity, soldoutTrend, devOverview] = await Promise.all([
         fetch(`${API}/stats?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/price-by-unit-type?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/delivery-timeline?${qs}`).then(r=>r.json()),
@@ -587,9 +587,10 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
         fetch(`${API}/charts/unit-by-house-type?${qs}`).then(r=>r.json()),
         fetch(`${API}/charts/municipality-activity?${muniQsOnly}`).then(r=>r.json()),
         fetch(`${API}/charts/municipality-soldout-trend?${muniQsOnly}`).then(r=>r.json()),
+        fetch(`${API}/charts/developer-overview?${qs}`).then(r=>r.json()).catch(()=>[]),
       ]);
       setStats(st);
-      setCharts({ byType, dl, price_dist: distData.price_dist, m2_dist: distData.m2_dist, muni, esgR, scatter, unitByHouse, muniActivity, soldoutTrend });
+      setCharts({ byType, dl, price_dist: distData.price_dist, m2_dist: distData.m2_dist, muni, esgR, scatter, unitByHouse, muniActivity, soldoutTrend, devOverview });
       setChartVer(v => v + 1);
     } catch(e) { console.error(e); }
     setLoading(false);
@@ -889,6 +890,36 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
                   </div>
                 ))}
               </div>
+            </ChartCard>
+
+            {/* Developer Overview */}
+            <ChartCard title="Top Developers by Units" animKey={chartVer} loading={L}>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={charts.devOverview||[]} layout="vertical" barSize={13}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
+                  <XAxis type="number" allowDecimals={false} tickFormatter={v=>Number(v).toLocaleString("en-US")} tick={{ fill:T.textSub, fontSize:10 }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="developer" tick={{ fill:T.textSub, fontSize:9 }} axisLine={false} tickLine={false} width={130} />
+                  <Tooltip
+                    contentStyle={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, fontSize:12 }}
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const d = payload[0]?.payload;
+                      return (
+                        <div style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:8, padding:"8px 12px", fontSize:12 }}>
+                          <div style={{ fontWeight:700, color:T.navy, marginBottom:4 }}>{d.developer}</div>
+                          <div>Units: <strong>{Number(d.units).toLocaleString("en-US")}</strong></div>
+                          <div>Developments: <strong>{Number(d.listings).toLocaleString("en-US")}</strong></div>
+                          {d.avg_price ? <div>Avg Price: <strong>€{Math.round(d.avg_price).toLocaleString("en-US")}</strong></div> : null}
+                          {d.avg_price_m2 ? <div>Avg €/m²: <strong>€{Math.round(d.avg_price_m2).toLocaleString("en-US")}</strong></div> : null}
+                        </div>
+                      );
+                    }}
+                  />
+                  <Bar dataKey="units" name="Units" radius={[0,5,5,0]}>
+                    {(charts.devOverview||[]).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </ChartCard>
 
             {/* ESG Grade Breakdown */}
