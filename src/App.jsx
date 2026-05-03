@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import SummaryPage    from "./pages/SummaryPage.jsx";
 import DrilldownPage  from "./pages/DrilldownPage.jsx";
 import ListingPage    from "./pages/ListingPage.jsx";
@@ -15,16 +15,46 @@ const NAV_H = 56;
 const NAVY  = "#0B1239";
 const BEIGE = "#F2F4F6";
 
+const ADMIN_USER = "admin";
+const ADMIN_PASS = "valencia2024";
+
 export default function App() {
-  // Hidden scraper page: navigate to /#scraper to access
   const [nav, setNav] = useState(() =>
-    window.location.hash === "#scraper" ? { page: "scraper" } : { page: "search" }
+    window.location.pathname.endsWith("/scraper") ? { page: "scraper" } : { page: "search" }
   );
   const prevPageRef = useRef(null);
   const goTo = (page, extra={}) => {
     prevPageRef.current = nav.page;
     setNav({ page, ...extra });
   };
+
+  const [showLogin, setShowLogin]   = useState(false);
+  const [loginUser, setLoginUser]   = useState("");
+  const [loginPass, setLoginPass]   = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [showPw, setShowPw]         = useState(false);
+
+  const openLogin  = () => { setShowLogin(true); setLoginUser(""); setLoginPass(""); setLoginError(""); setShowPw(false); };
+  const closeLogin = () => { setShowLogin(false); };
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (loginUser.trim() === ADMIN_USER && loginPass === ADMIN_PASS) {
+      closeLogin();
+      history.pushState({}, "", import.meta.env.BASE_URL + "scraper");
+      setNav({ page: "scraper" });
+    } else {
+      setLoginError("Invalid credentials.");
+    }
+  };
+
+  // close modal on Escape
+  useEffect(() => {
+    if (!showLogin) return;
+    const fn = (e) => { if (e.key === "Escape") closeLogin(); };
+    window.addEventListener("keydown", fn);
+    return () => window.removeEventListener("keydown", fn);
+  }, [showLogin]);
 
   const NAV_TABS = [
     ["search",      "Search"],
@@ -43,7 +73,7 @@ export default function App() {
         <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
         <div style={{ background:NAVY, padding:"10px 28px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <span style={{ color:"#fff", fontSize:13, fontWeight:600 }}>Spain Housing Intelligence · Admin</span>
-          <button onClick={() => { window.location.hash = ""; setNav({ page:"search" }); }}
+          <button onClick={() => { history.pushState({}, "", import.meta.env.BASE_URL); setNav({ page:"search" }); }}
             style={{ background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)",
               color:"#fff", fontSize:11, padding:"5px 12px", borderRadius:6, cursor:"pointer" }}>
             ← Back to App
@@ -85,7 +115,7 @@ export default function App() {
 
         {/* Breadcrumb */}
         {nav.municipality && nav.page!=="summary" && nav.page!=="delisted" && (
-          <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:6, fontSize:12 }}>
+          <div style={{ marginLeft:"auto", marginRight:12, display:"flex", alignItems:"center", gap:6, fontSize:12 }}>
             <span style={{ cursor:"pointer", color:"#6B7A9F", fontWeight:600 }}
               onClick={() => goTo("drilldown")}>All</span>
             <span style={{ color:"#C5CBE9" }}>/</span>
@@ -108,7 +138,93 @@ export default function App() {
             </>)}
           </div>
         )}
+
+        {/* Admin button — top-right */}
+        <button onClick={openLogin} style={{
+          marginLeft: nav.municipality && nav.page!=="summary" && nav.page!=="delisted" ? 0 : "auto",
+          background:"none",
+          border:`1px solid #E2E0DB`, borderRadius:6,
+          padding:"5px 12px", cursor:"pointer",
+          fontSize:11, fontWeight:600, color:"#8A96B4",
+          display:"flex", alignItems:"center", gap:5,
+          transition:"all 0.15s",
+        }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor=NAVY; e.currentTarget.style.color=NAVY; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor="#E2E0DB"; e.currentTarget.style.color="#8A96B4"; }}
+        >
+          <span style={{ fontSize:12 }}>⚙</span> Admin
+        </button>
       </div>
+
+      {/* Login modal */}
+      {showLogin && (
+        <div onClick={closeLogin} style={{
+          position:"fixed", inset:0, zIndex:1000,
+          background:"rgba(11,18,57,0.45)", backdropFilter:"blur(3px)",
+          display:"flex", alignItems:"center", justifyContent:"center",
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background:"#fff", borderRadius:14, padding:"32px 28px",
+            width:340, boxShadow:"0 20px 60px rgba(11,18,57,0.2)",
+          }}>
+            <div style={{ fontSize:15, fontWeight:700, color:NAVY, marginBottom:4 }}>Admin Access</div>
+            <div style={{ fontSize:12, color:"#8A96B4", marginBottom:24 }}>Enter your credentials to continue</div>
+
+            <form onSubmit={handleLogin}>
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontSize:11, fontWeight:600, color:"#6B7A9F", marginBottom:5 }}>Username</div>
+                <input
+                  autoFocus
+                  value={loginUser}
+                  onChange={e => { setLoginUser(e.target.value); setLoginError(""); }}
+                  style={{ width:"100%", boxSizing:"border-box", padding:"9px 12px",
+                    border:`1px solid ${loginError?"#FCA5A5":"#E2E0DB"}`, borderRadius:8,
+                    fontSize:13, color:NAVY, outline:"none", fontFamily:"inherit" }}
+                  placeholder="Username"
+                />
+              </div>
+              <div style={{ marginBottom:20 }}>
+                <div style={{ fontSize:11, fontWeight:600, color:"#6B7A9F", marginBottom:5 }}>Password</div>
+                <div style={{ position:"relative" }}>
+                  <input
+                    type={showPw ? "text" : "password"}
+                    value={loginPass}
+                    onChange={e => { setLoginPass(e.target.value); setLoginError(""); }}
+                    style={{ width:"100%", boxSizing:"border-box", padding:"9px 36px 9px 12px",
+                      border:`1px solid ${loginError?"#FCA5A5":"#E2E0DB"}`, borderRadius:8,
+                      fontSize:13, color:NAVY, outline:"none", fontFamily:"inherit" }}
+                    placeholder="Password"
+                  />
+                  <span onClick={() => setShowPw(v=>!v)} style={{
+                    position:"absolute", right:10, top:"50%", transform:"translateY(-50%)",
+                    cursor:"pointer", fontSize:14, userSelect:"none",
+                  }}>{showPw ? "🙈" : "👁"}</span>
+                </div>
+              </div>
+
+              {loginError && (
+                <div style={{ fontSize:11, color:"#DC2626", marginBottom:14,
+                  padding:"7px 10px", background:"#FEF2F2", borderRadius:6 }}>
+                  {loginError}
+                </div>
+              )}
+
+              <div style={{ display:"flex", gap:8 }}>
+                <button type="button" onClick={closeLogin} style={{
+                  flex:1, padding:"10px 0", borderRadius:8,
+                  border:`1px solid #E2E0DB`, background:"#fff",
+                  color:"#6B7A9F", fontSize:13, fontWeight:600, cursor:"pointer",
+                }}>Cancel</button>
+                <button type="submit" style={{
+                  flex:2, padding:"10px 0", borderRadius:8,
+                  border:"none", background:NAVY,
+                  color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer",
+                }}>Sign In</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Pages */}
       {nav.page==="search" && <SearchPage onSelectListing={(id,name,muni) => goTo("listing",{listingId:id,listingName:name,municipality:muni})} onSelectDelisted={id => goTo("delisted",{selectedId:id,fromSearch:true})}/>}
