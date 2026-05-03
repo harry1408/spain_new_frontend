@@ -550,12 +550,16 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
   const [trend, setTrend]   = useState({});
   const [loading, setLoading] = useState(false);
   const [tab, setTab]       = useState("snapshot");
-  const [selectedDot, setSelectedDot] = useState(null); // clicked scatter apt
+  const [selectedDot, setSelectedDot] = useState(null);
+  const [lastRun, setLastRun] = useState(null);
 
   useEffect(() => {
     fetch(`${API}/filters`).then(r=>r.json()).then(f => {
       setFilters(f);
     });
+    fetch(`${API}/scraper/last_run`).then(r=>r.json()).then(d => {
+      if (d.date) setLastRun(d.date);
+    }).catch(()=>{});
   }, []);
 
   const q = useCallback(() => {
@@ -672,7 +676,7 @@ export default function SummaryPage({ onDrilldown, onGoListing }) {
           <button onClick={()=>setSel({province:[],municipality:[],unit_type:[],house_type:[],year:[],esg:[]})} style={{ background:"#FEF2F2", border:"1px solid rgba(192,57,43,0.4)", color:"#6B2A2A", padding:"7px 12px", borderRadius:8, cursor:"pointer", fontSize:11 }}>✕ Clear all</button>
         ) : null}
         <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:12 }}>
-          <span style={{ color:"#0B1239", fontSize:12 }}>Snapshot: 4 Apr 2026</span>
+          {lastRun && <span style={{ color:"#0B1239", fontSize:12 }}>Snapshot: {lastRun}</span>}
           <button
             onClick={() => { window.open(`${API}/summary/export?${q()}`, "_blank"); }}
             style={{ background:"#0B1239", color:"#fff", border:"none", borderRadius:8,
