@@ -785,7 +785,7 @@ export default function DescriptionSearchPage({ onSelectListing, onSelectDeliste
           {selectedIds.size > 0 && (
             <div style={{ display:"flex", flexDirection:"column", justifyContent:"center", alignSelf:"center", flexShrink:0 }}>
               <div style={{ fontSize:10, fontWeight:700, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:4 }}>Export</div>
-              <button onClick={() => window.open(`${API}/search/export?ids=${[...selectedIds].join(",")}`, "_blank")}
+              <button onClick={() => window.open(`${API}/search/export?ids=${[...selectedIds].join(",")}&include_summary=1`, "_blank")}
                 style={{ background:T.navy, border:"none", borderRadius:9, padding:"10px 18px",
                   fontSize:13, fontWeight:700, color:"#fff", cursor:"pointer",
                   boxShadow:"0 2px 8px rgba(11,18,57,0.18)", whiteSpace:"nowrap" }}>

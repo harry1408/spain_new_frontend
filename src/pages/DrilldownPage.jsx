@@ -67,7 +67,7 @@ function MuniCard({ m, onClick }) {
 }
 
 // ── listing card ────────────────────────────────────────────────────────
-function ListingCard({ l, active, onSelect, onHover, selUnit, selHouseType }) {
+function ListingCard({ l, active, onSelect, onHover, selUnit, selHouseType, selected, onToggleSelect }) {
   const [hov, setHov] = useState(false);
   const lit = active || hov;
   const esgColor = ESG_COLORS[l.esg_grade] || "#999";
@@ -77,7 +77,7 @@ function ListingCard({ l, active, onSelect, onHover, selUnit, selHouseType }) {
       onMouseEnter={() => { setHov(true); onHover && onHover(l.listing_id); }}
       onMouseLeave={() => { setHov(false); }}
       style={{ background: active ? T.navyLight : hov ? T.bgHover : T.bgCard,
-        border:`2px solid ${active ? T.borderAccent : hov ? T.borderAccent : T.border}`,
+        border:`2px solid ${selected ? T.borderAccent : active ? T.borderAccent : hov ? T.borderAccent : T.border}`,
         borderRadius:12, padding:"16px 18px", cursor:"pointer",
         transition:"all 0.15s", boxShadow:lit ? T.shadowMd : T.shadow }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
@@ -91,6 +91,15 @@ function ListingCard({ l, active, onSelect, onHover, selUnit, selHouseType }) {
           </div>
         </div>
         <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
+          {/* Select checkbox */}
+          <div onClick={e => { e.stopPropagation(); onToggleSelect && onToggleSelect(); }}
+            title={selected ? "Deselect" : "Select for export"}
+            style={{ width:18, height:18, borderRadius:4, flexShrink:0, cursor:"pointer",
+              border:`2px solid ${selected ? T.navy : active ? "rgba(255,255,255,0.5)" : T.border}`,
+              background: selected ? T.navy : active ? "rgba(255,255,255,0.15)" : "#fff",
+              display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.15s" }}>
+            {selected && <span style={{ color:"#fff", fontSize:10, lineHeight:1 }}>✓</span>}
+          </div>
           {l.is_partial_delisted && (
             <span style={{ fontSize:10, padding:"2px 8px", borderRadius:4, fontWeight:700,
               background:"#FEF2F2", color:"#6B2A2A", border:"1px solid #FCA5A5", whiteSpace:"nowrap" }}>
@@ -395,6 +404,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   const [fMaxM2,         setFMaxM2]         = useState("");
   const [fMaxBeachKm,    setFMaxBeachKm]    = useState("");
   const [fNewThisMonth,  setFNewThisMonth]  = useState(false);
+  const [selectedIds,    setSelectedIds]    = useState(new Set());
 
   // Filters (once)
   useEffect(() => {
@@ -414,7 +424,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
   // Municipality detail
   useEffect(() => {
     if (!municipality) { setMuniData(null); setMapListings([]); return; }
-    setLoading(true); setActivePin(null);
+    setLoading(true); setActivePin(null); setSelectedIds(new Set());
     Promise.all([
       fetch(`${API}/drilldown/municipality/${encodeURIComponent(municipality)}`).then(r=>r.json()),
       fetch(`${API}/map/listings?municipality=${encodeURIComponent(municipality)}`).then(r=>r.json()),
@@ -907,9 +917,29 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
 
         {/* ── LEFT: Developments with vertical scroll ── */}
         <div>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10, gap:8 }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10, gap:8, flexWrap:"wrap" }}>
             <div style={{ fontSize:14, fontWeight:700, color:T.text }}>
               Developments <span style={{ color:T.textMuted, fontWeight:400, fontSize:12 }}>({fmtNum(sortedListings.length)})</span>
+            </div>
+            <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+              <button onClick={() => {
+                if (selectedIds.size === sortedListings.length) {
+                  setSelectedIds(new Set());
+                } else {
+                  setSelectedIds(new Set(sortedListings.map(l => l.listing_id)));
+                }
+              }} style={{ background:"#fff", border:`1px solid ${T.border}`, borderRadius:7,
+                padding:"5px 10px", fontSize:11, fontWeight:600, color:T.textSub, cursor:"pointer" }}>
+                {selectedIds.size === sortedListings.length && sortedListings.length > 0 ? "Deselect All" : "Select All"}
+              </button>
+              {selectedIds.size > 0 && (
+                <button onClick={() => window.open(`${API}/search/export?ids=${[...selectedIds].join(",")}&include_summary=1`, "_blank")}
+                  style={{ background:T.navy, border:"none", borderRadius:7, padding:"5px 12px",
+                    fontSize:11, fontWeight:700, color:"#fff", cursor:"pointer",
+                    boxShadow:"0 2px 8px rgba(11,18,57,0.18)", whiteSpace:"nowrap" }}>
+                  ↓ Excel ({selectedIds.size})
+                </button>
+              )}
             </div>
           </div>
           {/* Unit type filter */}
@@ -931,6 +961,12 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
             {sortedListings.map(l => (
               <ListingCard key={l.listing_id} l={l}
                 active={l.listing_id === activePin}
+                selected={selectedIds.has(l.listing_id)}
+                onToggleSelect={() => setSelectedIds(prev => {
+                  const next = new Set(prev);
+                  next.has(l.listing_id) ? next.delete(l.listing_id) : next.add(l.listing_id);
+                  return next;
+                })}
                 onSelect={() => onSelectListing(l.listing_id, l.property_name, municipality)}
                 onHover={id => setActivePin(id)}
                 selUnit={fSelUnit}
