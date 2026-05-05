@@ -804,7 +804,7 @@ export default function DrilldownPage({ municipality, onSelectMunicipality, onSe
             <em style={{ color:T.navy }}>{municipality}</em>
           </h2>
           <div style={{ color:T.textSub, fontSize:12, marginTop:4 }}>
-            {fmtNum(stats.total_listings)} developments · {fmtNum(stats.total_units)} units
+            {fmtNum((filteredStats || stats).total_listings)} developments · {fmtNum((filteredStats || stats).total_units)} units
           </div>
         </div>
         <button onClick={()=>onSelectMunicipality(null)} style={{
