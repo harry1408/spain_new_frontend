@@ -30,7 +30,6 @@ function StepDot({ state }) {
 
 export default function ScraperPage() {
   const [datadome, setDatadome]         = useState("");
-  const [showDd, setShowDd]             = useState(false);
   const [detecting, setDetecting]       = useState(false);
   const [detectMsg, setDetectMsg]       = useState("");
   const [provinces, setProvinces]       = useState(["valencia"]);
@@ -64,14 +63,6 @@ export default function ScraperPage() {
   // cleanup SSE on unmount
   useEffect(() => () => { esRef.current?.close(); }, []);
 
-  // silently try browser cookies on mount
-  useEffect(() => {
-    fetch(`${API}/scraper/datadome`)
-      .then(r => r.json())
-      .then(d => { if (d.ok) { setDatadome(d.datadome); setDetectMsg("✓ Cookie auto-loaded from browser"); } })
-      .catch(() => {});
-  }, []);
-
   const connectSSE = useCallback(() => {
     esRef.current?.close();
     const es = new EventSource(`${API}/scraper/logs`);
@@ -91,31 +82,28 @@ export default function ScraperPage() {
     const selected = allProvs ? PROVINCES : provinces;
     if (!selected.length) { alert("Select at least one province."); return; }
 
-    let dd = datadome.trim();
-
-    // Auto-fetch datadome if not already set (will launch Playwright if needed)
-    if (!dd) {
-      setDetecting(true);
-      setDetectMsg("Detecting datadome cookie — a browser window may open…");
-      try {
-        const r = await fetch(`${API}/scraper/datadome`);
-        const d = await r.json();
-        if (d.ok) {
-          dd = d.datadome;
-          setDatadome(dd);
-          setDetectMsg("✓ Cookie auto-detected");
-        } else {
-          setDetectMsg("✗ " + d.error);
-          setDetecting(false);
-          return;
-        }
-      } catch (e) {
-        setDetectMsg("✗ " + e.message);
+    // Always extract a fresh datadome cookie before starting
+    setDetecting(true);
+    setDetectMsg("Extracting DataDome cookie — browser window opening…");
+    let dd = "";
+    try {
+      const r = await fetch(`${API}/scraper/datadome`);
+      const d = await r.json();
+      if (d.ok) {
+        dd = d.datadome;
+        setDatadome(dd);
+        setDetectMsg("✓ Cookie extracted");
+      } else {
+        setDetectMsg("✗ " + d.error);
         setDetecting(false);
         return;
       }
+    } catch (e) {
+      setDetectMsg("✗ " + e.message);
       setDetecting(false);
+      return;
     }
+    setDetecting(false);
 
     setLogs([]);
     setStatus(null);
@@ -148,24 +136,6 @@ export default function ScraperPage() {
     }
   };
 
-  const handleAutoDetect = async () => {
-    setDetecting(true);
-    setDetectMsg("");
-    try {
-      const r = await fetch(`${API}/scraper/datadome`);
-      const d = await r.json();
-      if (d.ok) {
-        setDatadome(d.datadome);
-        setDetectMsg("✓ Cookie auto-detected from browser");
-      } else {
-        setDetectMsg("✗ " + d.error);
-      }
-    } catch (e) {
-      setDetectMsg("✗ " + e.message);
-    } finally {
-      setDetecting(false);
-    }
-  };
 
   const toggleProv = (p) =>
     setProvinces(ps => ps.includes(p) ? ps.filter(x => x !== p) : [...ps, p]);
@@ -222,58 +192,49 @@ export default function ScraperPage() {
           {/* ── Left panel ────────────────────────────────────────── */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-            {/* DataDome */}
-            <div style={{ background: "#fff", border: `1px solid ${T.border}`, borderRadius: 12, padding: 20, boxShadow: T.shadow }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: T.textMuted,
-                textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 10 }}>
-                DataDome Cookie
+            {/* Start / Abort buttons */}
+            {detectMsg && (
+              <div style={{ fontSize: 11, fontWeight: 600, padding: "6px 10px", borderRadius: 8,
+                background: detectMsg.startsWith("✓") ? "#F0FDF4" : detectMsg.startsWith("✗") ? "#FEF2F2" : "#EFF6FF",
+                color: detectMsg.startsWith("✓") ? "#16A34A" : detectMsg.startsWith("✗") ? "#DC2626" : "#2563EB",
+                border: `1px solid ${detectMsg.startsWith("✓") ? "#BBF7D0" : detectMsg.startsWith("✗") ? "#FCA5A5" : "#BFDBFE"}` }}>
+                {detectMsg}
               </div>
-              <div style={{ position: "relative" }}>
-                <textarea
-                  value={datadome}
-                  onChange={e => setDatadome(e.target.value)}
-                  placeholder="Paste datadome value here…"
-                  rows={3}
-                  style={{ width: "100%", boxSizing: "border-box",
-                    border: `1px solid ${datadome ? T.borderAccent : T.border}`,
-                    borderRadius: 8, padding: "8px 32px 8px 10px",
-                    fontSize: 11, fontFamily: "monospace", color: T.text,
-                    background: T.bgStripe, outline: "none", resize: "vertical",
-                    filter: showDd ? "none" : "blur(3px)",
-                  }}
-                />
-                <button
-                  onClick={() => setShowDd(v => !v)}
-                  style={{ position: "absolute", top: 8, right: 8, background: "none",
-                    border: "none", cursor: "pointer", color: T.textMuted, fontSize: 14 }}>
-                  {showDd ? "🙈" : "👁"}
-                </button>
-              </div>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
               <button
-                onClick={handleAutoDetect}
-                disabled={detecting}
+                onClick={handleStart}
+                disabled={running || detecting || (!allProvs && !provinces.length)}
                 style={{
-                  marginTop: 10, width: "100%", padding: "8px 0", borderRadius: 8,
-                  border: `1px solid ${T.navy}`, background: detecting ? T.bgStripe : T.navy,
-                  color: detecting ? T.textMuted : "#fff",
-                  fontSize: 12, fontWeight: 700, cursor: detecting ? "not-allowed" : "pointer",
-                  transition: "all 0.15s",
+                  flex: 1, padding: "14px 0", borderRadius: 10, border: "none",
+                  background: (running || detecting) ? T.navyLight : T.navy,
+                  color: "#fff", fontSize: 14, fontWeight: 700,
+                  cursor: (running || detecting) ? "not-allowed" : "pointer",
+                  opacity: (running || detecting) ? 0.65 : 1,
+                  boxShadow: (running || detecting) ? "none" : T.shadowMd,
+                  transition: "all 0.2s",
                 }}>
-                {detecting ? "Detecting…" : "⚡ Auto-detect from Browser"}
+                {detecting
+                  ? "Extracting DataDome…"
+                  : running
+                    ? "Pipeline Running…"
+                    : fromStep === "links"
+                      ? "Start Pipeline"
+                      : `Start from: ${STEPS.find(s => s.id === fromStep)?.label}`
+                }
               </button>
-              {detectMsg && (
-                <div style={{ marginTop: 6, fontSize: 10, fontWeight: 600,
-                  color: detectMsg.startsWith("✓") ? "#16A34A" : "#DC2626" }}>
-                  {detectMsg}
-                </div>
-              )}
-              <div style={{ fontSize: 10, color: T.textMuted, marginTop: 6, lineHeight: 1.5 }}>
-                Reads from your browser cookies first (instant). If not found, opens a browser window to idealista.com automatically — solve any captcha if shown.
-              </div>
-              {datadome && (
-                <div style={{ marginTop: 4, fontSize: 10, color: "#16A34A", fontWeight: 600 }}>
-                  ✓ {datadome.length} chars loaded
-                </div>
+              {running && (
+                <button
+                  onClick={handleStop}
+                  style={{
+                    padding: "14px 18px", borderRadius: 10,
+                    border: "1px solid #FCA5A5",
+                    background: "#FEF2F2", color: "#B91C1C",
+                    fontSize: 13, fontWeight: 700, cursor: "pointer",
+                    transition: "all 0.2s",
+                  }}>
+                  Abort
+                </button>
               )}
             </div>
 
@@ -379,41 +340,6 @@ export default function ScraperPage() {
               )}
             </div>
 
-            {/* Start / Abort buttons */}
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={handleStart}
-                disabled={running || !datadome.trim() || (!allProvs && !provinces.length)}
-                style={{
-                  flex: 1, padding: "14px 0", borderRadius: 10, border: "none",
-                  background: running ? T.navyLight : T.navy,
-                  color: "#fff", fontSize: 14, fontWeight: 700,
-                  cursor: running ? "not-allowed" : "pointer",
-                  opacity: (running || !datadome.trim()) ? 0.65 : 1,
-                  boxShadow: running ? "none" : T.shadowMd,
-                  transition: "all 0.2s",
-                }}>
-                {running
-                  ? "Pipeline Running…"
-                  : fromStep === "links"
-                    ? "Start Pipeline"
-                    : `Start from: ${STEPS.find(s => s.id === fromStep)?.label}`
-                }
-              </button>
-              {running && (
-                <button
-                  onClick={handleStop}
-                  style={{
-                    padding: "14px 18px", borderRadius: 10,
-                    border: "1px solid #FCA5A5",
-                    background: "#FEF2F2", color: "#B91C1C",
-                    fontSize: 13, fontWeight: 700, cursor: "pointer",
-                    transition: "all 0.2s",
-                  }}>
-                  Abort
-                </button>
-              )}
-            </div>
 
             {/* Status card */}
             {status && (
