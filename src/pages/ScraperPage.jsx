@@ -159,6 +159,7 @@ export default function ScraperPage() {
   const [status, setStatus]             = useState(null);
   const [logs, setLogs]                 = useState([]);
   const [running, setRunning]           = useState(false);
+  const [lastProgress, setLastProgress] = useState(null);
   const logRef  = useRef(null);
   const esRef   = useRef(null);
 
@@ -183,6 +184,14 @@ export default function ScraperPage() {
 
   // cleanup SSE on unmount
   useEffect(() => () => { esRef.current?.close(); }, []);
+
+  // fetch last saved progress on mount
+  useEffect(() => {
+    fetch(`${API}/scraper/last_progress`)
+      .then(r => r.json())
+      .then(d => { if (d?.resume_prov) setLastProgress(d); })
+      .catch(() => {});
+  }, []);
 
   const connectSSE = useCallback(() => {
     esRef.current?.close();
@@ -257,6 +266,65 @@ export default function ScraperPage() {
     }
   };
 
+  const handleClearProgress = async () => {
+    await fetch(`${API}/scraper/last_progress`, { method: "DELETE" }).catch(() => {});
+    setLastProgress(null);
+  };
+
+  const handleContinue = async () => {
+    if (!lastProgress) return;
+    const { provinces: savedProvs, dev_type, resume_prov, resume_step } = lastProgress;
+    const provIdx   = savedProvs.indexOf(resume_prov);
+    const remaining = provIdx >= 0 ? savedProvs.slice(provIdx) : [resume_prov];
+    setAllProvs(false);
+    setProvinces(remaining);
+    setFromStep(resume_step || "links");
+    setLastProgress(null);
+
+    setDetecting(true);
+    setDetectMsg("Extracting DataDome cookie — browser window opening…");
+    let dd = "";
+    try {
+      const r = await fetch(`${API}/scraper/datadome`);
+      const d = await r.json();
+      if (d.ok) {
+        dd = d.datadome;
+        setDatadome(dd);
+        setDetectMsg("✓ Cookie extracted");
+      } else {
+        setDetectMsg("✗ " + d.error);
+        setDetecting(false);
+        return;
+      }
+    } catch (e) {
+      setDetectMsg("✗ " + e.message);
+      setDetecting(false);
+      return;
+    }
+    setDetecting(false);
+
+    setLogs([]);
+    setStatus(null);
+    connectSSE();
+    setRunning(true);
+
+    try {
+      const r = await fetch(`${API}/scraper/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ datadome: dd, provinces: remaining, dev_type: dev_type || "new", from_step: resume_step || "links" }),
+      });
+      const d = await r.json();
+      if (!d.ok) {
+        setLogs(l => [...l, `[ERROR] ${d.error}`]);
+        setRunning(false);
+      }
+    } catch (e) {
+      setLogs(l => [...l, `[ERROR] ${e.message}`]);
+      setRunning(false);
+    }
+  };
+
 
   const toggleProv = (p) =>
     setProvinces(ps => ps.includes(p) ? ps.filter(x => x !== p) : [...ps, p]);
@@ -312,6 +380,46 @@ export default function ScraperPage() {
 
           {/* ── Left panel ────────────────────────────────────────── */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+            {/* Previous run banner */}
+            {lastProgress && !running && (
+              <div style={{
+                background: "#FFFBEB", border: "1px solid #FCD34D",
+                borderRadius: 10, padding: 14,
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#92400E",
+                  textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>
+                  Previous Run Found
+                </div>
+                <div style={{ fontSize: 12, color: "#78350F", marginBottom: 10, lineHeight: 1.5 }}>
+                  <strong>{lastProgress.resume_prov?.charAt(0).toUpperCase() + lastProgress.resume_prov?.slice(1)}</strong>
+                  {" — step "}<strong>{STEPS.find(s => s.id === lastProgress.resume_step)?.label || lastProgress.resume_step}</strong>
+                  {lastProgress.saved_at && (
+                    <span style={{ display: "block", fontSize: 10, color: "#A16207", marginTop: 2 }}>
+                      Saved {new Date(lastProgress.saved_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })}
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={handleContinue} disabled={detecting}
+                    style={{
+                      flex: 1, padding: "9px 0", borderRadius: 8, border: "none",
+                      background: "#D97706", color: "#fff",
+                      fontSize: 12, fontWeight: 700, cursor: "pointer",
+                    }}>
+                    Continue
+                  </button>
+                  <button onClick={handleClearProgress}
+                    style={{
+                      flex: 1, padding: "9px 0", borderRadius: 8,
+                      border: "1px solid #FCD34D", background: "#fff",
+                      color: "#92400E", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                    }}>
+                    Start Fresh
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Start / Abort buttons */}
             {detectMsg && (
