@@ -15,6 +15,127 @@ const STEPS = [
   { id: "expired",     label: "Expired Listings",     desc: "Compute sold-outs + update expired sheet" },
 ];
 
+const STEP_COLORS = [
+  "#3B82F6","#8B5CF6","#06B6D4","#10B981",
+  "#F59E0B","#EF4444","#EC4899","#6366F1",
+];
+
+function ProvinceTimeline({ prov, status, steps }) {
+  const stepTimes  = status?.step_times  || {};
+  const refreshes  = (status?.dd_refreshes || []).filter(r => r.prov === prov);
+  const curStep    = status?.step || "";
+  const n          = steps.length;                  // 8 — one slot per step, equal width
+
+  const fmt12  = ts  => new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }).toLowerCase();
+  const fmtHMS = hms => { try { const [h, m] = hms.split(":").map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }).toLowerCase(); } catch { return hms; } };
+  const fmtDur = (s, e) => { const m = Math.round((e - s) / 60); return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`; };
+
+  // Position of step i in the equal-width bar: left edge = i/n * 100%
+  const stepPct = i => (i / n) * 100;
+
+  // Cookie refresh markers: snap to step-boundary positions using context "after {step_id}"
+  const ddMarkers = refreshes.map(r => {
+    const m = r.context.match(/after (\w+)/);
+    if (m) {
+      const idx = steps.findIndex(s => s.id === m[1]);
+      if (idx >= 0) return { ...r, xPct: stepPct(idx + 1), fmtTime: fmtHMS(r.time) };
+    }
+    // auto or error-recovery: use which step was active (from context or current step info)
+    const activeId = curStep.split(":")[1];
+    const idx = activeId ? steps.findIndex(s => s.id === activeId) : -1;
+    return { ...r, xPct: idx >= 0 ? stepPct(idx + 0.5) : null, fmtTime: fmtHMS(r.time) };
+  }).filter(r => r.xPct !== null);
+
+  // Above-bar time labels: start of each step that has begun, plus end of last completed step
+  // Skip a label if it's within 7% of the previous one (prevents overlap on fast steps)
+  const aboveLabels = [];
+  let lastPct = -99;
+  steps.forEach((s, i) => {
+    const t = stepTimes[`${prov}:${s.id}`];
+    if (!t?.start_ts) return;
+    const pct = stepPct(i);
+    if (pct - lastPct >= 7) {
+      aboveLabels.push({ key: s.id, pct, label: fmt12(t.start_ts) });
+      lastPct = pct;
+    }
+  });
+  const lastDoneIdx = [...steps].map((s, i) => ({ s, i, t: stepTimes[`${prov}:${s.id}`] }))
+    .filter(x => x.t?.end_ts).slice(-1)[0];
+  if (lastDoneIdx) {
+    const endPct = stepPct(lastDoneIdx.i + 1);
+    if (endPct - lastPct >= 7)
+      aboveLabels.push({ key: "end", pct: endPct, label: fmt12(lastDoneIdx.t.end_ts), isEnd: true });
+  }
+
+  return (
+    <div>
+      {/* Step start/end times ABOVE bar */}
+      <div style={{ position: "relative", height: 14, marginBottom: 3 }}>
+        {aboveLabels.map(({ key, pct, label, isEnd }) => (
+          <div key={key} style={{
+            position: "absolute",
+            left: pct >= 96 ? undefined : `${pct}%`,
+            right: pct >= 96 ? "0%" : undefined,
+            fontSize: 8, whiteSpace: "nowrap", bottom: 0, lineHeight: 1.2,
+            color: isEnd ? "#64748B" : "#94A3B8",
+            transform: pct > 0 && pct < 96 ? "translateX(-50%)" : "none",
+          }}>
+            {label}
+          </div>
+        ))}
+      </div>
+
+      {/* Bar — equal-width steps matching the dots grid above; right stays blank for pending */}
+      <div style={{ position: "relative" }}>
+        <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden" }}>
+          {steps.map((s, i) => {
+            const t = stepTimes[`${prov}:${s.id}`];
+            const isActive = curStep === `${prov}:${s.id}`;
+            const isDone   = !!t?.end_ts;
+            const started  = !!t?.start_ts;
+            const bg = (isDone || started) ? STEP_COLORS[i % 8] : "#F1F5F9";
+            const title = t
+              ? `${s.label}\n▶ ${fmt12(t.start_ts)}${t.end_ts ? `\n◀ ${fmt12(t.end_ts)}  (${fmtDur(t.start_ts, t.end_ts)})` : "\n⟳ running…"}`
+              : s.label;
+            return (
+              <div key={s.id} title={title} style={{
+                flex: 1, background: bg,
+                opacity: isDone ? 0.85 : 1,
+                boxShadow: isActive ? `inset 0 0 0 2px ${STEP_COLORS[i % 8]}66` : "none",
+              }} />
+            );
+          })}
+        </div>
+
+        {/* 🍪 markers overlay (outside overflow:hidden container) */}
+        {ddMarkers.map((r, ri) => (
+          <div key={ri} title={`🍪 ${r.fmtTime} — ${r.context}`}
+            style={{
+              position: "absolute", left: `${r.xPct}%`,
+              top: 0, height: 8, width: 2,
+              transform: "translateX(-50%)",
+              background: "#F59E0B", zIndex: 5,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Cookie refresh times BELOW bar */}
+      <div style={{ position: "relative", height: 14, marginTop: 2 }}>
+        {ddMarkers.map((r, ri) => (
+          <div key={ri} style={{
+            position: "absolute", left: `${r.xPct}%`,
+            fontSize: 8, color: "#B45309", whiteSpace: "nowrap", lineHeight: 1.2,
+            transform: r.xPct > 85 ? "translateX(-100%)" : "translateX(-50%)",
+          }}>
+            🍪 {r.fmtTime}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StepDot({ state }) {
   const base = {
     width: 24, height: 24, borderRadius: "50%",
@@ -373,47 +494,51 @@ export default function ScraperPage() {
           {/* ── Right panel ───────────────────────────────────────── */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-            {/* Pipeline steps grid */}
+            {/* Pipeline progress + timeline */}
             {selectedProvs.length > 0 && (
               <div style={{ background: "#fff", border: `1px solid ${T.border}`,
-                borderRadius: 12, padding: 20, boxShadow: T.shadow, overflowX: "auto" }}>
+                borderRadius: 12, padding: 20, boxShadow: T.shadow }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: T.textMuted,
                   textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 16 }}>
                   Pipeline Progress
                 </div>
 
-                {/* Step header */}
-                <div style={{ display: "grid",
-                  gridTemplateColumns: `120px repeat(${STEPS.length}, 1fr)`,
-                  gap: 6, marginBottom: 8 }}>
-                  <div />
+                {/* Step name header (aligned with dots) */}
+                <div style={{ display: "flex", paddingLeft: 106, marginBottom: 6 }}>
                   {STEPS.map(s => (
-                    <div key={s.id} style={{ textAlign: "center", fontSize: 9,
+                    <div key={s.id} style={{ flex: 1, textAlign: "center", fontSize: 8,
                       color: T.textMuted, fontWeight: 600,
                       textTransform: "uppercase", letterSpacing: 0.4, lineHeight: 1.3 }}>
-                      {s.label}
+                      {s.label.split(" ")[0]}
                     </div>
                   ))}
                 </div>
 
-                {/* Province rows */}
-                {selectedProvs.map(prov => (
-                  <div key={prov} style={{ display: "grid",
-                    gridTemplateColumns: `120px repeat(${STEPS.length}, 1fr)`,
-                    gap: 6, alignItems: "center", marginBottom: 10 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: T.navy,
-                      textTransform: "capitalize" }}>{prov}</div>
-                    {STEPS.map(s => (
-                      <div key={s.id} style={{ display: "flex", justifyContent: "center" }}>
-                        <StepDot state={getStepState(prov, s.id)} />
+                {/* Province rows: dots + timeline */}
+                {selectedProvs.map((prov, pi) => (
+                  <div key={prov} style={{ marginBottom: pi < selectedProvs.length - 1 ? 20 : 0 }}>
+                    {/* Dots row */}
+                    <div style={{ display: "flex", alignItems: "center", marginBottom: 8 }}>
+                      <div style={{ width: 100, flexShrink: 0, fontSize: 12, fontWeight: 700,
+                        color: T.navy, textTransform: "capitalize" }}>{prov}</div>
+                      <div style={{ flex: 1, display: "flex" }}>
+                        {STEPS.map(s => (
+                          <div key={s.id} style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+                            <StepDot state={getStepState(prov, s.id)} />
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+                    {/* Timeline */}
+                    <div style={{ paddingLeft: 106 }}>
+                      <ProvinceTimeline prov={prov} status={status} steps={STEPS} />
+                    </div>
                   </div>
                 ))}
 
                 {/* Legend */}
-                <div style={{ display: "flex", gap: 16, marginTop: 12,
-                  paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
+                <div style={{ display: "flex", gap: 20, marginTop: 16,
+                  paddingTop: 14, borderTop: `1px solid ${T.border}`, flexWrap: "wrap" }}>
                   {[
                     { state: "skipped", label: "Skipped" },
                     { state: "pending", label: "Pending" },
@@ -425,6 +550,10 @@ export default function ScraperPage() {
                       {label}
                     </div>
                   ))}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: T.textSub }}>
+                    <div style={{ width: 2, height: 14, background: "#F59E0B", borderRadius: 1 }} />
+                    <span>🍪 Cookie Refresh (time shown below bar)</span>
+                  </div>
                 </div>
               </div>
             )}
